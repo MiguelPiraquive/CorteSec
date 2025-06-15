@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Municipios{% endblock %}
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <h2 class="text-2xl font-bold text-blue-700">Municipios</h2>
+        <a href="{% url 'locations:municipio_agregar' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+            <i class="ti ti-map-pin-cog mr-2"></i> Agregar Municipio
+        </a>
+    </div>
+    <!-- Motor de búsqueda -->
+    <form method="get" class="mb-6 flex flex-col md:flex-row gap-2 md:items-center">
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Buscar por código, nombre o departamento..." class="w-full md:w-1/3 px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+            <i class="ti ti-search mr-1"></i> Buscar
+        </button>
+        {% if request.GET.q %}
+        <a href="{% url 'locations:municipio_lista' %}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            Limpiar
+        </a>
+        {% endif %}
+    </form>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-blue-100">
+            <thead class="bg-blue-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">#</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Código</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Nombre</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Departamento</th>
+                    <th class="px-4 py-2"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-blue-50">
+                {% for municipio in municipios %}
+                <tr class="hover:bg-blue-50 transition">
+                    <td class="px-4 py-2">{{ forloop.counter }}</td>
+                    <td class="px-4 py-2 font-mono">{{ municipio.codigo }}</td>
+                    <td class="px-4 py-2">
+                        <a href="{% url 'locations:municipio_detalle' municipio.pk %}" class="text-blue-700 font-semibold hover:underline">
+                            {{ municipio.nombre }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-2">{{ municipio.departamento.nombre }}</td>
+                    <td class="px-4 py-2 flex gap-2">
+                        <a href="{% url 'locations:municipio_editar' municipio.pk %}" class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs">
+                            <i class="ti ti-pencil"></i>
+                        </a>
+                        <a href="{% url 'locations:municipio_eliminar' municipio.pk %}" class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs">
+                            <i class="ti ti-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-6 text-gray-400">No hay municipios registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

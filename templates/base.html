@@ -1,0 +1,344 @@
+{% load i18n %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="es"
+      x-data="{
+        darkMode: localStorage.getItem('darkMode') === 'true' || window.matchMedia('(prefers-color-scheme: dark)').matches,
+        sidebarCollapsed: window.innerWidth < 1024,
+        sidebarOpen: false,
+        toggleDark() {
+          this.darkMode = !this.darkMode;
+          localStorage.setItem('darkMode', this.darkMode);
+        },
+        toggleSidebar() {
+          if(window.innerWidth < 1024) {
+            this.sidebarOpen = !this.sidebarOpen;
+          } else {
+            this.sidebarCollapsed = !this.sidebarCollapsed;
+          }
+        },
+        handleResize() {
+          if(window.innerWidth < 1024) {
+            this.sidebarCollapsed = true;
+            this.sidebarOpen = false;
+          } else {
+            this.sidebarCollapsed = false;
+            this.sidebarOpen = false;
+          }
+        }
+      }"
+      x-init="window.addEventListener('resize', handleResize)"
+      :class="{ 'dark': darkMode }">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Panel de Gestión{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Panel administrativo de CorteSec. Gestión de empresas, empleados, pagos y más.">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2563eb',
+            sidebar: '#ffffff',
+            sidebarDark: '#18181b',
+            icon: '#22223b',
+            active: '#2563eb',
+            hover: '#e0e7ff',
+            hoverDark: '#232336',
+            logout: '#ef4444',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Tabler Icons -->
+  <link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+
+  <!-- Alpine.js -->
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+  <!-- NProgress (barra de carga) -->
+  <link rel="stylesheet" href="https://unpkg.com/nprogress@0.2.0/nprogress.css"/>
+  <script src="https://unpkg.com/nprogress@0.2.0/nprogress.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      NProgress.configure({ showSpinner: false });
+      window.addEventListener('beforeunload', function() { NProgress.start(); });
+      window.addEventListener('load', function() { NProgress.done(); });
+    });
+  </script>
+
+  <style>
+    ::-webkit-scrollbar { width: 8px; background: #f3f4f6; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    html, body { height: 100%; }
+    [x-cloak] { display: none !important; }
+    .sidebar-collapsed .sidebar-label { display: none !important; }
+    .sidebar-collapsed .sidebar-profile .sidebar-title,
+    .sidebar-collapsed .sidebar-profile .sidebar-role { display: none !important; }
+    .sidebar-collapsed .sidebar-profile { padding-bottom: 0.5rem !important; }
+    .sidebar-collapsed .sidebar-profile img { margin-bottom: 0 !important; }
+    .sidebar-collapsed .sidebar { width: 4rem !important; min-width: 4rem !important; }
+    .sidebar-collapsed .sidebar-link { justify-content: center !important; }
+    .sidebar-collapsed .sidebar-footer { flex-direction: column !important; align-items: center !important; }
+    .sidebar-collapsed .sidebar-footer form { width: 100%; display: flex; justify-content: center; }
+    .sidebar-collapsed .sidebar-footer button { width: 2.5rem !important; height: 2.5rem !important; padding: 0 !important; justify-content: center !important; }
+    .sidebar-collapsed .sidebar-footer .sidebar-label { display: none !important; }
+    .sidebar-collapsed .sidebar-toggle { margin-left: 0 !important; }
+    .sidebar-collapsed .tooltip { display: block !important; }
+    .tooltip {
+      position: absolute;
+      left: 110%;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #232336;
+      color: #fff;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .sidebar-link:focus .tooltip,
+    .sidebar-link:hover .tooltip,
+    .sidebar-footer button:focus .tooltip,
+    .sidebar-footer button:hover .tooltip {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    @media (max-width: 1023px) {
+      .sidebar-collapsed .sidebar-label { display: inline !important; }
+      .sidebar-collapsed .sidebar { width: 16rem !important; min-width: 16rem !important; }
+    }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 to-white dark:from-zinc-900 dark:to-zinc-800 text-gray-900 dark:text-gray-200 min-h-screen transition-all duration-300">
+
+<div :class="sidebarCollapsed ? 'sidebar-collapsed' : ''" class="flex min-h-screen w-full">
+
+  <!-- Sidebar -->
+  <nav
+    :class="[
+      sidebarCollapsed ? 'w-16' : 'w-64',
+      'sidebar fixed inset-y-0 left-0 z-30 shadow-lg flex flex-col transition-width duration-300',
+      darkMode ? 'bg-sidebarDark' : 'bg-sidebar'
+    ]"
+    x-cloak
+    aria-label="Menú principal"
+    role="navigation"
+  >
+    <!-- Branding y perfil -->
+    <div class="sidebar-profile flex flex-col items-center py-6 border-b border-gray-200 dark:border-gray-800 transition-all duration-300">
+      <img src="https://ui-avatars.com/api/?name=AD&background=2563eb&color=fff"
+           alt="{% trans 'Avatar de Administrador' %}"
+           class="sidebar-avatar w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-white dark:border-sidebarDark shadow-xl mb-2 ring-2 ring-primary hover:scale-105 transition"
+           loading="lazy">
+      <span class="sidebar-title font-extrabold text-lg md:text-xl tracking-tight text-primary dark:text-white mt-2 transition-all duration-200">{% trans "CorteSec" %}</span>
+      <span class="sidebar-role text-xs text-gray-400 font-semibold sidebar-label transition-all duration-200">{% trans "Administrador" %}</span>
+    </div>
+
+    <!-- Menú principal -->
+    <ul class="flex-1 px-2 md:px-4 py-4 md:py-6 space-y-1 md:space-y-2">
+      <!-- Menú de Ubicaciones -->
+      <li x-data="{ open: {% if request.resolver_match.app_name == 'locations' and request.resolver_match.url_name in 'departamento_lista municipio_lista' %}true{% else %}false{% endif %} }">
+        <button
+          @click="open = !open"
+          class="sidebar-link relative flex items-center w-full px-3 py-2 rounded-xl hover:bg-hover dark:hover:bg-hoverDark font-semibold transition-colors duration-200 sidebar-toggle
+          {% if request.resolver_match.app_name == 'locations' %}bg-primary text-white shadow{% else %}text-gray-700 dark:text-gray-200{% endif %}"
+          aria-label="{% trans 'Abrir menú de ubicaciones' %}"
+          :aria-expanded="open.toString()"
+          aria-controls="submenu-ubicaciones"
+        >
+          <i class="sidebar-icon ti ti-map-pin text-2xl mr-3"></i>
+          <span class="sidebar-label flex-1 text-left">{% trans "Ubicaciones" %}</span>
+          <svg :class="{'rotate-90': open}" class="w-5 h-5 ml-auto transition-transform sidebar-label" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Ubicaciones" %}</span>
+        </button>
+        <ul
+          id="submenu-ubicaciones"
+          x-show="open && !sidebarCollapsed"
+          @click.away="open = false"
+          x-transition:enter="transition-all duration-200"
+          x-transition:leave="transition-all duration-150"
+          x-cloak
+          class="pl-8 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-sidebarDark rounded-lg py-2"
+        >
+          <li>
+            <a href="{% url 'locations:departamento_lista' %}"
+               class="sidebar-link flex items-center px-3 py-2 rounded-lg hover:bg-hover dark:hover:bg-hoverDark transition
+               {% if 'departamento' in request.resolver_match.url_name %}bg-primary text-white font-bold border-l-4 border-primary{% else %}text-gray-700 dark:text-gray-200{% endif %}"
+               aria-current="{% if 'departamento' in request.resolver_match.url_name %}page{% endif %}">
+              <i class="ti ti-building-bank text-lg mr-2"></i> <span class="sidebar-label">{% trans "Departamentos" %}</span>
+              <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Departamentos" %}</span>
+            </a>
+          </li>
+          <li>
+            <a href="{% url 'locations:municipio_lista' %}"
+               class="sidebar-link flex items-center px-3 py-2 rounded-lg hover:bg-hover dark:hover:bg-hoverDark transition
+               {% if 'municipio' in request.resolver_match.url_name %}bg-primary text-white font-bold border-l-4 border-primary{% else %}text-gray-700 dark:text-gray-200{% endif %}"
+               aria-current="{% if 'municipio' in request.resolver_match.url_name %}page{% endif %}">
+              <i class="ti ti-map-pin-cog text-lg mr-2"></i> <span class="sidebar-label">{% trans "Municipios" %}</span>
+              <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Municipios" %}</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <!-- Menú Empresas -->
+      <li>
+        <a href="{% url 'dashboard:contratista_lista' %}"
+           class="sidebar-link relative flex items-center px-3 py-2 rounded-xl hover:bg-hover dark:hover:bg-hoverDark font-semibold transition-colors duration-200
+           {% if 'contratista' in request.resolver_match.url_name %}bg-primary text-white shadow{% else %}text-gray-700 dark:text-gray-200{% endif %}"
+           aria-current="{% if 'contratista' in request.resolver_match.url_name %}page{% endif %}">
+          <i class="sidebar-icon ti ti-building text-2xl mr-3"></i> <span class="sidebar-label">{% trans "Empresas" %}</span>
+          <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Empresas" %}</span>
+        </a>
+      </li>
+      <!-- Menú Proyectos -->
+      <li>
+        <a href="{% url 'dashboard:proyecto_lista' %}"
+           class="sidebar-link relative flex items-center px-3 py-2 rounded-xl hover:bg-hover dark:hover:bg-hoverDark font-semibold transition-colors duration-200
+           {% if 'proyecto' in request.resolver_match.url_name %}bg-primary text-white shadow{% else %}text-gray-700 dark:text-gray-200{% endif %}"
+           aria-current="{% if 'proyecto' in request.resolver_match.url_name %}page{% endif %}">
+          <i class="sidebar-icon ti ti-layout-kanban text-2xl mr-3"></i> <span class="sidebar-label">{% trans "Proyectos" %}</span>
+          <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Proyectos" %}</span>
+        </a>
+      </li>
+      <!-- Menú Pagos -->
+      <li>
+        <a href="{% url 'dashboard:pago_lista' %}"
+           class="sidebar-link relative flex items-center px-3 py-2 rounded-xl hover:bg-hover dark:hover:bg-hoverDark font-semibold transition-colors duration-200
+           {% if 'pago' in request.resolver_match.url_name %}bg-primary text-white shadow{% else %}text-gray-700 dark:text-gray-200{% endif %}"
+           aria-current="{% if 'pago' in request.resolver_match.url_name %}page{% endif %}">
+          <i class="sidebar-icon ti ti-cash text-2xl mr-3"></i> <span class="sidebar-label">{% trans "Pagos" %}</span>
+          <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Pagos" %}</span>
+        </a>
+      </li>
+      <!-- Menú Colaboradores -->
+      <li>
+        <a href="{% url 'payroll:empleado_lista' %}"
+           class="sidebar-link relative flex items-center px-3 py-2 rounded-xl hover:bg-hover dark:hover:bg-hoverDark font-semibold transition-colors duration-200
+           {% if 'empleado' in request.resolver_match.url_name %}bg-primary text-white shadow{% else %}text-gray-700 dark:text-gray-200{% endif %}"
+           aria-current="{% if 'empleado' in request.resolver_match.url_name %}page{% endif %}">
+          <i class="sidebar-icon ti ti-users text-2xl mr-3"></i> <span class="sidebar-label">{% trans "Colaboradores" %}</span>
+          <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Colaboradores" %}</span>
+        </a>
+      </li>
+      <!-- Menú Nóminas -->
+      <li>
+        <a href="{% url 'payroll:nomina_lista' %}"
+           class="sidebar-link relative flex items-center px-3 py-2 rounded-xl hover:bg-hover dark:hover:bg-hoverDark font-semibold transition-colors duration-200
+           {% if 'nomina' in request.resolver_match.url_name %}bg-primary text-white shadow{% else %}text-gray-700 dark:text-gray-200{% endif %}"
+           aria-current="{% if 'nomina' in request.resolver_match.url_name %}page{% endif %}">
+          <i class="sidebar-icon ti ti-clipboard-list text-2xl mr-3"></i> <span class="sidebar-label">{% trans "Nóminas" %}</span>
+          <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Nóminas" %}</span>
+        </a>
+      </li>
+      <!-- Menú Ítems -->
+      <li>
+        <a href="{% url 'items:item_lista' %}"
+           class="sidebar-link relative flex items-center px-3 py-2 rounded-xl hover:bg-hover dark:hover:bg-hoverDark font-semibold transition-colors duration-200
+           {% if 'item' in request.resolver_match.url_name %}bg-primary text-white shadow{% else %}text-gray-700 dark:text-gray-200{% endif %}"
+           aria-current="{% if 'item' in request.resolver_match.url_name %}page{% endif %}">
+          <i class="sidebar-icon ti ti-package text-2xl mr-3"></i> <span class="sidebar-label">{% trans "Ítems" %}</span>
+          <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Ítems" %}</span>
+        </a>
+      </li>
+    </ul>
+
+    <!-- Footer Sidebar -->
+    <div class="sidebar-footer p-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+      <form method="post" action="{% url 'admin:logout' %}">
+        {% csrf_token %}
+        <button type="submit"
+           class="flex items-center px-3 py-2 rounded-lg border border-logout hover:bg-logout hover:text-white text-logout font-semibold transition shadow relative"
+           aria-label="{% trans 'Cerrar sesión' %}">
+          <i class="ti ti-logout text-xl"></i>
+          <span class="sidebar-label ml-2">{% trans "Cerrar sesión" %}</span>
+          <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Cerrar sesión" %}</span>
+        </button>
+      </form>
+      <button @click="toggleSidebar()" class="ml-2 p-2 rounded hover:bg-hover dark:hover:bg-hoverDark transition sidebar-toggle relative"
+              aria-label="{% trans 'Colapsar menú' %}">
+        <i class="ti transition-transform duration-200"
+           :class="sidebarCollapsed ? 'ti-arrow-bar-right rotate-180' : 'ti-arrow-bar-left'"></i>
+        <span class="tooltip" x-show="sidebarCollapsed" x-cloak>{% trans "Expandir menú" %}</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Overlay móvil -->
+  <div x-show="sidebarOpen && window.innerWidth < 1024"
+       @click="sidebarOpen = false"
+       class="fixed inset-0 bg-black bg-opacity-30 z-20 transition-opacity"
+       x-cloak></div>
+
+  <!-- Contenido principal -->
+  <div
+    class="flex-1 flex flex-col min-h-screen bg-white dark:bg-zinc-900 transition-all duration-300"
+    :class="(sidebarCollapsed && window.innerWidth >= 1024) ? 'ml-16' : (window.innerWidth >= 1024 ? 'ml-64' : '')"
+    role="main"
+    tabindex="-1"
+  >
+    <!-- Header -->
+    <header class="bg-white/95 dark:bg-zinc-900 shadow-lg flex items-center justify-between px-3 md:px-6 py-3 sticky top-0 z-10">
+      <div class="flex items-center gap-2">
+        <button @click="toggleSidebar()" class="md:hidden text-gray-500 hover:text-primary focus:outline-none" aria-label="{% trans 'Abrir menú lateral' %}">
+          <i class="ti ti-menu-2 text-2xl"></i>
+        </button>
+        <span class="text-base md:text-lg font-semibold text-primary dark:text-white">
+          {% block header_title %}Panel de Gestión{% endblock %}
+        </span>
+      </div>
+      <div class="flex items-center gap-2 md:gap-4">
+        <button @click="toggleDark()" class="rounded-full bg-primary/10 dark:bg-zinc-800 p-2 hover:bg-primary/20 dark:hover:bg-zinc-700 transition"
+                title="{% trans 'Cambiar tema' %}" aria-label="{% trans 'Cambiar tema' %}">
+          <i class="ti ti-sun text-xl text-primary dark:text-white transition-transform duration-200"
+             :class="darkMode ? 'rotate-180' : ''" x-show="darkMode" x-cloak></i>
+          <i class="ti ti-moon text-xl text-primary dark:text-white transition-transform duration-200"
+             :class="!darkMode ? 'rotate-180' : ''" x-show="!darkMode"></i>
+        </button>
+        <span class="text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+          <img src="https://ui-avatars.com/api/?name=Usuario&background=2563eb&color=fff"
+               class="w-7 h-7 rounded-full border-2 border-primary"
+               alt="{% trans 'Avatar de usuario' %}" loading="lazy">
+          {% trans "Hola, Usuario" %}
+        </span>
+      </div>
+    </header>
+
+    <!-- Breadcrumbs -->
+    <nav class="max-w-6xl mx-auto w-full mt-2 md:mt-4 mb-2 px-2" aria-label="Breadcrumb">
+      {% block breadcrumbs %}{% endblock %}
+    </nav>
+
+    <!-- Mensajes Django -->
+    {% include 'components/messages.html' %}
+
+    <!-- Main content -->
+    <main class="flex-1 p-2 md:p-8 max-w-6xl w-full mx-auto">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white/90 dark:bg-zinc-900 border-t dark:border-zinc-700 text-center text-gray-400 text-xs py-3 md:py-4 mt-auto shadow-inner">
+      &copy; {{ now|date:"Y" }} CorteSec. {% trans "Todos los derechos reservados." %}
+    </footer>
+  </div>
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

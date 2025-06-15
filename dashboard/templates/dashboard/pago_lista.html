@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Pagos{% endblock %}
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <h2 class="text-2xl font-bold text-blue-700">Pagos</h2>
+        <a href="{% url 'dashboard:pago_agregar' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+            <i class="ti ti-cash mr-2"></i> Agregar Pago
+        </a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-blue-100">
+            <thead class="bg-blue-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Proyecto</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Monto</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Fecha</th>
+                    <th class="px-4 py-2"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-blue-50">
+                {% for pago in pagos %}
+                <tr class="hover:bg-blue-50 transition">
+                    <td class="px-4 py-2">
+                        <a href="{% url 'dashboard:pago_detalle' pago.pk %}" class="text-blue-700 font-semibold hover:underline">
+                            {{ pago.proyecto.nombre }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-2">${{ pago.monto }}</td>
+                    <td class="px-4 py-2">{{ pago.fecha }}</td>
+                    <td class="px-4 py-2 flex gap-2">
+                        <a href="{% url 'dashboard:pago_editar' pago.pk %}" class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs">
+                            <i class="ti ti-pencil"></i>
+                        </a>
+                        <a href="{% url 'dashboard:pago_eliminar' pago.pk %}" class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs">
+                            <i class="ti ti-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-6 text-gray-400">No hay pagos registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

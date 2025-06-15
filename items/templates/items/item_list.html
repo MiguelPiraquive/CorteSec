@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Ítems{% endblock %}
+{% block content %}
+
+<nav class="mb-4 text-sm text-gray-500">
+    <span class="text-gray-700 font-semibold">Ítems</span>
+</nav>
+
+{% if messages %}
+    <div class="mb-4">
+        {% for message in messages %}
+            <div class="p-2 rounded {{ message.tags }} bg-green-100 text-green-800" role="alert">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div class="bg-white rounded-2xl shadow p-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <h2 class="text-2xl font-bold text-blue-700">Ítems</h2>
+        <a href="{% url 'items:item_agregar' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+            <i class="ti ti-plus mr-2"></i> Agregar Ítem
+        </a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-blue-100">
+            <thead class="bg-blue-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Nombre</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Descripción</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Cantidad</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Precio Unitario</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Tipo de Cantidad</th>
+                    <th class="px-4 py-2"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-blue-50">
+                {% for item in items %}
+                <tr class="hover:bg-blue-50 transition">
+                    <td class="px-4 py-2">
+                        <a href="{% url 'items:item_detalle' item.pk %}" class="text-blue-700 font-semibold hover:underline">
+                            {{ item.name }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-2">{{ item.description|default:"—" }}</td>
+                    <td class="px-4 py-2">${{ item.price }}</td>
+                    <td class="px-4 py-2">
+                        {{ item.get_tipo_cantidad_display }}
+                    </td>
+                    <td class="px-4 py-2 flex gap-2">
+                        <a href="{% url 'items:item_editar' item.pk %}" class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs" title="Editar">
+                            <i class="ti ti-pencil"></i>
+                        </a>
+                        <a href="{% url 'items:item_eliminar' item.pk %}" class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs" title="Eliminar">
+                            <i class="ti ti-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-6 text-gray-400">No hay ítems registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
