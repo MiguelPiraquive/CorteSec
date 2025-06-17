@@ -84,10 +84,9 @@ WSGI_APPLICATION = 'contractor_management.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL')
+        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3')
     )
 }
-
 # Password validation
 # https://docs.djangoproject.com/en/4.x/ref/settings/#auth-password-validators
 
