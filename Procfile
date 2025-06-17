@@ -1,1 +1,0 @@
-web: gunicorn contractor_management.wsgi
