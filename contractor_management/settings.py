@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/4.x/topics/settings/
 
 from pathlib import Path
 import os
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,11 +22,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['192.168.0.8', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = [
+    'cortesec.onrender.com',  # tu dominio de Render
+    'localhost',
+    '127.0.0.1',
+]
 
-SECRET_KEY = 'django-insecure-4v#8!k@your-very-secret-key-1234567890'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'insecure-key')
 
 # Application definition
 
@@ -78,14 +83,9 @@ WSGI_APPLICATION = 'contractor_management.wsgi.application'
 # https://docs.djangoproject.com/en/4.x/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'contractor_management',
-        'USER': 'postgres',
-        'PASSWORD': '12345',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL')
+    )
 }
 
 # Password validation
