@@ -14,7 +14,7 @@ class Departamento(models.Model):
 
 class Municipio(models.Model):
     departamento = models.ForeignKey(Departamento, on_delete=models.CASCADE, related_name="municipios", verbose_name="Departamento")
-    codigo = models.CharField("Código", max_length=10, null=True, blank=True)  # <-- Agrega esta línea
+    codigo = models.CharField("Código", max_length=10, null=True, blank=True)  
     nombre = models.CharField("Nombre del Municipio", max_length=100)
 
     class Meta:

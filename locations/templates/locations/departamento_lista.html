@@ -1,15 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Departamentos{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "Departamentos" %}{% endblock %}
 {% block content %}
 <div class="bg-white rounded-2xl shadow p-8">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-        <h2 class="text-2xl font-bold text-blue-700">Departamentos</h2>
+        <h2 class="text-2xl font-bold text-blue-700">{% trans "Departamentos" %}</h2>
         <div class="flex gap-2">
             <a href="{% url 'locations:importar_excel' %}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition">
-                <i class="ti ti-file-import mr-2"></i> Importar desde Excel
+                <i class="ti ti-file-import mr-2"></i> {% trans "Importar desde Excel" %}
             </a>
             <a href="{% url 'locations:departamento_agregar' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
-                <i class="ti ti-building-bank mr-2"></i> Agregar Departamento
+                <i class="ti ti-building-bank mr-2"></i> {% trans "Agregar Departamento" %}
             </a>
         </div>
     </div>
@@ -17,8 +18,8 @@
         <table class="min-w-full divide-y divide-blue-100">
             <thead class="bg-blue-50">
                 <tr>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Nombre</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Código</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Nombre" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Código" %}</th>
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -42,7 +43,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="3" class="text-center py-6 text-gray-400">No hay departamentos registrados.</td>
+                    <td colspan="3" class="text-center py-6 text-gray-400">{% trans "No hay departamentos registrados." %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -1,108 +1,55 @@
 {% extends "base.html" %}
-{% block title %}Nóminas{% endblock %}
+{% load i18n %}
+{% load humanize %}
+{% block title %}{% trans "Nóminas" %}{% endblock %}
 {% block content %}
-
-<!-- Breadcrumbs -->
-<nav class="mb-4 text-sm text-gray-500">
-    <a href="{% url 'payroll:empleado_lista' %}" class="hover:underline">Empleados</a>
-    /
-    <span class="text-gray-700 font-semibold">Nóminas</span>
-</nav>
-
-<!-- Mensajes -->
-{% if messages %}
-    <div class="mb-4">
-        {% for message in messages %}
-            <div class="p-2 rounded {{ message.tags }} bg-green-100 text-green-800" role="alert">
-                {{ message }}
-            </div>
-        {% endfor %}
-    </div>
-{% endif %}
 <div class="bg-white rounded-2xl shadow p-8">
-<!-- Búsqueda y agregar -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-    <form method="get" class="flex gap-2">
-        <input type="text" name="q" value="{{ query }}" placeholder="Buscar por nombre de empleado..." class="form-input px-4 py-2 rounded border border-gray-300">
-        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Buscar</button>
-    </form>
-    <a href="{% url 'payroll:nomina_agregar' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
-        <i class="ti ti-file-plus mr-2"></i> Agregar Nómina
-    </a>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <h2 class="text-2xl font-bold text-blue-700">{% trans "Nóminas" %}</h2>
+        <a href="{% url 'payroll:nomina_agregar' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+            <i class="ti ti-file-plus mr-2"></i> {% trans "Agregar Nómina" %}
+        </a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-blue-100">
+            <thead class="bg-blue-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Empleado" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Periodo" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Total" %}</th>
+                    <th class="px-4 py-2"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-blue-50">
+                {% for nomina in nominas %}
+                <tr class="hover:bg-blue-50 transition">
+                    <td class="px-4 py-2">
+                        <a href="{% url 'payroll:nomina_detalle' nomina.pk %}" class="text-blue-700 font-semibold hover:underline">
+                            {{ nomina.empleado.nombres }} {{ nomina.empleado.apellidos }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-2">
+                        {{ nomina.periodo_inicio|date:"d/m/Y" }} - {{ nomina.periodo_fin|date:"d/m/Y" }}
+                    </td>
+                    <td class="px-4 py-2">
+                        ${{ nomina.total|floatformat:2|intcomma }}
+                    </td>
+                    <td class="px-4 py-2 flex gap-2">
+                        <a href="{% url 'payroll:nomina_editar' nomina.pk %}" class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs" title="{% trans 'Editar' %}">
+                            <i class="ti ti-pencil"></i>
+                        </a>
+                        <a href="{% url 'payroll:nomina_eliminar' nomina.pk %}" class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs" title="{% trans 'Eliminar' %}">
+                            <i class="ti ti-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-6 text-gray-400">{% trans "No hay nóminas registradas." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
-
-<!-- Tabla de nóminas -->
-<div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-blue-100">
-        <thead class="bg-blue-50">
-            <tr>
-                <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Empleado</th>
-                <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Periodo</th>
-                <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Producción</th>
-                <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Seguridad</th>
-                <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Préstamos</th>
-                <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Restaurante</th>
-                <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Total a Pagar</th>
-                <th class="px-4 py-2"></th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-blue-50">
-            {% for nomina in page_obj %}
-            <tr class="hover:bg-blue-50 transition">
-                <td class="px-4 py-2">
-                    <a href="{% url 'payroll:nomina_detalle' nomina.pk %}" class="text-blue-700 font-semibold hover:underline">
-                        {{ nomina.empleado }}
-                    </a>
-                </td>
-                <td class="px-4 py-2">{{ nomina.periodo_inicio }}<br>a {{ nomina.periodo_fin }}</td>
-                <td class="px-4 py-2">${{ nomina.produccion }}</td>
-                <td class="px-4 py-2">${{ nomina.seguridad }}</td>
-                <td class="px-4 py-2">${{ nomina.prestamos }}</td>
-                <td class="px-4 py-2">${{ nomina.restaurante }}</td>
-                <td class="px-4 py-2 font-bold text-green-700">${{ nomina.total }}</td>
-                <td class="px-4 py-2 flex gap-2">
-                    <a href="{% url 'payroll:nomina_detalle' nomina.pk %}" class="inline-flex items-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-xs" title="Ver detalle">
-                        <i class="ti ti-eye"></i>
-                    </a>
-                    <a href="{% url 'payroll:nomina_editar' nomina.pk %}" class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs" title="Editar">
-                        <i class="ti ti-pencil"></i>
-                    </a>
-                    <a href="{% url 'payroll:nomina_eliminar' nomina.pk %}" class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs" title="Eliminar">
-                        <i class="ti ti-trash"></i>
-                    </a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="8" class="text-center py-6 text-gray-400">No hay nóminas registradas.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-<!-- Paginación -->
-{% if page_obj.has_other_pages %}
-<div class="mt-4 flex justify-center">
-    <nav>
-        <ul class="inline-flex -space-x-px">
-            {% if page_obj.has_previous %}
-                <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-1 bg-gray-200 rounded-l hover:bg-gray-300">&laquo;</a></li>
-            {% endif %}
-            {% for num in page_obj.paginator.page_range %}
-                {% if page_obj.number == num %}
-                    <li><span class="px-3 py-1 bg-blue-600 text-white">{{ num }}</span></li>
-                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                    <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ num }}" class="px-3 py-1 bg-gray-200 hover:bg-gray-300">{{ num }}</a></li>
-                {% endif %}
-            {% endfor %}
-            {% if page_obj.has_next %}
-                <li><a href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-1 bg-gray-200 rounded-r hover:bg-gray-300">&raquo;</a></li>
-            {% endif %}
-        </ul>
-    </nav>
-</div>
-</div>
-{% endif %}
-
 {% endblock %}

@@ -1,0 +1,443 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-21 18:57-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:3
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:6
+msgid "Eliminar Empleado"
+msgstr "Delete Employee"
+
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:7
+#, python-format
+msgid "¿Estás seguro de que deseas eliminar al empleado %(nombre)s %(apellido)s?"
+msgstr "Are you sure you want to delete employee %(nombre)s %(apellido)s?"
+
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:12
+#: .\payroll\templates\payroll\empleado_lista.html:38
+#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:12
+#: .\payroll\templates\payroll\nomina_detalle.html:65
+#: .\payroll\templates\payroll\nomina_formulario.html:91
+#: .\payroll\templates\payroll\nomina_formulario.html:149
+#: .\payroll\templates\payroll\nomina_lista.html:36
+msgid "Eliminar"
+msgstr "Delete"
+
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:15
+#: .\payroll\templates\payroll\empleado_formulario.html:30
+#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:15
+#: .\payroll\templates\payroll\nomina_formulario.html:108
+msgid "Cancelar"
+msgstr "Cancel"
+
+#: .\payroll\templates\payroll\empleado_detalle.html:9
+#: .\payroll\templates\payroll\empleado_lista.html:17
+msgid "Documento"
+msgstr "Document"
+
+#: .\payroll\templates\payroll\empleado_detalle.html:13
+#: .\payroll\templates\payroll\empleado_lista.html:18
+msgid "Correo"
+msgstr "Email"
+
+#: .\payroll\templates\payroll\empleado_detalle.html:17
+#: .\payroll\templates\payroll\empleado_lista.html:19
+msgid "Cargo"
+msgstr "Position"
+
+#: .\payroll\templates\payroll\empleado_detalle.html:23
+#: .\payroll\templates\payroll\empleado_lista.html:35
+#: .\payroll\templates\payroll\nomina_detalle.html:62
+#: .\payroll\templates\payroll\nomina_lista.html:33
+msgid "Editar"
+msgstr "Edit"
+
+#: .\payroll\templates\payroll\empleado_detalle.html:26
+msgid "Volver a la lista"
+msgstr "Back to list"
+
+#: .\payroll\templates\payroll\empleado_formulario.html:3
+#: .\payroll\templates\payroll\nomina_lista.html:16
+msgid "Empleado"
+msgstr "Employee"
+
+#: .\payroll\templates\payroll\empleado_formulario.html:7
+msgid "Editar Empleado"
+msgstr "Edit Employee"
+
+#: .\payroll\templates\payroll\empleado_formulario.html:7
+#: .\payroll\templates\payroll\empleado_lista.html:9
+msgid "Agregar Empleado"
+msgstr "Add Employee"
+
+#: .\payroll\templates\payroll\empleado_formulario.html:27
+msgid "Guardar Cambios"
+msgstr "Save Changes"
+
+#: .\payroll\templates\payroll\empleado_formulario.html:27
+msgid "Crear Empleado"
+msgstr "Create Employee"
+
+#: .\payroll\templates\payroll\empleado_lista.html:3
+#: .\payroll\templates\payroll\empleado_lista.html:7
+#: .\payroll\templates\payroll\nomina_formulario.html:8
+msgid "Empleados"
+msgstr "Employees"
+
+#: .\payroll\templates\payroll\empleado_lista.html:16
+msgid "Nombre"
+msgstr "Name"
+
+#: .\payroll\templates\payroll\empleado_lista.html:45
+msgid "No hay empleados registrados."
+msgstr "No employees registered."
+
+#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:3
+#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:6
+msgid "Eliminar Nómina"
+msgstr "Delete Payroll"
+
+#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:7
+#, python-format
+msgid "¿Estás seguro de que deseas eliminar la nómina de %(empleado)s?"
+msgstr "Are you sure you want to delete the payroll for %(empleado)s?"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:3
+msgid "Detalle Nómina"
+msgstr "Payroll Detail"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:6
+#, python-format
+msgid "Nómina de %(nomina.empleado)s"
+msgstr "Payroll for %(nomina.empleado)s"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:9
+#: .\payroll\templates\payroll\nomina_lista.html:17
+msgid "Periodo"
+msgstr "Period"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:11
+msgid "a"
+msgstr "to"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:15
+#: .\payroll\templates\payroll\nomina_formulario.html:56
+msgid "Ítems producidos"
+msgstr "Produced Items"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:20
+msgid "Ítem"
+msgstr "Item"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:21
+msgid "Cantidad"
+msgstr "Quantity"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:22
+msgid "Tipo"
+msgstr "Type"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:23
+msgid "Precio c/u"
+msgstr "Unit Price"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:24
+msgid "Subtotal"
+msgstr "Subtotal"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:42
+msgid "No hay ítems registrados."
+msgstr "No items registered."
+
+#: .\payroll\templates\payroll\nomina_detalle.html:49
+msgid "Total producción:"
+msgstr "Total production:"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:53
+msgid "Seguridad"
+msgstr "Security"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:54
+msgid "Préstamos"
+msgstr "Loans"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:55
+msgid "Restaurante"
+msgstr "Restaurant"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:57
+msgid "Total a pagar"
+msgstr "Total to pay"
+
+#: .\payroll\templates\payroll\nomina_detalle.html:68
+msgid "Volver"
+msgstr "Back"
+
+#: .\payroll\templates\payroll\nomina_formulario.html:4
+msgid "Nómina"
+msgstr "Payroll"
+
+#: .\payroll\templates\payroll\nomina_formulario.html:10
+#: .\payroll\templates\payroll\nomina_lista.html:3
+#: .\payroll\templates\payroll\nomina_lista.html:7
+#: .\templates\components\header.html:13
+#: .\templates\components\sidebar.html:128
+#: .\templates\components\sidebar.html:130
+msgid "Nóminas"
+msgstr "Payrolls"
+
+#: .\payroll\templates\payroll\nomina_formulario.html:12
+#: .\payroll\templates\payroll\nomina_formulario.html:27
+msgid "Editar Nómina"
+msgstr "Edit Payroll"
+
+#: .\payroll\templates\payroll\nomina_formulario.html:12
+#: .\payroll\templates\payroll\nomina_formulario.html:27
+#: .\payroll\templates\payroll\nomina_lista.html:9
+msgid "Agregar Nómina"
+msgstr "Add Payroll"
+
+#: .\payroll\templates\payroll\nomina_formulario.html:90
+#: .\payroll\templates\payroll\nomina_formulario.html:149
+msgid "Eliminar ítem"
+msgstr "Delete item"
+
+#: .\payroll\templates\payroll\nomina_formulario.html:99
+msgid "Agregar Ítem"
+msgstr "Add Item"
+
+#: .\payroll\templates\payroll\nomina_formulario.html:105
+msgid "Guardar Nómina"
+msgstr "Save Payroll"
+
+#: .\payroll\templates\payroll\nomina_formulario.html:128
+#: .\payroll\templates\payroll\nomina_formulario.html:153
+msgid "Buscar ítem..."
+msgstr "Search item..."
+
+#: .\payroll\templates\payroll\nomina_lista.html:18
+msgid "Total"
+msgstr "Total"
+
+#: .\payroll\templates\payroll\nomina_lista.html:43
+msgid "No hay nóminas registradas."
+msgstr "No payrolls registered."
+
+#: .\templates\base.html:197
+msgid "Buscar en CorteSec..."
+msgstr "Search in CorteSec..."
+
+#: .\templates\base.html:204 .\templates\components\header.html:50
+#: .\templates\components\header.html:63 .\templates\components\header.html:108
+msgid "Buscar"
+msgstr "Search"
+
+#: .\templates\base.html:213
+msgid "Atajo:"
+msgstr "Shortcut:"
+
+#: .\templates\base.html:215
+msgid "Presiona Esc para cerrar"
+msgstr "Press Esc to close"
+
+#: .\templates\components\footer.html:9
+msgid "Todos los derechos reservados."
+msgstr "All rights reserved."
+
+#: .\templates\components\footer.html:12 .\templates\components\header.html:167
+msgid "Soporte"
+msgstr "Support"
+
+#: .\templates\components\footer.html:14
+msgid "Política de privacidad"
+msgstr "Privacy Policy"
+
+#: .\templates\components\header.html:10 .\templates\components\sidebar.html:80
+#: .\templates\components\sidebar.html:82
+msgid "Empresas"
+msgstr "Companies"
+
+#: .\templates\components\header.html:11
+#: .\templates\components\sidebar.html:116
+#: .\templates\components\sidebar.html:118
+msgid "Colaboradores"
+msgstr "Collaborators"
+
+#: .\templates\components\header.html:12
+#: .\templates\components\sidebar.html:104
+#: .\templates\components\sidebar.html:106
+msgid "Pagos"
+msgstr "Payments"
+
+#: .\templates\components\header.html:14
+#: .\templates\components\sidebar.html:140
+#: .\templates\components\sidebar.html:142
+msgid "Ítems"
+msgstr "Items"
+
+#: .\templates\components\header.html:36
+msgid "Abrir menú lateral"
+msgstr "Open sidebar menu"
+
+#: .\templates\components\header.html:42
+msgid "Modo compacto"
+msgstr "Compact mode"
+
+#: .\templates\components\header.html:61
+msgid "Buscar empresas, pagos, colaboradores..."
+msgstr "Search companies, payments, collaborators..."
+
+#: .\templates\components\header.html:66
+msgid "Limpiar búsqueda"
+msgstr "Clear search"
+
+#: .\templates\components\header.html:81
+msgid "Sugerencias"
+msgstr "Suggestions"
+
+#: .\templates\components\header.html:93
+msgid "Historial reciente"
+msgstr "Recent history"
+
+#: .\templates\components\header.html:129
+#: .\templates\components\header.html:130
+msgid "Notificaciones"
+msgstr "Notifications"
+
+#: .\templates\components\header.html:148
+msgid "Notificaciones recientes"
+msgstr "Recent notifications"
+
+#: .\templates\components\header.html:149
+msgid "Marcar todas como leídas"
+msgstr "Mark all as read"
+
+#: .\templates\components\header.html:153
+msgid "Tu pago fue procesado correctamente."
+msgstr "Your payment was processed successfully."
+
+#: .\templates\components\header.html:156
+msgid "Hay un nuevo colaborador pendiente de aprobación."
+msgstr "There is a new collaborator pending approval."
+
+#: .\templates\components\header.html:159
+msgid "Recuerda actualizar tus datos de empresa."
+msgstr "Remember to update your company data."
+
+#: .\templates\components\header.html:162
+msgid "Ver todas las notificaciones"
+msgstr "View all notifications"
+
+#: .\templates\components\header.html:173
+msgid "Idioma"
+msgstr "Language"
+
+#: .\templates\components\header.html:186
+msgid "Español"
+msgstr "Spanish"
+
+#: .\templates\components\header.html:190
+msgid "Inglés"
+msgstr "English"
+
+#: .\templates\components\header.html:197
+msgid "Cambiar tema"
+msgstr "Change theme"
+
+#: .\templates\components\header.html:213
+#: .\templates\components\header.html:214
+msgid "Menú de usuario"
+msgstr "User menu"
+
+#: .\templates\components\header.html:219
+#: .\templates\components\header.html:242
+msgid "Avatar de usuario"
+msgstr "User avatar"
+
+#: .\templates\components\header.html:224
+msgid "Hola,"
+msgstr "Hello,"
+
+#: .\templates\components\header.html:246
+msgid "Rol:"
+msgstr "Role:"
+
+#: .\templates\components\header.html:249
+msgid "Perfil"
+msgstr "Profile"
+
+#: .\templates\components\header.html:250
+msgid "Configuración"
+msgstr "Settings"
+
+#: .\templates\components\header.html:251
+msgid "Ayuda"
+msgstr "Help"
+
+#: .\templates\components\header.html:252
+msgid "Documentación"
+msgstr "Documentation"
+
+#: .\templates\components\header.html:256
+#: .\templates\components\sidebar.html:155
+#: .\templates\components\sidebar.html:157
+msgid "Cerrar sesión"
+msgstr "Log out"
+
+#: .\templates\components\messages.html:36
+msgid "Cerrar mensaje"
+msgstr "Close message"
+
+#: .\templates\components\sidebar.html:15
+msgid "Avatar de Administrador"
+msgstr "Administrator avatar"
+
+#: .\templates\components\sidebar.html:20
+msgid "Administrador"
+msgstr "Administrator"
+
+#: .\templates\components\sidebar.html:32
+msgid "Abrir menú de ubicaciones"
+msgstr "Open locations menu"
+
+#: .\templates\components\sidebar.html:38
+#: .\templates\components\sidebar.html:44
+msgid "Ubicaciones"
+msgstr "Locations"
+
+#: .\templates\components\sidebar.html:60
+msgid "Departamentos"
+msgstr "Departments"
+
+#: .\templates\components\sidebar.html:68
+msgid "Municipios"
+msgstr "Municipalities"
+
+#: .\templates\components\sidebar.html:92
+#: .\templates\components\sidebar.html:94
+msgid "Proyectos"
+msgstr "Projects"
+
+#: .\templates\components\sidebar.html:166
+msgid "Colapsar menú"
+msgstr "Collapse menu"
+
+#: .\templates\components\sidebar.html:173
+#: .\templates\components\sidebar.html:181
+msgid "Expandir menú"
+msgstr "Expand menu"

@@ -12,7 +12,7 @@ class EmpleadoForm(forms.ModelForm):
         model = Empleado
         fields = [
             'nombres', 'apellidos', 'documento', 'correo', 'telefono',
-            'direccion', 'fecha_nacimiento', 'genero', 'cargo', 'foto'
+            'direccion', 'fecha_nacimiento', 'genero','departamento', 'municipio', 'cargo', 'foto'
         ]
         widgets = {
             'nombres': forms.TextInput(attrs={'class': 'form-control'}),
@@ -22,6 +22,8 @@ class EmpleadoForm(forms.ModelForm):
             'telefono': forms.TextInput(attrs={'class': 'form-control'}),
             'direccion': forms.TextInput(attrs={'class': 'form-control'}),
             'genero': forms.Select(attrs={'class': 'form-select select2'}),
+            'departamento': forms.Select(attrs={'class': 'form-select select2'}),
+            'municipio': forms.Select(attrs={'class': 'form-select select2'}),
             'cargo': forms.Select(attrs={'class': 'form-select select2'}),
             'foto': forms.ClearableFileInput(attrs={'class': 'form-control'}),
         }
@@ -69,7 +71,7 @@ class DetalleNominaForm(forms.ModelForm):
         fields = ['item', 'cantidad']
         widgets = {
             'item': forms.Select(attrs={'class': 'form-select select2'}),
-            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'step': 'any'}),
         }
         labels = {
             'item': 'Ítem',

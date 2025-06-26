@@ -2,10 +2,12 @@ from django.db import models
 
 class Item(models.Model):
     TIPO_CANTIDAD_CHOICES = [
-        ('m2', 'Metro cuadrado (m²)'),
-        ('global', 'Global'),
-        ('ml', 'Metro lineal (ml)'),
-    ]
+    ('m2', 'Metro cuadrado (m²)'),
+    ('m3', 'Metro cúbico (m³)'),
+    ('ml', 'Metro lineal (ml)'),
+    ('global', 'Global'),
+]
+
 
     name = models.CharField("Nombre", max_length=100)
     description = models.TextField("Descripción", blank=True)

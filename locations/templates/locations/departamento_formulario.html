@@ -1,26 +1,39 @@
 {% extends "base.html" %}
-{% block title %}Departamento{% endblock %}
+{% load i18n %}
+{% load widget_tweaks %}
+{% block title %}{% trans "Departamento" %}{% endblock %}
 {% block content %}
 <div class="bg-white rounded-2xl shadow p-8 max-w-2xl mx-auto">
-    <h2 class="text-xl font-bold text-blue-700 mb-6">{{ view.object.pk|yesno:"Editar Departamento,Agregar Departamento" }}</h2>
-    <form method="post" class="space-y-4">
+    <h2 class="text-2xl font-bold text-blue-700 text-center mb-8 tracking-tight">
+        {% if form.instance.pk %}{% trans "Editar Departamento" %}{% else %}{% trans "Agregar Departamento" %}{% endif %}
+    </h2>
+    <form method="post" class="space-y-6">
         {% csrf_token %}
         {{ form.non_field_errors }}
-        {% for field in form %}
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">{{ field.label }}</label>
-                {{ field }}
-                {% if field.errors %}
-                    <div class="text-red-500 text-xs mt-1">{{ field.errors|striptags }}</div>
-                {% endif %}
-            </div>
-        {% endfor %}
-        <div class="flex gap-2 mt-6">
-            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
-                Guardar
+        <div>
+            <label for="{{ form.nombre.id_for_label }}" class="block mb-2 text-sm font-semibold text-gray-700">
+                {% trans form.nombre.label %}
+            </label>
+            {{ form.nombre|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+            {% if form.nombre.errors %}
+                <div class="text-red-500 text-xs mt-1">{{ form.nombre.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        <div>
+            <label for="{{ form.codigo.id_for_label }}" class="block mb-2 text-sm font-semibold text-gray-700">
+                {% trans form.codigo.label %}
+            </label>
+            {{ form.codigo|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+            {% if form.codigo.errors %}
+                <div class="text-red-500 text-xs mt-1">{{ form.codigo.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        <div class="flex justify-center gap-4 mt-8">
+            <button type="submit" class="px-10 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-xl hover:from-blue-700 hover:to-blue-800 transition font-bold text-lg transform hover:scale-105">
+                {% trans "Guardar" %}
             </button>
-            <a href="{% url 'locations:departamento_lista' %}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-                Cancelar
+            <a href="{% url 'locations:departamento_lista' %}" class="px-10 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold text-lg shadow transform hover:scale-105">
+                {% trans "Cancelar" %}
             </a>
         </div>
     </form>

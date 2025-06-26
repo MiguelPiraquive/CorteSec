@@ -20,4 +20,7 @@ urlpatterns = [
 
     # Importar Excel
     path('importar-excel/', views.importar_excel, name='importar_excel'),
+
+    path('municipios-por-departamento/', views.municipios_por_departamento, name='municipios_por_departamento'),
+    
 ]

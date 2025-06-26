@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from items.models import Item
+from locations.models import Departamento, Municipio
 
 class Cargo(models.Model):
     nombre = models.CharField("Nombre del Cargo", max_length=100, unique=True)
@@ -29,6 +30,8 @@ class Empleado(models.Model):
     fecha_nacimiento = models.DateField("Fecha de nacimiento", blank=True, null=True)
     genero = models.CharField("Género", max_length=1, choices=GENERO_CHOICES, blank=True)
     fecha_contratacion = models.DateField("Fecha de contratación", auto_now_add=True)
+    departamento = models.ForeignKey(Departamento, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Departamento")
+    municipio = models.ForeignKey(Municipio, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Municipio")
     cargo = models.ForeignKey(Cargo, on_delete=models.PROTECT, verbose_name="Cargo")
     foto = models.ImageField("Foto", upload_to="empleados/fotos/", blank=True, null=True)
     creado_el = models.DateTimeField("Creado el", auto_now_add=True)
@@ -40,7 +43,7 @@ class Empleado(models.Model):
         ordering = ["apellidos", "nombres"]
 
     def __str__(self):
-        return f"{self.nombres} {self.apellidos}"
+       return f"{self.nombres} {self.apellidos} - {self.documento}"
 
 class Nomina(models.Model):
     empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, verbose_name="Empleado", related_name="nominas")
@@ -72,7 +75,7 @@ class Nomina(models.Model):
 class DetalleNomina(models.Model):
     nomina = models.ForeignKey(Nomina, on_delete=models.CASCADE, related_name="detalles")
     item = models.ForeignKey(Item, on_delete=models.PROTECT, verbose_name="Ítem")
-    cantidad = models.PositiveIntegerField("Cantidad", default=0, validators=[MinValueValidator(0)])
+    cantidad = models.DecimalField("Cantidad", max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
 
     @property
     def total(self):

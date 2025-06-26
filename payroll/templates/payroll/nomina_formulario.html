@@ -1,68 +1,82 @@
 {% extends "base.html" %}
 {% load widget_tweaks %}
-{% block title %}Nómina{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "Nómina" %}{% endblock %}
 {% block content %}
-
-<nav class="mb-6 text-sm text-gray-500">
-    <a href="{% url 'payroll:empleado_lista' %}" class="hover:underline">Empleados</a>
-    /
-    <a href="{% url 'payroll:nomina_lista' %}" class="hover:underline">Nóminas</a>
-    /
-    <span class="text-gray-700 font-semibold">{% if object %}Editar Nómina{% else %}Agregar Nómina{% endif %}</span>
-</nav>
-
-{% if messages %}
-    <div class="mb-4">
-        {% for message in messages %}
-            <div class="p-2 rounded {{ message.tags }} bg-green-100 text-green-800" role="alert">
-                {{ message }}
-            </div>
-        {% endfor %}
-    </div>
-{% endif %}
-
-<div class="bg-white rounded-2xl shadow-lg p-8 max-w-3xl mx-auto">
-    <h2 class="text-2xl font-bold text-blue-700 mb-8 text-center">
-        {% if object %}Editar Nómina{% else %}Agregar Nómina{% endif %}
+<div class="bg-white rounded-2xl shadow p-8 max-w-3xl mx-auto mt-10">
+    <h2 class="text-2xl font-bold text-blue-700 text-center mb-8 tracking-tight">
+        {% if object %}{% trans "Editar Nómina" %}{% else %}{% trans "Agregar Nómina" %}{% endif %}
     </h2>
     <form method="post" class="space-y-8" id="nomina-form">
         {% csrf_token %}
-        {% if form.non_field_errors %}
-            <div class="text-red-600 text-sm mb-2">
-                {{ form.non_field_errors }}
-            </div>
-        {% endif %}
-        {% if formset.non_form_errors %}
-            <div class="text-red-600 text-sm mb-2">
-                {{ formset.non_form_errors }}
-            </div>
-        {% endif %}
+        {{ form.non_field_errors }}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {% for field in form %}
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">{{ field.label }}</label>
-                    {{ field|add_class:"form-input w-full px-3 py-2 border border-gray-300 rounded" }}
-                    {% if field.help_text %}
-                        <div class="text-xs text-gray-500">{{ field.help_text }}</div>
-                    {% endif %}
-                    {% if field.errors %}
-                        <div class="text-red-500 text-xs mt-1">{{ field.errors|striptags }}</div>
-                    {% endif %}
-                </div>
-            {% endfor %}
+            <div>
+                <label for="{{ form.empleado.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
+                    <i class="bi bi-person-circle"></i>
+                    {% trans form.empleado.label %}
+                    <span class="text-xs text-gray-400 ml-2">{% trans "Busca por nombre o documento" %}</span>
+                </label>
+                {{ form.empleado|add_class:"select2 form-select w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                {% if form.empleado.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.empleado.errors|striptags }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.periodo_inicio.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
+                    {% trans form.periodo_inicio.label %}
+                </label>
+                {{ form.periodo_inicio|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                {% if form.periodo_inicio.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.periodo_inicio.errors|striptags }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.periodo_fin.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
+                    {% trans form.periodo_fin.label %}
+                </label>
+                {{ form.periodo_fin|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                {% if form.periodo_fin.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.periodo_fin.errors|striptags }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.seguridad.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
+                    {% trans form.seguridad.label %}
+                </label>
+                {{ form.seguridad|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                {% if form.seguridad.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.seguridad.errors|striptags }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.prestamos.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
+                    {% trans form.prestamos.label %}
+                </label>
+                {{ form.prestamos|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                {% if form.prestamos.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.prestamos.errors|striptags }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.restaurante.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
+                    {% trans form.restaurante.label %}
+                </label>
+                {{ form.restaurante|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                {% if form.restaurante.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.restaurante.errors|striptags }}</div>
+                {% endif %}
+            </div>
         </div>
         <div>
-            <h3 class="text-lg font-bold text-blue-600 mb-4 mt-8">Ítems producidos</h3>
+            <h3 class="text-lg font-bold text-blue-600 mb-4 mt-8">{% trans "Ítems producidos" %}</h3>
             <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
                 {{ formset.management_form }}
                 <div id="formset-items" class="space-y-4">
                     {% for form_item in formset %}
                         {% if form_item.non_field_errors %}
-                            <div class="text-red-600 text-xs mb-1">
-                                {{ form_item.non_field_errors }}
-                            </div>
+                            <div class="text-red-600 text-xs mb-1">{{ form_item.non_field_errors }}</div>
                         {% endif %}
-                        <!-- Campo oculto id necesario para edición -->
                         {{ form_item.id }}
                         <div class="flex flex-col md:flex-row md:items-end gap-4 formset-row bg-white p-4 rounded-lg shadow-sm relative" data-form-index="{{ forloop.counter0 }}">
                             <div class="flex-1">
@@ -77,9 +91,11 @@
                                     <div class="text-red-500 text-xs mt-1">{{ form_item.item.errors|striptags }}</div>
                                 {% endif %}
                             </div>
-                            <div class="w-36">
-                                <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form_item.cantidad.label }}</label>
-                                {{ form_item.cantidad|add_class:"form-input w-full" }}
+                            <div class="w-36 cantidad-wrapper">
+                                <label class="block text-xs font-semibold text-gray-600 mb-1 cantidad-label">{% trans "Cantidad" %}</label>
+                                <div class="cantidad-fields" style="position:relative;">
+                                    {{ form_item.cantidad|add_class:"form-input w-full cantidad-input"|attr:"step:any" }}
+                                </div>
                                 {% if form_item.cantidad.errors %}
                                     <div class="text-red-500 text-xs mt-1">{{ form_item.cantidad.errors|striptags }}</div>
                                 {% endif %}
@@ -87,8 +103,8 @@
                             <div class="flex items-center">
                                 {% if formset.can_delete %}
                                     <input type="checkbox" style="display:none;" name="{{ form_item.DELETE.html_name }}" id="id_{{ form_item.prefix }}-DELETE" class="delete-checkbox">
-                                    <button type="button" class="delete-row px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition flex items-center gap-1" title="Eliminar ítem">
-                                        <span class="text-lg">×</span> Eliminar
+                                    <button type="button" class="delete-row px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition flex items-center gap-1" title="{% trans 'Eliminar ítem' %}">
+                                        <span class="text-lg">×</span> {% trans "Eliminar" %}
                                     </button>
                                 {% endif %}
                             </div>
@@ -96,72 +112,192 @@
                     {% endfor %}
                 </div>
                 <button type="button" id="add-item" class="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition flex items-center gap-2">
-                    <span class="text-lg">+</span> Agregar Ítem
+                    <span class="text-lg">+</span> {% trans "Agregar Ítem" %}
                 </button>
             </div>
         </div>
-        <div class="flex gap-2 justify-end mt-8">
-            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition font-semibold">
-                Guardar Nómina
+        <div class="flex justify-center gap-4 mt-8">
+            <button type="submit" class="px-10 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-xl hover:from-blue-700 hover:to-blue-800 transition font-bold text-lg transform hover:scale-105">
+                {% trans "Guardar" %}
             </button>
-            <a href="{% url 'payroll:nomina_lista' %}" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-semibold">
-                Cancelar
+            <a href="{% url 'payroll:nomina_lista' %}" class="px-10 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold text-lg shadow transform hover:scale-105">
+                {% trans "Cancelar" %}
             </a>
         </div>
     </form>
 </div>
 
-<!-- Select2 y JS para agregar/eliminar ítems dinámicamente y mostrar tipo de cantidad -->
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<!-- Select2 Bootstrap 5 Theme -->
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<!-- Select2 CSS -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Select2 JS -->
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<style>
+.select2-container--bootstrap-5 .select2-selection {
+    border-radius: 0.75rem;
+    min-height: 2.5rem;
+    font-size: 1rem;
+    padding: 0.25rem 0.75rem;
+}
+.select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+    color: #212529;
+    font-weight: 500;
+}
+</style>
+
 <script>
-    // Diccionario de id de item a tipo_cantidad_display
     var tiposCantidad = {
         {% for item in items %}
-            "{{ item.pk }}": "{{ item.get_tipo_cantidad_display }}",
+        "{{ item.pk }}": "{{ item.get_tipo_cantidad_display }}"{% if not forloop.last %},{% endif %}
         {% endfor %}
     };
+
     $(document).ready(function() {
+        // Select2 para ítems
         $('.select2').select2({
+            theme: 'bootstrap-5',
             width: '100%',
-            placeholder: "Buscar ítem...",
+            placeholder: "{% trans 'Buscar ítem...' %}",
             allowClear: true
         });
 
-        // Mostrar tipo de cantidad dinámicamente
+        // Select2 para empleado con render personalizado
+        $('#id_empleado').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: "{% trans 'Buscar empleado...' %}",
+            allowClear: true,
+            templateResult: function (data) {
+                if (!data.id) return data.text;
+                var parts = data.text.split(' - ');
+                return $(
+                    '<div><span class="fw-bold">' + parts[0] + '</span><br><small class="text-secondary">' + (parts[1] || '') + '</small></div>'
+                );
+            },
+            templateSelection: function (data) {
+                if (!data.id) return data.text;
+                var parts = data.text.split(' - ');
+                return $(
+                    '<span class="fw-bold">' + parts[0] + '</span> <small class="text-secondary">' + (parts[1] || '') + '</small>'
+                );
+            }
+        });
+
+        function setM2Fields($row) {
+            var $fields = $row.find('.cantidad-fields');
+            var $originalCantidad = $row.find('input[name$="-cantidad"]');
+            $originalCantidad.attr('type', 'hidden');
+            $fields.find('.lado1-input, .lado2-input, .cantidad-input-m2').remove();
+            $fields.append(`
+                <input type="number" step="any" min="0" class="form-input w-full mb-1 lado1-input" placeholder="{% trans 'Lado 1' %}">
+                <input type="number" step="any" min="0" class="form-input w-full mb-1 lado2-input" placeholder="{% trans 'Lado 2' %}">
+                <input type="number" step="any" min="0" class="form-input w-full cantidad-input-m2" placeholder="{% trans 'Cantidad (m²)' %}" readonly>
+            `);
+
+            $fields.off('input').on('input', '.lado1-input, .lado2-input', function() {
+                var lado1 = parseFloat($fields.find('.lado1-input').val()) || 0;
+                var lado2 = parseFloat($fields.find('.lado2-input').val()) || 0;
+                var cantidad = lado1 * lado2;
+                $fields.find('.cantidad-input-m2').val(cantidad > 0 ? cantidad : '');
+                $originalCantidad.val(cantidad > 0 ? cantidad : '');
+            });
+        }
+
+        function setNormalFields($row) {
+            var $fields = $row.find('.cantidad-fields');
+            var $originalCantidad = $row.find('input[name$="-cantidad"]');
+            $originalCantidad.attr('type', 'number');
+            $fields.find('.lado1-input, .lado2-input, .cantidad-input-m2').remove();
+        }
+
+        function updateCantidadFields($row, tipo) {
+            $row.find('.cantidad-fields').off('input');
+            if (tipo && (tipo.toLowerCase().includes('m2') || tipo.toLowerCase().includes('m²'))) {
+                setM2Fields($row);
+            } else {
+                setNormalFields($row);
+            }
+        }
+
+        // Inicializa los campos de cantidad según el tipo al cargar la página
+        $('#formset-items .formset-row').each(function() {
+            var $row = $(this);
+            var itemId = $row.find('.select2').val();
+            var tipo = tiposCantidad[itemId] || '';
+            updateCantidadFields($row, tipo);
+        });
+
+        // Cambia los campos cuando se selecciona un ítem
         $('#formset-items').on('change', '.select2', function() {
             var $row = $(this).closest('.formset-row');
             var itemId = $(this).val();
             var tipo = tiposCantidad[itemId] || '';
             $row.find('.tipo-cantidad').text(tipo ? '(' + tipo + ')' : '');
+            updateCantidadFields($row, tipo);
         });
 
-        // Agregar ítem dinámicamente
         let form_idx = {{ formset.total_form_count }};
         $('#add-item').click(function() {
             let formsetDiv = $('#formset-items');
-            let emptyFormHtml = `{{ formset.empty_form.as_p|escapejs }}`;
-            let newFormHtml = emptyFormHtml.replace(/__prefix__/g, form_idx);
-            let $newRow = $('<div class="flex flex-col md:flex-row md:items-end gap-4 formset-row bg-white p-4 rounded-lg shadow-sm relative" data-form-index="'+form_idx+'"></div>').html(newFormHtml);
-            // Oculta el checkbox de borrado y agrega el botón
-            $newRow.find('input[type=checkbox]').hide();
-            $newRow.append('<div class="flex items-center"><button type="button" class="delete-row px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition flex items-center gap-1" title="Eliminar ítem"><span class="text-lg">×</span> Eliminar</button></div>');
+            let prefix = '{{ formset.prefix }}';
+            let newRowHtml = `
+                <div class="flex flex-col md:flex-row md:items-end gap-4 formset-row bg-white p-4 rounded-lg shadow-sm relative" data-form-index="${form_idx}">
+                    <div class="flex-1">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">{% trans "Ítem" %}</label>
+                        <select name="${prefix}-${form_idx}-item" class="select2 form-select w-full" id="id_${prefix}-${form_idx}-item">
+                            <option value="">{% trans "---------"%}</option>
+                            {% for item in items %}
+                                <option value="{{ item.pk }}">{{ item }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="tipo-cantidad text-xs text-blue-700 ml-2 font-semibold"></span>
+                    </div>
+                    <div class="w-36 cantidad-wrapper">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1 cantidad-label">{% trans "Cantidad" %}</label>
+                        <div class="cantidad-fields" style="position:relative;">
+                            <input type="number" step="any" name="${prefix}-${form_idx}-cantidad" class="form-input w-full cantidad-input" id="id_${prefix}-${form_idx}-cantidad">
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" style="display:none;" name="${prefix}-${form_idx}-DELETE" id="id_${prefix}-${form_idx}-DELETE" class="delete-checkbox">
+                        <button type="button" class="delete-row px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition flex items-center gap-1" title="{% trans 'Eliminar ítem' %}">
+                            <span class="text-lg">×</span> {% trans "Eliminar" %}
+                        </button>
+                    </div>
+                </div>
+            `;
+            let $newRow = $(newRowHtml);
             formsetDiv.append($newRow);
             $newRow.find('.select2').select2({
+                theme: 'bootstrap-5',
                 width: '100%',
-                placeholder: "Buscar ítem...",
+                placeholder: "{% trans 'Buscar ítem...' %}",
                 allowClear: true
             });
+            var itemId = $newRow.find('.select2').val();
+            var tipo = tiposCantidad[itemId] || '';
+            updateCantidadFields($newRow, tipo);
             form_idx++;
             $('#id_' + '{{ formset.prefix }}-TOTAL_FORMS').val(form_idx);
         });
 
-        // Eliminar ítem visualmente y marcar checkbox
         $('#formset-items').on('click', '.delete-row', function() {
             let $row = $(this).closest('.formset-row');
             $row.find('.delete-checkbox').prop('checked', true);
             $row.hide();
+        });
+
+        // Al enviar el formulario, muestra en consola todos los valores de cantidad (solo para depuración)
+        $('#nomina-form').on('submit', function() {
+            $('input[name$="-cantidad"]').each(function() {
+                console.log('Submit cantidad:', $(this).attr('name'), '=>', $(this).val());
+            });
         });
     });
 </script>

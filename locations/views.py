@@ -4,6 +4,15 @@ from .forms import DepartamentoForm, MunicipioForm
 from django.contrib import messages
 import pandas as pd
 from django.db.models import Q
+from django.http import JsonResponse
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
+def municipios_por_departamento(request):
+    departamento_id = request.GET.get('departamento_id')
+    municipios = []
+    if departamento_id:
+        municipios = list(Municipio.objects.filter(departamento_id=departamento_id).values('id', 'nombre'))
+    return JsonResponse(municipios, safe=False)
 # ------------------- DEPARTAMENTO -------------------
 
 def departamento_lista(request):
@@ -46,14 +55,25 @@ def departamento_eliminar(request, pk):
 
 def municipio_lista(request):
     q = request.GET.get('q', '').strip()
-    municipios = Municipio.objects.all().select_related('departamento')
+    municipios_qs = Municipio.objects.all().select_related('departamento')
     if q:
-        municipios = municipios.filter(
+        municipios_qs = municipios_qs.filter(
             Q(codigo__icontains=q) |
             Q(nombre__icontains=q) |
             Q(departamento__nombre__icontains=q)
         )
-    municipios = municipios.order_by('departamento__nombre', 'nombre')
+    municipios_qs = municipios_qs.order_by('departamento__nombre', 'nombre')
+
+    # Paginación
+    page = request.GET.get('page', 1)
+    paginator = Paginator(municipios_qs, 20)  # 20 por página
+    try:
+        municipios = paginator.page(page)
+    except PageNotAnInteger:
+        municipios = paginator.page(1)
+    except EmptyPage:
+        municipios = paginator.page(paginator.num_pages)
+
     return render(request, 'locations/municipio_lista.html', {'municipios': municipios})
 
 def municipio_crear(request):

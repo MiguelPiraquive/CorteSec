@@ -1,0 +1,17 @@
+{% load i18n %}
+<footer class="bg-gradient-to-t from-blue-50/80 to-white/80 dark:from-zinc-900/80 dark:to-zinc-800/80 border-t border-gray-100 dark:border-zinc-700 shadow-inner mt-auto">
+  <div class="max-w-6xl mx-auto px-4 py-5 flex flex-col md:flex-row items-center justify-between gap-2">
+    <div class="flex items-center gap-2 text-primary dark:text-blue-300 font-bold text-sm md:text-base">
+      <i class="ti ti-shield-check text-lg md:text-xl"></i>
+      CorteSec
+    </div>
+    <div class="text-gray-500 dark:text-gray-400 text-xs md:text-sm text-center">
+      &copy; {{ now|date:"Y" }} CorteSec. {% trans "Todos los derechos reservados." %}
+    </div>
+    <div class="flex items-center gap-3 text-xs md:text-sm">
+      <a href="mailto:soporte@cortesec.com" class="hover:underline text-primary dark:text-blue-400 transition">{% trans "Soporte" %}</a>
+      <span class="hidden md:inline text-gray-300 dark:text-zinc-700">|</span>
+      <a href="#" class="hover:underline text-primary dark:text-blue-400 transition">{% trans "Política de privacidad" %}</a>
+    </div>
+  </div>
+</footer>

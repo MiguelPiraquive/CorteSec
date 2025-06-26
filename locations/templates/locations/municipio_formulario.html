@@ -1,26 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Municipio{% endblock %}
+{% load widget_tweaks %}
+{% load i18n %}
+{% block title %}{% trans "Municipio" %}{% endblock %}
+
 {% block content %}
-<div class="container py-4">
-    <h2 class="mb-4">{% if form.instance.pk %}Editar{% else %}Nuevo{% endif %} Municipio</h2>
-    <form method="post" autocomplete="off">
+<div class="max-w-xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-10 mt-10 transition-all duration-300">
+    <h2 class="text-3xl font-extrabold text-center mb-8 tracking-tight text-blue-700 dark:text-blue-300">
+        {% if form.instance.pk %}{% trans "Editar Municipio" %}{% else %}{% trans "Nuevo Municipio" %}{% endif %}
+    </h2>
+
+    <form method="post" autocomplete="off" class="space-y-6">
         {% csrf_token %}
-        <div class="mb-3">
-            {{ form.departamento.label_tag }}
-            {{ form.departamento }}
+
+        <!-- Departamento -->
+        <div>
+            <label for="{{ form.departamento.id_for_label }}" class="block mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {% trans form.departamento.label %}
+            </label>
+            {{ form.departamento|add_class:"form-select w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
             {% if form.departamento.errors %}
-                <div class="text-danger small">{{ form.departamento.errors }}</div>
+                <div class="text-red-500 text-xs mt-1">{{ form.departamento.errors|striptags }}</div>
             {% endif %}
         </div>
-        <div class="mb-3">
-            {{ form.nombre.label_tag }}
-            {{ form.nombre }}
+
+        <!-- Nombre -->
+        <div>
+            <label for="{{ form.nombre.id_for_label }}" class="block mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {% trans form.nombre.label %}
+            </label>
+            {{ form.nombre|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
             {% if form.nombre.errors %}
-                <div class="text-danger small">{{ form.nombre.errors }}</div>
+                <div class="text-red-500 text-xs mt-1">{{ form.nombre.errors|striptags }}</div>
             {% endif %}
         </div>
-        <button type="submit" class="btn btn-success">Guardar</button>
-        <a href="{% url 'locations:municipio_lista' %}" class="btn btn-secondary">Cancelar</a>
+
+        <!-- Botones -->
+        <div class="flex justify-center gap-4 mt-8">
+            <button type="submit" class="px-10 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-xl hover:from-blue-700 hover:to-blue-800 transition font-bold text-lg transform hover:scale-105">
+                {% trans "Guardar" %}
+            </button>
+            <a href="{% url 'locations:municipio_lista' %}" class="px-10 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold text-lg shadow transform hover:scale-105">
+                {% trans "Cancelar" %}
+            </a>
+        </div>
     </form>
 </div>
 {% endblock %}

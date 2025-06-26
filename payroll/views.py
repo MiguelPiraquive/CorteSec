@@ -78,7 +78,8 @@ def nomina_lista(request):
     paginator = Paginator(nominas, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    return render(request, 'payroll/nomina_lista.html', {'page_obj': page_obj, 'query': query})
+    # Cambia 'page_obj' por 'nominas' en el contexto
+    return render(request, 'payroll/nomina_lista.html', {'nominas': page_obj, 'query': query})
 
 def nomina_detalle(request, pk):
     nomina = get_object_or_404(Nomina, pk=pk)
@@ -106,7 +107,6 @@ def nomina_agregar(request):
             messages.success(request, "Nómina creada correctamente.")
             return redirect('payroll:nomina_detalle', pk=nomina.pk)
         else:
-            # DEPURACIÓN: imprime todos los errores en consola
             print("Form errors:", form.errors)
             print("Form non_field_errors:", form.non_field_errors())
             print("Formset errors:", formset.errors)
@@ -135,7 +135,6 @@ def nomina_editar(request, pk):
             messages.success(request, "Nómina actualizada correctamente.")
             return redirect('payroll:nomina_detalle', pk=nomina.pk)
         else:
-            # DEPURACIÓN: imprime todos los errores en consola
             print("Form errors:", form.errors)
             print("Form non_field_errors:", form.non_field_errors())
             print("Formset errors:", formset.errors)

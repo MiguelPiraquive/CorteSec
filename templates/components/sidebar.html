@@ -1,0 +1,185 @@
+{% load i18n %}
+<nav
+  :class="[
+    sidebarCollapsed ? 'w-20' : 'w-64',
+    window.innerWidth < 1024 ? 'fixed z-40 inset-y-0 left-0 shadow-2xl' : 'relative z-40',
+    'sidebar flex flex-col transition-all duration-300 bg-white dark:bg-zinc-900 border-r border-gray-100 dark:border-zinc-800 min-h-screen'
+  ]"
+  x-cloak
+  aria-label="Menú principal"
+  role="navigation"
+>
+  <!-- Branding y perfil -->
+  <div class="flex flex-col items-center py-8 border-b border-gray-100 dark:border-zinc-800 transition-all duration-300">
+    <img src="https://ui-avatars.com/api/?name=AD&background=2563eb&color=fff"
+         alt="{% trans 'Avatar de Administrador' %}"
+         class="w-12 h-12 rounded-full border-2 border-primary shadow mb-3 transition-all duration-200">
+    <span class="font-extrabold text-lg md:text-xl tracking-tight text-primary dark:text-white mt-1 transition-all duration-200"
+          x-show="!sidebarCollapsed" x-cloak>CorteSec</span>
+    <span class="text-xs text-gray-400 font-semibold transition-all duration-200"
+          x-show="!sidebarCollapsed" x-cloak>{% trans "Administrador" %}</span>
+  </div>
+
+  <!-- Menú principal -->
+  <ul class="flex-1 py-6 flex flex-col gap-2">
+    <!-- Menú de Ubicaciones (submenú hacia abajo) -->
+    <li x-data="{ open: {% if request.resolver_match.app_name == 'locations' and request.resolver_match.url_name in 'departamento_lista municipio_lista' %}true{% else %}false{% endif %} }" class="group relative flex flex-col">
+      <button
+        @click="open = !open"
+        class="flex items-center w-full transition-all duration-200 font-semibold group
+        {% if request.resolver_match.app_name == 'locations' %}bg-primary/90 text-white shadow-lg{% else %}text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-zinc-800{% endif %}"
+        :class="sidebarCollapsed ? 'justify-center h-12 w-12 mx-auto rounded-full' : 'w-full px-4 py-3 rounded-xl'"
+        aria-label="{% trans 'Abrir menú de ubicaciones' %}"
+        :aria-expanded="open.toString()"
+        aria-controls="submenu-ubicaciones"
+        style="transition: background 0.2s, box-shadow 0.2s;"
+      >
+        <i class="ti ti-map-pin text-2xl"></i>
+        <span class="ml-3 flex-1 text-left" x-show="!sidebarCollapsed" x-cloak>{% trans "Ubicaciones" %}</span>
+        <svg :class="{'rotate-90': open}" class="w-5 h-5 ml-auto transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-show="!sidebarCollapsed" x-cloak>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <!-- Tooltip -->
+        <span class="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1 rounded-lg bg-zinc-900 text-white text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-50"
+              x-show="sidebarCollapsed" x-cloak>{% trans "Ubicaciones" %}</span>
+      </button>
+      <ul
+        id="submenu-ubicaciones"
+        x-show="open && !sidebarCollapsed"
+        @click.away="open = false"
+        x-transition:enter="transition-all duration-200"
+        x-transition:leave="transition-all duration-150"
+        x-cloak
+        class="ml-8 mt-2 flex flex-col gap-1"
+      >
+        <li>
+          <a href="{% url 'locations:departamento_lista' %}"
+             class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-blue-100 dark:hover:bg-zinc-800 transition
+             {% if 'departamento' in request.resolver_match.url_name %}bg-primary/80 text-white font-bold border-l-4 border-primary{% else %}text-gray-700 dark:text-gray-200{% endif %}">
+            <i class="ti ti-building-bank text-lg mr-2"></i>
+            <span class="flex-1 text-left">{% trans "Departamentos" %}</span>
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'locations:municipio_lista' %}"
+             class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-blue-100 dark:hover:bg-zinc-800 transition
+             {% if 'municipio' in request.resolver_match.url_name %}bg-primary/80 text-white font-bold border-l-4 border-primary{% else %}text-gray-700 dark:text-gray-200{% endif %}">
+            <i class="ti ti-map-pin-cog text-lg mr-2"></i>
+            <span class="flex-1 text-left">{% trans "Municipios" %}</span>
+          </a>
+        </li>
+      </ul>
+    </li>
+    <!-- Menú Empresas -->
+    <li class="group relative flex">
+      <a href="{% url 'dashboard:contratista_lista' %}"
+         class="flex items-center w-full transition-all duration-200 font-semibold group
+         {% if 'contratista' in request.resolver_match.url_name %}bg-primary/90 text-white shadow-lg{% else %}text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-zinc-800{% endif %}"
+         :class="sidebarCollapsed ? 'justify-center h-12 w-12 mx-auto rounded-full' : 'w-full px-4 py-3 rounded-xl'">
+        <i class="ti ti-building text-2xl"></i>
+        <span class="ml-3 flex-1 text-left" x-show="!sidebarCollapsed" x-cloak>{% trans "Empresas" %}</span>
+        <span class="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1 rounded-lg bg-zinc-900 text-white text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-50"
+              x-show="sidebarCollapsed" x-cloak>{% trans "Empresas" %}</span>
+      </a>
+    </li>
+    <!-- Menú Proyectos -->
+    <li class="group relative flex">
+      <a href="{% url 'dashboard:proyecto_lista' %}"
+         class="flex items-center w-full transition-all duration-200 font-semibold group
+         {% if 'proyecto' in request.resolver_match.url_name %}bg-primary/90 text-white shadow-lg{% else %}text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-zinc-800{% endif %}"
+         :class="sidebarCollapsed ? 'justify-center h-12 w-12 mx-auto rounded-full' : 'w-full px-4 py-3 rounded-xl'">
+        <i class="ti ti-layout-kanban text-2xl"></i>
+        <span class="ml-3 flex-1 text-left" x-show="!sidebarCollapsed" x-cloak>{% trans "Proyectos" %}</span>
+        <span class="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1 rounded-lg bg-zinc-900 text-white text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-50"
+              x-show="sidebarCollapsed" x-cloak>{% trans "Proyectos" %}</span>
+      </a>
+    </li>
+    <!-- Menú Pagos -->
+    <li class="group relative flex">
+      <a href="{% url 'dashboard:pago_lista' %}"
+         class="flex items-center w-full transition-all duration-200 font-semibold group
+         {% if 'pago' in request.resolver_match.url_name %}bg-primary/90 text-white shadow-lg{% else %}text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-zinc-800{% endif %}"
+         :class="sidebarCollapsed ? 'justify-center h-12 w-12 mx-auto rounded-full' : 'w-full px-4 py-3 rounded-xl'">
+        <i class="ti ti-cash text-2xl"></i>
+        <span class="ml-3 flex-1 text-left" x-show="!sidebarCollapsed" x-cloak>{% trans "Pagos" %}</span>
+        <span class="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1 rounded-lg bg-zinc-900 text-white text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-50"
+              x-show="sidebarCollapsed" x-cloak>{% trans "Pagos" %}</span>
+      </a>
+    </li>
+    <!-- Menú Colaboradores -->
+    <li class="group relative flex">
+      <a href="{% url 'payroll:empleado_lista' %}"
+         class="flex items-center w-full transition-all duration-200 font-semibold group
+         {% if 'empleado' in request.resolver_match.url_name %}bg-primary/90 text-white shadow-lg{% else %}text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-zinc-800{% endif %}"
+         :class="sidebarCollapsed ? 'justify-center h-12 w-12 mx-auto rounded-full' : 'w-full px-4 py-3 rounded-xl'">
+        <i class="ti ti-users text-2xl"></i>
+        <span class="ml-3 flex-1 text-left" x-show="!sidebarCollapsed" x-cloak>{% trans "Colaboradores" %}</span>
+        <span class="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1 rounded-lg bg-zinc-900 text-white text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-50"
+              x-show="sidebarCollapsed" x-cloak>{% trans "Colaboradores" %}</span>
+      </a>
+    </li>
+    <!-- Menú Nóminas -->
+    <li class="group relative flex">
+      <a href="{% url 'payroll:nomina_lista' %}"
+         class="flex items-center w-full transition-all duration-200 font-semibold group
+         {% if 'nomina' in request.resolver_match.url_name %}bg-primary/90 text-white shadow-lg{% else %}text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-zinc-800{% endif %}"
+         :class="sidebarCollapsed ? 'justify-center h-12 w-12 mx-auto rounded-full' : 'w-full px-4 py-3 rounded-xl'">
+        <i class="ti ti-clipboard-list text-2xl"></i>
+        <span class="ml-3 flex-1 text-left" x-show="!sidebarCollapsed" x-cloak>{% trans "Nóminas" %}</span>
+        <span class="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1 rounded-lg bg-zinc-900 text-white text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-50"
+              x-show="sidebarCollapsed" x-cloak>{% trans "Nóminas" %}</span>
+      </a>
+    </li>
+    <!-- Menú Ítems -->
+    <li class="group relative flex">
+      <a href="{% url 'items:item_lista' %}"
+         class="flex items-center w-full transition-all duration-200 font-semibold group
+         {% if 'item' in request.resolver_match.url_name %}bg-primary/90 text-white shadow-lg{% else %}text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-zinc-800{% endif %}"
+         :class="sidebarCollapsed ? 'justify-center h-12 w-12 mx-auto rounded-full' : 'w-full px-4 py-3 rounded-xl'">
+        <i class="ti ti-package text-2xl"></i>
+        <span class="ml-3 flex-1 text-left" x-show="!sidebarCollapsed" x-cloak>{% trans "Ítems" %}</span>
+        <span class="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1 rounded-lg bg-zinc-900 text-white text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-50"
+              x-show="sidebarCollapsed" x-cloak>{% trans "Ítems" %}</span>
+      </a>
+    </li>
+  </ul>
+
+  <!-- Footer Sidebar -->
+  <div class="p-4 border-t border-gray-100 dark:border-zinc-800 flex flex-col gap-3 items-center mt-auto">
+    <form method="post" action="{% url 'login:logout' %}" class="w-full flex justify-center">
+      {% csrf_token %}
+      <button type="submit"
+         class="flex items-center w-full transition-all duration-200 text-logout border border-logout hover:bg-logout hover:text-white font-semibold shadow group relative"
+         :class="sidebarCollapsed ? 'justify-center h-12 w-12 rounded-full' : 'w-full px-4 py-3 rounded-xl'">
+        <i class="ti ti-logout text-xl"></i>
+        <span class="ml-2 flex-1 text-left" x-show="!sidebarCollapsed" x-cloak>{% trans "Cerrar sesión" %}</span>
+        <span class="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1 rounded-lg bg-zinc-900 text-white text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-50"
+              x-show="sidebarCollapsed" x-cloak>{% trans "Cerrar sesión" %}</span>
+      </button>
+    </form>
+    <button
+        @click="toggleSidebar()"
+        class="transition-all duration-300 group mt-1 w-full focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
+        :class="sidebarCollapsed
+          ? 'h-12 w-12 rounded-full flex items-center justify-center bg-white/80 dark:bg-zinc-800/80 hover:bg-blue-100 dark:hover:bg-zinc-800 mx-auto shadow-md hover:shadow-lg'
+          : 'w-full px-4 py-3 rounded-xl bg-white/80 dark:bg-zinc-800/80 hover:bg-blue-100 dark:hover:bg-zinc-800 flex items-center shadow-md hover:shadow-lg'}"
+        aria-label="{% trans 'Colapsar menú' %}"
+      >
+        <i
+          class="ti transition-transform duration-300 text-primary dark:text-white text-2xl"
+          :class="sidebarCollapsed ? 'ti-arrow-bar-right rotate-180' : 'ti-arrow-bar-left'"
+        ></i>
+        <span class="ml-2 flex-1 text-left font-semibold" x-show="!sidebarCollapsed" x-cloak>
+          {% trans "Expandir menú" %}
+        </span>
+        <!-- Tooltip mejorado -->
+        <span
+          class="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1 rounded-lg bg-zinc-900 text-white text-xs shadow-lg opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-300 z-50"
+          x-show="sidebarCollapsed"
+          x-cloak
+        >
+          {% trans "Expandir menú" %}
+        </span>
+      </button>
+  </div>
+</nav>

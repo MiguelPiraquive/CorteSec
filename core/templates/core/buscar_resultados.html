@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Buscar{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white rounded-2xl shadow p-8">
+  <h2 class="text-2xl font-bold mb-6">Resultados para "{{ query }}"</h2>
+  {% if resultados %}
+    {% if resultados.usuarios %}
+      <h3 class="font-semibold text-blue-700 mt-4 mb-2">Usuarios</h3>
+      <ul>
+        {% for usuario in resultados.usuarios %}
+          <li>
+            <span class="text-blue-700">{{ usuario.username }}</span> ({{ usuario.email }})
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if resultados.notificaciones %}
+      <h3 class="font-semibold text-blue-700 mt-4 mb-2">Notificaciones</h3>
+      <ul>
+        {% for n in resultados.notificaciones %}
+          <li>
+            <span class="text-gray-700">{{ n.mensaje }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% else %}
+    <p class="text-gray-500">No se encontraron resultados.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,21 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Empleados{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "Empleados" %}{% endblock %}
 {% block content %}
 <div class="bg-white rounded-2xl shadow p-8">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-        <h2 class="text-2xl font-bold text-blue-700">Empleados</h2>
+        <h2 class="text-2xl font-bold text-blue-700">{% trans "Empleados" %}</h2>
         <a href="{% url 'payroll:empleado_crear' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
-            <i class="ti ti-user-plus mr-2"></i> Agregar Empleado
+            <i class="ti ti-user-plus mr-2"></i> {% trans "Agregar Empleado" %}
         </a>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-blue-100">
             <thead class="bg-blue-50">
                 <tr>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Nombre</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Documento</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Correo</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Cargo</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Nombre" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Documento" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Correo" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Cargo" %}</th>
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -31,18 +32,17 @@
                     <td class="px-4 py-2">{{ empleado.correo }}</td>
                     <td class="px-4 py-2">{{ empleado.cargo }}</td>
                     <td class="px-4 py-2 flex gap-2">
-                        
-                        <a href="{% url 'payroll:empleado_actualizar' empleado.pk %}" class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs">
+                        <a href="{% url 'payroll:empleado_actualizar' empleado.pk %}" class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs" title="{% trans 'Editar' %}">
                             <i class="ti ti-pencil"></i>
                         </a>
-                        <a href="{% url 'payroll:empleado_eliminar' empleado.pk %}" class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs">
+                        <a href="{% url 'payroll:empleado_eliminar' empleado.pk %}" class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs" title="{% trans 'Eliminar' %}">
                             <i class="ti ti-trash"></i>
                         </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-6 text-gray-400">No hay empleados registrados.</td>
+                    <td colspan="5" class="text-center py-6 text-gray-400">{% trans "No hay empleados registrados." %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

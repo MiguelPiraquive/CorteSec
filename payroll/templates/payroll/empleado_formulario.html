@@ -1,33 +1,154 @@
 {% extends "base.html" %}
-{% block title %}Empleado{% endblock %}
+{% load i18n %}
+{% load widget_tweaks %}
+{% block title %}{% trans "Empleado" %}{% endblock %}
 {% block content %}
-<div class="bg-white rounded-2xl shadow p-8 max-w-2xl mx-auto">
-    <h2 class="text-xl font-bold text-blue-700 mb-6">
-        {% if object %}Editar Empleado{% else %}Agregar Empleado{% endif %}
+<div class="max-w-5xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-10 transition-all duration-300">
+    <h2 class="text-4xl font-extrabold text-center mb-8 tracking-tight text-blue-700 dark:text-blue-300">
+        {% if empleado %}{% trans "Editar Empleado" %}{% else %}{% trans "Agregar Empleado" %}{% endif %}
     </h2>
-    <form method="post" enctype="multipart/form-data" class="space-y-4">
+    <form method="post" enctype="multipart/form-data" id="empleado-form" class="space-y-8">
         {% csrf_token %}
         {{ form.non_field_errors }}
-        {% for field in form %}
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}
-                    <div class="text-xs text-gray-500">{{ field.help_text }}</div>
-                {% endif %}
-                {% if field.errors %}
-                    <div class="text-red-500 text-xs mt-1">{{ field.errors|striptags }}</div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <!-- Campos -->
+            <div class="lg:col-span-2 space-y-6">
+                {% for field in form %}
+                    {% if field.name != "foto" %}
+                        <div id="field-{{ field.name }}">
+                            <label for="{{ field.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                                {{ field.label|capfirst }}
+                            </label>
+                            {% if field.name == "departamento" or field.name == "municipio" %}
+                                {{ field|add_class:"form-select w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                            {% elif field.field.widget.input_type == "date" %}
+                                {{ field|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                            {% else %}
+                                {{ field|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                            {% endif %}
+                            {% if field.help_text %}
+                                <div class="text-xs text-gray-500 mt-1">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% if field.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ field.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Foto -->
+            <div class="flex flex-col items-center gap-6 bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 shadow">
+                <label class="text-base font-semibold text-blue-700 dark:text-blue-200 text-center tracking-wide mb-2">
+                    {% trans "Foto" %}
+                </label>
+                <div class="flex flex-col items-center gap-4">
+                    {% if form.instance.foto %}
+                        <img src="{{ form.instance.foto.url }}" alt="Foto" class="h-36 w-36 rounded-full object-cover border-4 border-blue-300 shadow-lg transition hover:scale-105 mb-2">
+                        <button type="button" onclick="borrarFoto()" class="mt-2 px-4 py-1 bg-red-500 text-white rounded-full text-xs shadow hover:bg-red-600 transition">
+                            <i class="ti ti-trash"></i> {% trans "Eliminar foto" %}
+                        </button>
+                        <input type="checkbox" name="foto-clear" id="foto-clear" class="hidden">
+                    {% else %}
+                        <div class="h-36 w-36 rounded-full bg-blue-50 dark:bg-gray-700 flex items-center justify-center border-4 border-blue-200 shadow-lg mb-2">
+                            <span class="text-6xl text-blue-200 dark:text-gray-500">
+                                <i class="ti ti-user"></i>
+                            </span>
+                        </div>
+                    {% endif %}
+                    <!-- Input de archivo personalizado -->
+                    <label class="block w-full">
+                        <span class="block text-sm text-gray-600 mb-1">{% trans "Cambiar foto" %}</span>
+                        {{ form.foto|add_class:"block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" }}
+                    </label>
+                </div>
+                {% if form.foto.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.foto.errors|striptags }}</div>
                 {% endif %}
             </div>
-        {% endfor %}
-        <div class="flex gap-2 mt-6">
-            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
-                Guardar
+        </div>
+
+        <!-- Botones -->
+        <div class="mt-10 flex flex-wrap gap-4 justify-center">
+            <button type="submit" class="px-10 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-xl hover:from-blue-700 hover:to-blue-800 transition font-bold text-lg transform hover:scale-105">
+                {% if empleado %}{% trans "Guardar Cambios" %}{% else %}{% trans "Crear Empleado" %}{% endif %}
             </button>
-            <a href="{% url 'payroll:empleado_lista' %}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-                Cancelar
+            <a href="{% url 'payroll:empleado_lista' %}" class="px-10 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold text-lg shadow transform hover:scale-105">
+                {% trans "Cancelar" %}
             </a>
         </div>
     </form>
 </div>
+
+<!-- Select2 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('#id_departamento').select2({
+        width: '100%',
+        placeholder: 'Selecciona un departamento',
+        allowClear: true,
+        language: "es"
+    });
+    $('#id_municipio').select2({
+        width: '100%',
+        placeholder: 'Selecciona un municipio',
+        allowClear: true,
+        language: "es"
+    });
+
+    var municipioSeleccionado = $('#id_municipio').val();
+
+    $('#id_departamento').on('change', function() {
+        var departamentoId = $(this).val();
+        var $municipio = $('#id_municipio');
+        $municipio.prop('disabled', true).empty().append('<option value="">Cargando...</option>').trigger('change');
+        if (departamentoId) {
+            $.ajax({
+                url: "{% url 'locations:municipios_por_departamento' %}",
+                data: { departamento_id: departamentoId },
+                success: function(data) {
+                    $municipio.empty().append('<option value="">Seleccione municipio</option>');
+                    data.forEach(function(mun) {
+                        var selected = municipioSeleccionado == mun.id ? 'selected' : '';
+                        $municipio.append('<option value="' + mun.id + '" ' + selected + '>' + mun.nombre + '</option>');
+                    });
+                    $municipio.prop('disabled', false).trigger('change');
+                }
+            });
+        } else {
+            $municipio.empty().append('<option value="">Seleccione municipio</option>').prop('disabled', true).trigger('change');
+        }
+    });
+
+    if ($('#id_departamento').val()) {
+        $('#id_departamento').trigger('change');
+    } else {
+        $('#id_municipio').prop('disabled', true).trigger('change');
+    }
+});
+
+// Eliminar foto visualmente atractivo
+function borrarFoto() {
+    const clearInput = document.querySelector('input[name="foto-clear"]');
+    if (clearInput) {
+        clearInput.checked = true;
+        const img = document.querySelector('img[alt="Foto"]');
+        if (img) img.style.opacity = 0.3;
+    }
+}
+</script>
+<style>
+/* Oculta el texto "Actualmente: ..." del widget de archivo de Django */
+input[type="file"] + br,
+input[type="file"] + br + span,
+input[type="file"] + br + span + input[type="checkbox"],
+input[type="file"] + br + span + input[type="checkbox"] + label {
+    display: none !important;
+}
+</style>
 {% endblock %}

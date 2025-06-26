@@ -1,40 +1,47 @@
 {% extends "base.html" %}
-{% block title %}Municipios{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "Municipios" %}{% endblock %}
 {% block content %}
 <div class="bg-white rounded-2xl shadow p-8">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-        <h2 class="text-2xl font-bold text-blue-700">Municipios</h2>
+        <h2 class="text-2xl font-bold text-blue-700">{% trans "Municipios" %}</h2>
         <a href="{% url 'locations:municipio_agregar' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
-            <i class="ti ti-map-pin-cog mr-2"></i> Agregar Municipio
+            <i class="ti ti-map-pin-cog mr-2"></i> {% trans "Agregar Municipio" %}
         </a>
     </div>
     <!-- Motor de búsqueda -->
     <form method="get" class="mb-6 flex flex-col md:flex-row gap-2 md:items-center">
-        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Buscar por código, nombre o departamento..." class="w-full md:w-1/3 px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="{% trans 'Buscar por código, nombre o departamento...' %}" class="w-full md:w-1/3 px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
         <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
-            <i class="ti ti-search mr-1"></i> Buscar
+            <i class="ti ti-search mr-1"></i> {% trans "Buscar" %}
         </button>
         {% if request.GET.q %}
         <a href="{% url 'locations:municipio_lista' %}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-            Limpiar
+            {% trans "Limpiar" %}
         </a>
         {% endif %}
     </form>
-    <div class="overflow-x-auto">
+    <div id="tabla-municipios" class="overflow-x-auto relative">
         <table class="min-w-full divide-y divide-blue-100">
             <thead class="bg-blue-50">
                 <tr>
                     <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">#</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Código</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Nombre</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Departamento</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Código" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Nombre" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">{% trans "Departamento" %}</th>
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-blue-50">
                 {% for municipio in municipios %}
                 <tr class="hover:bg-blue-50 transition">
-                    <td class="px-4 py-2">{{ forloop.counter }}</td>
+                    <td class="px-4 py-2">
+                        {% if municipios.has_other_pages %}
+                            {{ forloop.counter0|add:municipios.start_index }}
+                        {% else %}
+                            {{ forloop.counter }}
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-2 font-mono">{{ municipio.codigo }}</td>
                     <td class="px-4 py-2">
                         <a href="{% url 'locations:municipio_detalle' municipio.pk %}" class="text-blue-700 font-semibold hover:underline">
@@ -53,11 +60,45 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-6 text-gray-400">No hay municipios registrados.</td>
+                    <td colspan="5" class="text-center py-6 text-gray-400">{% trans "No hay municipios registrados." %}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        <!-- Spinner de carga (oculto por defecto) -->
+        <div id="spinner" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10 hidden">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500"></div>
+        </div>
     </div>
+    <!-- Paginación -->
+    {% if municipios.has_other_pages %}
+    <div class="mt-6 flex justify-center gap-2">
+        {% if municipios.has_previous %}
+            <a href="?q={{ request.GET.q }}&page={{ municipios.previous_page_number }}" class="px-3 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition">&laquo;</a>
+        {% else %}
+            <span class="px-3 py-1 rounded bg-gray-100 text-gray-400">&laquo;</span>
+        {% endif %}
+        {% for num in municipios.paginator.page_range %}
+            {% if municipios.number == num %}
+                <span class="px-3 py-1 rounded bg-blue-600 text-white font-bold">{{ num }}</span>
+            {% elif num > municipios.number|add:'-3' and num < municipios.number|add:'3' %}
+                <a href="?q={{ request.GET.q }}&page={{ num }}" class="px-3 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if municipios.has_next %}
+            <a href="?q={{ request.GET.q }}&page={{ municipios.next_page_number }}" class="px-3 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition">&raquo;</a>
+        {% else %}
+            <span class="px-3 py-1 rounded bg-gray-100 text-gray-400">&raquo;</span>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
+<script>
+    // Spinner visual al cambiar de página
+    document.querySelectorAll('.mt-6 a').forEach(function(link) {
+        link.addEventListener('click', function() {
+            document.getElementById('spinner').classList.remove('hidden');
+        });
+    });
+</script>
 {% endblock %}
