@@ -40,3 +40,17 @@ class MunicipioForm(forms.ModelForm):
                 'placeholder': 'Ingrese el nombre del municipio'
             }),
         }
+
+class ImportarExcelForm(forms.Form):
+    excel = forms.FileField(
+        label="Archivo Excel",
+        required=True,
+        widget=forms.ClearableFileInput(attrs={'accept': '.xlsx,.xls'}),
+        help_text="Sube un archivo Excel con los municipios y departamentos."
+    )
+
+    def clean_excel(self):
+        file = self.cleaned_data['excel']
+        if not file.name.endswith(('.xlsx', '.xls')):
+            raise forms.ValidationError("El archivo debe ser de tipo Excel (.xlsx o .xls).")
+        return file

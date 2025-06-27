@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Django
+*.sqlite3
+db.sqlite3
+media/
+staticfiles/
+.env
+*.env
+*.log
+
+# VSCode
+.vscode/
+
+# Entornos virtuales
+venv/
+.venv/
+
+# Archivos de migración innecesarios
+*.bak
+*.swp
+*.swo
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Otros
+.idea/
