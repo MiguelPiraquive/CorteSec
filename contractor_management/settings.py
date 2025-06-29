@@ -13,7 +13,7 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
 ]
 
-SECRET_KEY = os.environ.get('SECRET_KEY')  # Debe estar definida en el entorno
+SECRET_KEY = os.environ.get('SECRET_KEY','django-insecure-4y7!k@#g8z$1p^wq2r9s0l%t6b3c5v8n')  # Debe estar definida en el entorno
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -79,6 +79,18 @@ DATABASES = {
     )
 }
 
+# Base de datos PostgreSQL
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'contractor_management',
+        'USER': 'postgres',
+        'PASSWORD': '12345',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',},
@@ -122,10 +134,10 @@ PASSWORD_RESET_TIMEOUT = 60 * 60  # 1 hora
 # --- Seguridad extra ---
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 X_FRAME_OPTIONS = 'DENY'
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = False
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True

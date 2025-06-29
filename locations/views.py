@@ -114,51 +114,66 @@ def importar_excel(request):
         if form.is_valid():
             excel_file = form.cleaned_data['excel']
 
-            # Limita el tamaño del archivo a 5MB
+            # Limitar tamaño del archivo a 5MB
             if excel_file.size > 5 * 1024 * 1024:
                 messages.error(request, "El archivo es demasiado grande. Máximo 5MB.")
                 return redirect('locations:importar_excel')
 
             try:
-                # Procesa el archivo por partes para evitar alto consumo de memoria
-                chunk_iter = pd.read_excel(excel_file, engine='openpyxl', chunksize=500)
+                # Leer el archivo completo en memoria
+                df = pd.read_excel(excel_file, engine='openpyxl')
             except Exception as e:
                 messages.error(request, f"Error leyendo el archivo: {e}")
                 return redirect('locations:importar_excel')
 
+            # Validar columnas obligatorias
             columnas_requeridas = [
                 'codigo_departamento', 'nombre_departamento',
                 'codigo_municipio', 'nombre_municipio'
             ]
-            nuevos = 0
-            for chunk in chunk_iter:
-                # Valida columnas en cada chunk
-                for col in columnas_requeridas:
-                    if col not in chunk.columns:
-                        messages.error(request, f"Falta la columna '{col}' en el archivo Excel.")
-                        return redirect('locations:importar_excel')
 
-                for _, row in chunk.iterrows():
-                    # Departamento: usa solo el campo único en el filtro
+            for col in columnas_requeridas:
+                if col not in df.columns:
+                    messages.error(request, f"Falta la columna obligatoria: '{col}' en el archivo Excel.")
+                    return redirect('locations:importar_excel')
+
+            nuevos = 0
+
+            try:
+                for _, row in df.iterrows():
+                    # Limpieza de datos
+                    codigo_departamento = str(row['codigo_departamento']).strip()
+                    nombre_departamento = str(row['nombre_departamento']).strip()
+                    codigo_municipio = str(row['codigo_municipio']).strip()
+                    nombre_municipio = str(row['nombre_municipio']).strip()
+
+                    # Crear o actualizar Departamento
                     dep, _ = Departamento.objects.get_or_create(
-                        codigo=row['codigo_departamento'],
-                        defaults={'nombre': row['nombre_departamento']}
+                        codigo=codigo_departamento,
+                        defaults={'nombre': nombre_departamento}
                     )
-                    # Municipio: usa solo el campo único en el filtro
+
+                    # Crear o actualizar Municipio (usando la combinación única)
                     municipio, creado = Municipio.objects.get_or_create(
-                        codigo=row['codigo_municipio'],
-                        defaults={
-                            'nombre': row['nombre_municipio'],
-                            'departamento': dep
-                        }
+                        nombre=nombre_municipio,
+                        departamento=dep,
+                        defaults={'codigo': codigo_municipio}
                     )
+
                     if creado:
                         nuevos += 1
 
-            messages.success(request, f"Importación completada. Municipios nuevos creados: {nuevos}")
-            return redirect('locations:municipio_lista')
+                messages.success(request, f"Importación completada exitosamente. Municipios nuevos creados: {nuevos}")
+                return redirect('locations:municipio_lista')
+
+            except Exception as e:
+                messages.error(request, f"Error procesando el archivo: {e}")
+                return redirect('locations:importar_excel')
+
         else:
             messages.error(request, "Por favor selecciona un archivo Excel válido.")
     else:
         form = ImportarExcelForm()
+
     return render(request, 'locations/importar_excel.html', {'form': form})
+
