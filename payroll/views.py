@@ -153,23 +153,56 @@ class CargoListView(ListView):
     model = Cargo
     template_name = 'payroll/cargo_list.html'
     context_object_name = 'cargos'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        query = self.request.GET.get('q', '')
+        if query:
+            queryset = queryset.filter(nombre__icontains=query)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['query'] = self.request.GET.get('q', '')
+        return context
 
 class CargoCreateView(CreateView):
     model = Cargo
     fields = ['nombre']
     template_name = 'payroll/cargo_form.html'
-    success_url = reverse_lazy('cargo_list')
+    success_url = reverse_lazy('payroll:cargo_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Cargo creado correctamente.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Por favor corrige los errores en el formulario.")
+        return super().form_invalid(form)
 
 class CargoUpdateView(UpdateView):
     model = Cargo
     fields = ['nombre']
     template_name = 'payroll/cargo_form.html'
-    success_url = reverse_lazy('cargo_list')
+    success_url = reverse_lazy('payroll:cargo_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Cargo actualizado correctamente.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Por favor corrige los errores en el formulario.")
+        return super().form_invalid(form)
 
 class CargoDeleteView(DeleteView):
     model = Cargo
     template_name = 'payroll/cargo_confirm_delete.html'
-    success_url = reverse_lazy('cargo_list')
+    success_url = reverse_lazy('payroll:cargo_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "Cargo eliminado correctamente.")
+        return super().delete(request, *args, **kwargs)
 
 class CargoDetailView(DetailView):
     model = Cargo
