@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Eliminar Cargo" %}{% endblock %}
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-8 max-w-lg mx-auto">
+    <h2 class="text-2xl font-bold text-red-600 mb-6">{% trans "Eliminar Cargo" %}</h2>
+    <p class="mb-6 text-lg">
+        {% blocktrans with nombre=object.nombre %}
+            ¿Estás seguro de que deseas eliminar el cargo "{{ nombre }}"?
+        {% endblocktrans %}
+    </p>
+    <form method="post" class="flex gap-4">
+        {% csrf_token %}
+        <button type="submit" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+            {% trans "Sí, eliminar" %}
+        </button>
+        <a href="{% url 'cargo_list' %}" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            {% trans "Cancelar" %}
+        </a>
+    </form>
+</div>

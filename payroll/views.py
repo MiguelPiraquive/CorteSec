@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.forms import inlineformset_factory
 from django.core.paginator import Paginator
-from .models import Empleado, Nomina, DetalleNomina
+from .models import Empleado, Nomina, DetalleNomina, Cargo
 from .forms import EmpleadoForm, NominaForm, DetalleNominaForm
 from items.models import Item  # Importa el modelo Item
 
@@ -148,3 +148,30 @@ def nomina_editar(request, pk):
         formset = DetalleNominaFormSet(instance=nomina)
     items = Item.objects.all()
     return render(request, 'payroll/nomina_formulario.html', {'form': form, 'formset': formset, 'object': nomina, 'items': items})
+
+class CargoListView(ListView):
+    model = Cargo
+    template_name = 'payroll/cargo_list.html'
+    context_object_name = 'cargos'
+
+class CargoCreateView(CreateView):
+    model = Cargo
+    fields = ['nombre']
+    template_name = 'payroll/cargo_form.html'
+    success_url = reverse_lazy('cargo_list')
+
+class CargoUpdateView(UpdateView):
+    model = Cargo
+    fields = ['nombre']
+    template_name = 'payroll/cargo_form.html'
+    success_url = reverse_lazy('cargo_list')
+
+class CargoDeleteView(DeleteView):
+    model = Cargo
+    template_name = 'payroll/cargo_confirm_delete.html'
+    success_url = reverse_lazy('cargo_list')
+
+class CargoDetailView(DetailView):
+    model = Cargo
+    template_name = 'payroll/cargo_detail.html'
+    context_object_name = 'cargo'

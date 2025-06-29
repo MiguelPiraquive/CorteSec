@@ -1,5 +1,13 @@
 from django import forms
-from .models import Empleado, Nomina, DetalleNomina
+from .models import Empleado, Nomina, DetalleNomina, Cargo
+
+class CargoForm(forms.ModelForm):
+    class Meta:
+        model = Cargo
+        fields = ['nombre']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+        }
 
 class EmpleadoForm(forms.ModelForm):
     fecha_nacimiento = forms.DateField(

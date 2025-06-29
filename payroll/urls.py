@@ -18,6 +18,13 @@ urlpatterns = [
     path('nominas/<int:pk>/eliminar/', views.nomina_eliminar, name='nomina_eliminar'),
     path('nominas/<int:pk>/', views.nomina_detalle, name='nomina_detalle'),
 
+    # Cargos
+    path('cargos/', views.CargoListView.as_view(), name='cargo_list'),
+    path('cargos/nuevo/', views.CargoCreateView.as_view(), name='cargo_create'),
+    path('cargos/<int:pk>/editar/', views.CargoUpdateView.as_view(), name='cargo_update'),
+    path('cargos/<int:pk>/eliminar/', views.CargoDeleteView.as_view(), name='cargo_delete'),
+    path('cargos/<int:pk>/', views.CargoDetailView.as_view(), name='cargo_detail'),
+
     # Exportar nóminas a CSV (opcional, si implementaste la función)
     # path('nominas/exportar/', views.exportar_nominas_csv, name='exportar_nominas_csv'),
 ]
