@@ -143,7 +143,7 @@
       </a>
     </li>
     <li class="group relative flex">
-      <a href="{% url 'cargo_list' %}"
+      <a href="{% url 'payroll:cargo_list' %}"
         class="flex items-center w-full transition-all duration-200 font-semibold group
         {% if 'cargo' in request.resolver_match.url_name %}bg-primary/90 text-white shadow-lg{% else %}text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-zinc-800{% endif %}"
         :class="sidebarCollapsed ? 'justify-center h-12 w-12 mx-auto rounded-full' : 'w-full px-4 py-3 rounded-xl'">
