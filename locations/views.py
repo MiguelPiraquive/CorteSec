@@ -138,9 +138,10 @@ def importar_excel(request):
                     return redirect('locations:importar_excel')
 
             nuevos = 0
+            errores = []
 
-            try:
-                for _, row in df.iterrows():
+            for index, row in df.iterrows():
+                try:
                     # Limpieza de datos
                     codigo_departamento = str(row['codigo_departamento']).strip()
                     nombre_departamento = str(row['nombre_departamento']).strip()
@@ -153,7 +154,7 @@ def importar_excel(request):
                         defaults={'nombre': nombre_departamento}
                     )
 
-                    # Crear o actualizar Municipio (usando la combinación única)
+                    # Crear Municipio (si ya existe, lo ignora)
                     municipio, creado = Municipio.objects.get_or_create(
                         nombre=nombre_municipio,
                         departamento=dep,
@@ -163,12 +164,19 @@ def importar_excel(request):
                     if creado:
                         nuevos += 1
 
-                messages.success(request, f"Importación completada exitosamente. Municipios nuevos creados: {nuevos}")
-                return redirect('locations:municipio_lista')
+                except Exception as e:
+                    errores.append(f"Error en la fila {index + 2}: {e}")  # +2 por el header de Excel
 
-            except Exception as e:
-                messages.error(request, f"Error procesando el archivo: {e}")
-                return redirect('locations:importar_excel')
+            if nuevos > 0:
+                messages.success(request, f"Importación completada. Municipios nuevos creados: {nuevos}")
+            else:
+                messages.info(request, "No se crearon nuevos municipios. Todos ya existían o hubo errores.")
+
+            if errores:
+                for error in errores:
+                    messages.warning(request, error)
+
+            return redirect('locations:municipio_lista')
 
         else:
             messages.error(request, "Por favor selecciona un archivo Excel válido.")
@@ -176,4 +184,5 @@ def importar_excel(request):
         form = ImportarExcelForm()
 
     return render(request, 'locations/importar_excel.html', {'form': form})
+
 
