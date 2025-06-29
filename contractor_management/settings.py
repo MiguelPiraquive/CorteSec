@@ -5,7 +5,7 @@ from django.urls import reverse_lazy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     'cortesec.onrender.com',  # Cambia por tu dominio real
