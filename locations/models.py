@@ -41,7 +41,6 @@ class Municipio(models.Model):
         ordering = ["departamento__nombre", "nombre"]
 
     def __str__(self):
-        if self.departamento:
+        if hasattr(self, 'departamento') and self.departamento_id:
             return f"{self.nombre} ({self.departamento.nombre})"
-        return f"{self.nombre} (Sin departamento)"
-
+        return self.nombre
