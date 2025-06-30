@@ -1,5 +1,4 @@
 from django.db import models
-from django.core.exceptions import ValidationError
 
 class Departamento(models.Model):
     nombre = models.CharField("Nombre del Departamento", max_length=100, unique=True)
@@ -12,6 +11,7 @@ class Departamento(models.Model):
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
+
 
 class Municipio(models.Model):
     departamento = models.ForeignKey(
@@ -39,14 +39,3 @@ class Municipio(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.departamento.nombre})"
-
-    def clean(self):
-        # Validación opcional si quieres evitar códigos duplicados a nivel global
-        if self.codigo:
-            existe = Municipio.objects.filter(codigo=self.codigo).exclude(pk=self.pk)
-            if existe.exists():
-                raise ValidationError({'codigo': "Ya existe un municipio con este código."})
-
-    def save(self, *args, **kwargs):
-        self.full_clean()  # Llama a clean() antes de guardar
-        super().save(*args, **kwargs)

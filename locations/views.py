@@ -1,11 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Departamento, Municipio
-from .forms import DepartamentoForm, MunicipioForm,  ImportarExcelForm
+from .forms import DepartamentoForm, MunicipioForm, ImportarExcelForm
 from django.contrib import messages
 import pandas as pd
 from django.db.models import Q
 from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
+# ------------------- MUNICIPIOS AJAX -------------------
 
 def municipios_por_departamento(request):
     departamento_id = request.GET.get('departamento_id')
@@ -13,6 +15,7 @@ def municipios_por_departamento(request):
     if departamento_id:
         municipios = list(Municipio.objects.filter(departamento_id=departamento_id).values('id', 'nombre'))
     return JsonResponse(municipios, safe=False)
+
 # ------------------- DEPARTAMENTO -------------------
 
 def departamento_lista(request):
@@ -108,6 +111,8 @@ def municipio_eliminar(request, pk):
         return redirect('locations:municipio_lista')
     return render(request, 'locations/municipio_confirmar_eliminar.html', {'object': municipio})
 
+# ------------------- IMPORTAR EXCEL -------------------
+
 def importar_excel(request):
     if request.method == 'POST':
         form = ImportarExcelForm(request.POST, request.FILES)
@@ -154,14 +159,20 @@ def importar_excel(request):
                         defaults={'nombre': nombre_departamento}
                     )
 
-                    # Crear Municipio (si ya existe, lo ignora)
+                    # Crear o actualizar Municipio (ignora si ya existe)
                     municipio, creado = Municipio.objects.get_or_create(
                         nombre=nombre_municipio,
                         departamento=dep,
                         defaults={'codigo': codigo_municipio}
                     )
 
-                    if creado:
+                    if not creado:
+                        # Si ya existe, actualizar el código si está vacío
+                        if not municipio.codigo and codigo_municipio:
+                            municipio.codigo = codigo_municipio
+                            municipio.save()
+
+                    if created := creado:
                         nuevos += 1
 
                 except Exception as e:
@@ -184,5 +195,3 @@ def importar_excel(request):
         form = ImportarExcelForm()
 
     return render(request, 'locations/importar_excel.html', {'form': form})
-
-
