@@ -119,7 +119,6 @@ def importar_excel(request):
         if form.is_valid():
             excel_file = form.cleaned_data['excel']
 
-            # Limitar tamaño del archivo a 5MB
             if excel_file.size > 5 * 1024 * 1024:
                 messages.error(request, "El archivo es demasiado grande. Máximo 5MB.")
                 return redirect('locations:importar_excel')
@@ -130,7 +129,6 @@ def importar_excel(request):
                 messages.error(request, f"Error leyendo el archivo: {e}")
                 return redirect('locations:importar_excel')
 
-            # Validar columnas obligatorias
             columnas_requeridas = [
                 'codigo_departamento', 'nombre_departamento',
                 'codigo_municipio', 'nombre_municipio'
@@ -159,14 +157,16 @@ def importar_excel(request):
             errores = []
             nuevos = 0
 
+            # Procesar Departamentos
             for index, row in df.iterrows():
                 try:
-                    codigo_departamento = str(row['codigo_departamento']).strip()
-                    nombre_departamento = str(row['nombre_departamento']).strip()
-                    codigo_municipio = str(row['codigo_municipio']).strip()
-                    nombre_municipio = str(row['nombre_municipio']).strip()
+                    codigo_departamento = str(row['codigo_departamento']).strip() if pd.notna(row['codigo_departamento']) else None
+                    nombre_departamento = str(row['nombre_departamento']).strip() if pd.notna(row['nombre_departamento']) else None
 
-                    # Buscar o crear Departamento (en memoria)
+                    if not codigo_departamento or not nombre_departamento:
+                        errores.append(f"Fila {index + 2}: Departamento con datos incompletos, se omitió.")
+                        continue
+
                     dep = departamentos_existentes.get(codigo_departamento)
                     if not dep:
                         dep = Departamento(codigo=codigo_departamento, nombre=nombre_departamento)
@@ -176,22 +176,28 @@ def importar_excel(request):
                 except Exception as e:
                     errores.append(f"Error en la fila {index + 2}: {e}")
 
-            # Guardar Departamentos nuevos
             if nuevos_departamentos:
                 Departamento.objects.bulk_create(nuevos_departamentos)
 
-                # Recargar departamentos para obtener sus IDs
                 departamentos_actualizados = Departamento.objects.filter(codigo__in=[d.codigo for d in nuevos_departamentos])
                 for d in departamentos_actualizados:
                     departamentos_existentes[d.codigo] = d
 
+            # Procesar Municipios
             for index, row in df.iterrows():
                 try:
-                    codigo_departamento = str(row['codigo_departamento']).strip()
-                    nombre_municipio = str(row['nombre_municipio']).strip()
-                    codigo_municipio = str(row['codigo_municipio']).strip()
+                    codigo_departamento = str(row['codigo_departamento']).strip() if pd.notna(row['codigo_departamento']) else None
+                    nombre_municipio = str(row['nombre_municipio']).strip() if pd.notna(row['nombre_municipio']) else None
+                    codigo_municipio = str(row['codigo_municipio']).strip() if pd.notna(row['codigo_municipio']) else None
 
-                    dep = departamentos_existentes[codigo_departamento]
+                    if not codigo_departamento or not nombre_municipio or not codigo_municipio:
+                        errores.append(f"Fila {index + 2}: Municipio con datos incompletos, se omitió.")
+                        continue
+
+                    dep = departamentos_existentes.get(codigo_departamento)
+                    if not dep:
+                        errores.append(f"Fila {index + 2}: Departamento no encontrado para el municipio, se omitió.")
+                        continue
 
                     key = (nombre_municipio.lower(), dep.codigo)
                     municipio = municipios_existentes.get(key)
@@ -213,11 +219,9 @@ def importar_excel(request):
                 except Exception as e:
                     errores.append(f"Error en la fila {index + 2}: {e}")
 
-            # Guardar Municipios nuevos
             if nuevos_municipios:
                 Municipio.objects.bulk_create(nuevos_municipios)
 
-            # Actualizar Municipios existentes
             if municipios_a_actualizar:
                 Municipio.objects.bulk_update(municipios_a_actualizar, ['codigo'])
 
