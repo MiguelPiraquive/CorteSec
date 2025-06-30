@@ -16,11 +16,12 @@ class EmpleadoListaView(ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().select_related('municipio__departamento')
         query = self.request.GET.get('q', '')
         if query:
             queryset = queryset.filter(nombres__icontains=query) | queryset.filter(apellidos__icontains=query)
         return queryset
+
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

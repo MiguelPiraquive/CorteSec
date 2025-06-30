@@ -39,8 +39,8 @@ class EmpleadoForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Filtrar solo municipios con departamento válido
-        self.fields['municipio'].queryset = Municipio.objects.exclude(departamento__isnull=True)
+        # Precargar los municipios con su departamento para optimizar el queryset
+        self.fields['municipio'].queryset = Municipio.objects.select_related('departamento').all()
 
 class NominaForm(forms.ModelForm):
     periodo_inicio = forms.DateField(

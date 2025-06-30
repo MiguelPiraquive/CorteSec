@@ -41,6 +41,10 @@ class Municipio(models.Model):
         ordering = ["departamento__nombre", "nombre"]
 
     def __str__(self):
-        if hasattr(self, 'departamento') and self.departamento_id:
-            return f"{self.nombre} ({self.departamento.nombre})"
+        try:
+            if self.departamento_id:
+                return f"{self.nombre} ({self.departamento.nombre})"
+        except Exception:
+            pass
         return self.nombre
+
