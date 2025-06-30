@@ -18,8 +18,11 @@ class Municipio(models.Model):
         'Departamento',
         on_delete=models.CASCADE,
         related_name="municipios",
-        verbose_name="Departamento"
+        verbose_name="Departamento",
+        null=False,  # Asegura integridad
+        blank=False   # Asegura que el campo sea obligatorio en formularios
     )
+
     codigo = models.CharField(
         "Código",
         max_length=10,
@@ -38,4 +41,7 @@ class Municipio(models.Model):
         ordering = ["departamento__nombre", "nombre"]
 
     def __str__(self):
-        return f"{self.nombre} ({self.departamento.nombre})"
+        if self.departamento:
+            return f"{self.nombre} ({self.departamento.nombre})"
+        return f"{self.nombre} (Sin departamento)"
+

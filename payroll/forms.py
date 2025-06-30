@@ -1,5 +1,7 @@
 from django import forms
 from .models import Empleado, Nomina, DetalleNomina, Cargo
+from locations.models import Municipio
+
 
 class CargoForm(forms.ModelForm):
     class Meta:
@@ -35,6 +37,10 @@ class EmpleadoForm(forms.ModelForm):
             'cargo': forms.Select(attrs={'class': 'form-select select2'}),
             'foto': forms.ClearableFileInput(attrs={'class': 'form-control'}),
         }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtrar solo municipios con departamento válido
+        self.fields['municipio'].queryset = Municipio.objects.exclude(departamento__isnull=True)
 
 class NominaForm(forms.ModelForm):
     periodo_inicio = forms.DateField(
