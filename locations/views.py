@@ -138,66 +138,50 @@ def importar_excel(request):
                     messages.error(request, f"Falta la columna obligatoria: '{col}' en el archivo Excel.")
                     return redirect('locations:importar_excel')
 
-            # Pre-cargar Departamentos existentes
-            codigos_departamentos = df['codigo_departamento'].dropna().astype(str).str.strip().unique()
-            departamentos_existentes = {
-                d.codigo: d for d in Departamento.objects.filter(codigo__in=codigos_departamentos)
+            # Pre-cargar departamentos por código y por nombre
+            departamentos_existentes_codigo = {
+                d.codigo: d for d in Departamento.objects.all()
+            }
+            departamentos_existentes_nombre = {
+                d.nombre.lower(): d for d in Departamento.objects.all()
             }
 
-            # Pre-cargar Municipios existentes
             nombres_municipios = df['nombre_municipio'].dropna().astype(str).str.strip().unique()
             municipios_existentes = {
                 (m.nombre.lower(), m.departamento.codigo): m
                 for m in Municipio.objects.filter(nombre__in=nombres_municipios)
             }
 
-            nuevos_departamentos = []
             nuevos_municipios = []
             municipios_a_actualizar = []
             errores = []
             nuevos = 0
 
-            # Procesar Departamentos
             for index, row in df.iterrows():
                 try:
                     codigo_departamento = str(row['codigo_departamento']).strip() if pd.notna(row['codigo_departamento']) else None
                     nombre_departamento = str(row['nombre_departamento']).strip() if pd.notna(row['nombre_departamento']) else None
+                    codigo_municipio = str(row['codigo_municipio']).strip() if pd.notna(row['codigo_municipio']) else None
+                    nombre_municipio = str(row['nombre_municipio']).strip() if pd.notna(row['nombre_municipio']) else None
 
                     if not codigo_departamento or not nombre_departamento:
                         errores.append(f"Fila {index + 2}: Departamento con datos incompletos, se omitió.")
                         continue
 
-                    dep = departamentos_existentes.get(codigo_departamento)
-                    if not dep:
-                        dep = Departamento(codigo=codigo_departamento, nombre=nombre_departamento)
-                        nuevos_departamentos.append(dep)
-                        departamentos_existentes[codigo_departamento] = dep
-
-                except Exception as e:
-                    errores.append(f"Error en la fila {index + 2}: {e}")
-
-            if nuevos_departamentos:
-                Departamento.objects.bulk_create(nuevos_departamentos)
-
-                departamentos_actualizados = Departamento.objects.filter(codigo__in=[d.codigo for d in nuevos_departamentos])
-                for d in departamentos_actualizados:
-                    departamentos_existentes[d.codigo] = d
-
-            # Procesar Municipios
-            for index, row in df.iterrows():
-                try:
-                    codigo_departamento = str(row['codigo_departamento']).strip() if pd.notna(row['codigo_departamento']) else None
-                    nombre_municipio = str(row['nombre_municipio']).strip() if pd.notna(row['nombre_municipio']) else None
-                    codigo_municipio = str(row['codigo_municipio']).strip() if pd.notna(row['codigo_municipio']) else None
-
-                    if not codigo_departamento or not nombre_municipio or not codigo_municipio:
+                    if not codigo_municipio or not nombre_municipio:
                         errores.append(f"Fila {index + 2}: Municipio con datos incompletos, se omitió.")
                         continue
 
-                    dep = departamentos_existentes.get(codigo_departamento)
-                    if not dep:
-                        errores.append(f"Fila {index + 2}: Departamento no encontrado para el municipio, se omitió.")
-                        continue
+                    # Buscar o asignar departamento existente
+                    if codigo_departamento in departamentos_existentes_codigo:
+                        dep = departamentos_existentes_codigo[codigo_departamento]
+                    elif nombre_departamento.lower() in departamentos_existentes_nombre:
+                        dep = departamentos_existentes_nombre[nombre_departamento.lower()]
+                        departamentos_existentes_codigo[codigo_departamento] = dep
+                    else:
+                        dep = Departamento.objects.create(codigo=codigo_departamento, nombre=nombre_departamento)
+                        departamentos_existentes_codigo[codigo_departamento] = dep
+                        departamentos_existentes_nombre[nombre_departamento.lower()] = dep
 
                     key = (nombre_municipio.lower(), dep.codigo)
                     municipio = municipios_existentes.get(key)
