@@ -125,7 +125,6 @@ def importar_excel(request):
                 return redirect('locations:importar_excel')
 
             try:
-                # Leer el archivo completo en memoria
                 df = pd.read_excel(excel_file, engine='openpyxl')
             except Exception as e:
                 messages.error(request, f"Error leyendo el archivo: {e}")
@@ -136,47 +135,91 @@ def importar_excel(request):
                 'codigo_departamento', 'nombre_departamento',
                 'codigo_municipio', 'nombre_municipio'
             ]
-
             for col in columnas_requeridas:
                 if col not in df.columns:
                     messages.error(request, f"Falta la columna obligatoria: '{col}' en el archivo Excel.")
                     return redirect('locations:importar_excel')
 
-            nuevos = 0
+            # Pre-cargar Departamentos existentes
+            codigos_departamentos = df['codigo_departamento'].dropna().astype(str).str.strip().unique()
+            departamentos_existentes = {
+                d.codigo: d for d in Departamento.objects.filter(codigo__in=codigos_departamentos)
+            }
+
+            # Pre-cargar Municipios existentes
+            nombres_municipios = df['nombre_municipio'].dropna().astype(str).str.strip().unique()
+            municipios_existentes = {
+                (m.nombre.lower(), m.departamento.codigo): m
+                for m in Municipio.objects.filter(nombre__in=nombres_municipios)
+            }
+
+            nuevos_departamentos = []
+            nuevos_municipios = []
+            municipios_a_actualizar = []
             errores = []
+            nuevos = 0
 
             for index, row in df.iterrows():
                 try:
-                    # Limpieza de datos
                     codigo_departamento = str(row['codigo_departamento']).strip()
                     nombre_departamento = str(row['nombre_departamento']).strip()
                     codigo_municipio = str(row['codigo_municipio']).strip()
                     nombre_municipio = str(row['nombre_municipio']).strip()
 
-                    # Crear o actualizar Departamento
-                    dep, _ = Departamento.objects.get_or_create(
-                        codigo=codigo_departamento,
-                        defaults={'nombre': nombre_departamento}
-                    )
-
-                    # Crear o actualizar Municipio (ignora si ya existe)
-                    municipio, creado = Municipio.objects.get_or_create(
-                        nombre=nombre_municipio,
-                        departamento=dep,
-                        defaults={'codigo': codigo_municipio}
-                    )
-
-                    if not creado:
-                        # Si ya existe, actualizar el código si está vacío
-                        if not municipio.codigo and codigo_municipio:
-                            municipio.codigo = codigo_municipio
-                            municipio.save()
-
-                    if created := creado:
-                        nuevos += 1
+                    # Buscar o crear Departamento (en memoria)
+                    dep = departamentos_existentes.get(codigo_departamento)
+                    if not dep:
+                        dep = Departamento(codigo=codigo_departamento, nombre=nombre_departamento)
+                        nuevos_departamentos.append(dep)
+                        departamentos_existentes[codigo_departamento] = dep
 
                 except Exception as e:
-                    errores.append(f"Error en la fila {index + 2}: {e}")  # +2 por el header de Excel
+                    errores.append(f"Error en la fila {index + 2}: {e}")
+
+            # Guardar Departamentos nuevos
+            if nuevos_departamentos:
+                Departamento.objects.bulk_create(nuevos_departamentos)
+
+                # Recargar departamentos para obtener sus IDs
+                departamentos_actualizados = Departamento.objects.filter(codigo__in=[d.codigo for d in nuevos_departamentos])
+                for d in departamentos_actualizados:
+                    departamentos_existentes[d.codigo] = d
+
+            for index, row in df.iterrows():
+                try:
+                    codigo_departamento = str(row['codigo_departamento']).strip()
+                    nombre_municipio = str(row['nombre_municipio']).strip()
+                    codigo_municipio = str(row['codigo_municipio']).strip()
+
+                    dep = departamentos_existentes[codigo_departamento]
+
+                    key = (nombre_municipio.lower(), dep.codigo)
+                    municipio = municipios_existentes.get(key)
+
+                    if not municipio:
+                        municipio = Municipio(
+                            nombre=nombre_municipio,
+                            codigo=codigo_municipio,
+                            departamento=dep
+                        )
+                        nuevos_municipios.append(municipio)
+                        municipios_existentes[key] = municipio
+                        nuevos += 1
+                    else:
+                        if not municipio.codigo and codigo_municipio:
+                            municipio.codigo = codigo_municipio
+                            municipios_a_actualizar.append(municipio)
+
+                except Exception as e:
+                    errores.append(f"Error en la fila {index + 2}: {e}")
+
+            # Guardar Municipios nuevos
+            if nuevos_municipios:
+                Municipio.objects.bulk_create(nuevos_municipios)
+
+            # Actualizar Municipios existentes
+            if municipios_a_actualizar:
+                Municipio.objects.bulk_update(municipios_a_actualizar, ['codigo'])
 
             if nuevos > 0:
                 messages.success(request, f"Importación completada. Municipios nuevos creados: {nuevos}")
