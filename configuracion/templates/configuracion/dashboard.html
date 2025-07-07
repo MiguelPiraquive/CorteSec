@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans "Configuración del Sistema" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .config-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        border-radius: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .config-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    
+    .module-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .module-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        border-radius: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    
+    .quick-action-btn {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        color: #374151;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 120px;
+        justify-content: center;
+    }
+    
+    .quick-action-btn:hover {
+        border-color: #3b82f6;
+        background: #eff6ff;
+        color: #1d4ed8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    }
+    
+    .company-info-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .badge-active {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+    }
+    
+    .badge-inactive {
+        background: linear-gradient(45deg, #6c757d, #495057);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                    <i class="ti ti-settings text-blue-600 mr-3"></i>
+                    {% trans "Configuración del Sistema" %}
+                </h1>
+                <p class="text-gray-600 mt-1">{% trans "Administre la configuración general y parámetros del sistema" %}</p>
+            </div>
+            
+            <div class="flex gap-2">
+                <a href="{% url 'configuracion:backup' %}" class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg shadow hover:bg-green-200 transition">
+                    <i class="ti ti-download mr-2"></i> {% trans "Backup" %}
+                </a>
+                <a href="{% url 'configuracion:avanzada' %}" class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition">
+                    <i class="ti ti-tool mr-2"></i> {% trans "Configuración Avanzada" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas Rápidas -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="stats-card p-6 text-center">
+            <div class="text-3xl font-bold">{{ total_parametros }}</div>
+            <div class="text-blue-100 mt-1">{% trans "Parámetros" %}</div>
+        </div>
+        <div class="stats-card p-6 text-center">
+            <div class="text-3xl font-bold">{{ modulos_activos }}</div>
+            <div class="text-blue-100 mt-1">{% trans "Módulos Activos" %}</div>
+        </div>
+        <div class="stats-card p-6 text-center">
+            <div class="text-3xl font-bold">{{ logs_hoy }}</div>
+            <div class="text-blue-100 mt-1">{% trans "Cambios Hoy" %}</div>
+        </div>
+        <div class="stats-card p-6 text-center">
+            <div class="text-3xl font-bold">{{ ultimo_backup|timesince|default:"N/A" }}</div>
+            <div class="text-blue-100 mt-1">{% trans "Último Backup" %}</div>
+        </div>
+    </div>
+
+    <!-- Información de la Empresa -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                <i class="ti ti-building text-blue-600 mr-2"></i>
+                {% trans "Información de la Empresa" %}
+            </h2>
+            <a href="{% url 'configuracion:general' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                <i class="ti ti-edit mr-2"></i> {% trans "Editar" %}
+            </a>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="company-info-card p-6">
+                <div class="flex items-center mb-4">
+                    {% if config_general.logo %}
+                        <img src="{{ config_general.logo.url }}" alt="Logo" class="w-12 h-12 object-contain rounded-lg mr-4">
+                    {% else %}
+                        <div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center mr-4">
+                            <i class="ti ti-building text-gray-500 text-xl"></i>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <h3 class="font-semibold text-gray-900">{{ config_general.nombre_empresa }}</h3>
+                        <p class="text-sm text-gray-600">NIT: {{ config_general.nit }}</p>
+                    </div>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center text-gray-600">
+                        <i class="ti ti-map-pin mr-2"></i>
+                        {{ config_general.direccion|truncatechars:50 }}
+                    </div>
+                    <div class="flex items-center text-gray-600">
+                        <i class="ti ti-phone mr-2"></i>
+                        {{ config_general.telefono }}
+                    </div>
+                    <div class="flex items-center text-gray-600">
+                        <i class="ti ti-mail mr-2"></i>
+                        {{ config_general.email }}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="company-info-card p-6">
+                <h4 class="font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="ti ti-currency-dollar text-green-600 mr-2"></i>
+                    {% trans "Configuración Financiera" %}
+                </h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">{% trans "Moneda:" %}</span>
+                        <span class="font-medium">{{ config_general.moneda }} ({{ config_general.simbolo_moneda }})</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">{% trans "Período Nómina:" %}</span>
+                        <span class="font-medium">{{ config_general.get_periodo_nomina_display }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">{% trans "Día de Pago:" %}</span>
+                        <span class="font-medium">{{ config_general.dia_pago_nomina }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="company-info-card p-6">
+                <h4 class="font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="ti ti-shield-lock text-red-600 mr-2"></i>
+                    {% trans "Configuración de Seguridad" %}
+                </h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">{% trans "Timeout Sesión:" %}</span>
+                        <span class="font-medium">{{ config_general.sesion_timeout_minutos }} min</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">{% trans "Max Intentos:" %}</span>
+                        <span class="font-medium">{{ config_general.max_intentos_login }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">{% trans "Cambio Password:" %}</span>
+                        <span class="font-medium">
+                            {% if config_general.requiere_cambio_password %}
+                                {{ config_general.dias_cambio_password }} días
+                            {% else %}
+                                {% trans "No requerido" %}
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones Rápidas -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+            <i class="ti ti-bolt text-yellow-600 mr-2"></i>
+            {% trans "Acciones Rápidas" %}
+        </h2>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <a href="{% url 'configuracion:general' %}" class="quick-action-btn">
+                <i class="ti ti-settings text-2xl mb-2"></i>
+                <span class="text-sm font-medium">{% trans "General" %}</span>
+            </a>
+            
+            <a href="{% url 'configuracion:parametros_list' %}" class="quick-action-btn">
+                <i class="ti ti-adjustments text-2xl mb-2"></i>
+                <span class="text-sm font-medium">{% trans "Parámetros" %}</span>
+            </a>
+            
+            <a href="{% url 'configuracion:modulos_list' %}" class="quick-action-btn">
+                <i class="ti ti-apps text-2xl mb-2"></i>
+                <span class="text-sm font-medium">{% trans "Módulos" %}</span>
+            </a>
+            
+            <a href="{% url 'configuracion:logs_list' %}" class="quick-action-btn">
+                <i class="ti ti-file-text text-2xl mb-2"></i>
+                <span class="text-sm font-medium">{% trans "Logs" %}</span>
+            </a>
+            
+            <a href="{% url 'configuracion:backup' %}" class="quick-action-btn">
+                <i class="ti ti-database text-2xl mb-2"></i>
+                <span class="text-sm font-medium">{% trans "Backup" %}</span>
+            </a>
+            
+            <a href="{% url 'configuracion:avanzada' %}" class="quick-action-btn">
+                <i class="ti ti-tool text-2xl mb-2"></i>
+                <span class="text-sm font-medium">{% trans "Avanzada" %}</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Estado de Módulos -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+            <i class="ti ti-apps text-purple-600 mr-2"></i>
+            {% trans "Estado de Módulos" %}
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for modulo in modulos_config %}
+                <div class="module-card p-4 border border-gray-200 rounded-lg">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center">
+                            {% if modulo.icono %}
+                                <i class="{{ modulo.icono }} text-xl mr-3" style="color: {{ modulo.color|default:'#6b7280' }}"></i>
+                            {% else %}
+                                <i class="ti ti-app-window text-xl text-gray-500 mr-3"></i>
+                            {% endif %}
+                            <div>
+                                <h3 class="font-medium text-gray-900">{{ modulo.modulo|title }}</h3>
+                                {% if modulo.version %}
+                                    <p class="text-xs text-gray-500">v{{ modulo.version }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if modulo.activo %}
+                            <span class="badge badge-active px-2 py-1 rounded-full text-xs">
+                                <i class="ti ti-check mr-1"></i>{% trans "Activo" %}
+                            </span>
+                        {% else %}
+                            <span class="badge badge-inactive px-2 py-1 rounded-full text-xs">
+                                <i class="ti ti-x mr-1"></i>{% trans "Inactivo" %}
+                            </span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">{% trans "Orden:" %} {{ modulo.orden_menu }}</span>
+                        <a href="{% url 'configuracion:modulo_edit' modulo.pk %}" class="text-blue-600 hover:text-blue-700 transition">
+                            <i class="ti ti-edit text-sm"></i>
+                        </a>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <i class="ti ti-apps text-4xl text-gray-300 mb-3"></i>
+                    <p class="text-gray-500">{% trans "No hay módulos configurados" %}</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Actividad Reciente -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                <i class="ti ti-clock text-green-600 mr-2"></i>
+                {% trans "Actividad Reciente" %}
+            </h2>
+            <a href="{% url 'configuracion:logs_list' %}" class="text-blue-600 hover:text-blue-700 transition">
+                {% trans "Ver todos" %} <i class="ti ti-arrow-right ml-1"></i>
+            </a>
+        </div>
+        
+        <div class="space-y-3">
+            {% for log in logs_recientes %}
+                <div class="flex items-center p-3 border border-gray-100 rounded-lg">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3
+                        {% if log.tipo_cambio == 'general' %}bg-blue-100 text-blue-600
+                        {% elif log.tipo_cambio == 'parametro' %}bg-yellow-100 text-yellow-600
+                        {% else %}bg-purple-100 text-purple-600{% endif %}">
+                        {% if log.tipo_cambio == 'general' %}
+                            <i class="ti ti-settings text-sm"></i>
+                        {% elif log.tipo_cambio == 'parametro' %}
+                            <i class="ti ti-adjustments text-sm"></i>
+                        {% else %}
+                            <i class="ti ti-apps text-sm"></i>
+                        {% endif %}
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-900">{{ log.item_modificado }}</p>
+                        <p class="text-xs text-gray-500">
+                            {% trans "por" %} {{ log.usuario.get_full_name|default:log.usuario.username }} - 
+                            {{ log.fecha_cambio|timesince }} {% trans "atrás" %}
+                        </p>
+                    </div>
+                    <span class="text-xs px-2 py-1 rounded-full
+                        {% if log.tipo_cambio == 'general' %}bg-blue-100 text-blue-700
+                        {% elif log.tipo_cambio == 'parametro' %}bg-yellow-100 text-yellow-700
+                        {% else %}bg-purple-100 text-purple-700{% endif %}">
+                        {{ log.get_tipo_cambio_display }}
+                    </span>
+                </div>
+            {% empty %}
+                <div class="text-center py-8">
+                    <i class="ti ti-clock text-4xl text-gray-300 mb-3"></i>
+                    <p class="text-gray-500">{% trans "No hay actividad reciente" %}</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Include the toast system -->
+{% include 'cargos/cargos/toast_notifications.html' %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh de estadísticas cada 5 minutos
+    setInterval(function() {
+        fetch(window.location.href, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Actualizar estadísticas si es necesario
+            if (data.stats) {
+                // Actualizar contadores
+            }
+        })
+        .catch(console.error);
+    }, 300000); // 5 minutos
+});
+
+// Mostrar notificaciones de Django como toasts
+{% if messages %}
+    {% for message in messages %}
+        toastManager.{{ message.tags|default:'info' }}('{{ message|escapejs }}');
+    {% endfor %}
+{% endif %}
+</script>
+{% endblock %}

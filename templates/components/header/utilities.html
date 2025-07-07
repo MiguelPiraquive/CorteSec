@@ -1,0 +1,128 @@
+{% load i18n %}
+
+<!-- ===== UTILITIES COMPONENT ===== -->
+<div class="flex items-center space-x-2">
+  
+  <!-- Language Selector -->
+  <div class="relative" x-data="{ 
+    currentLang: '{{ LANGUAGE_CODE|default:'es' }}',
+    langOpen: false,
+    languages: [
+      { code: 'es', name: 'Español', flag: '🇪🇸' },
+      { code: 'en', name: 'English', flag: '🇺🇸' }
+    ]
+  }">
+    <button @click="langOpen = !langOpen" 
+            class="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 btn-header"
+            :title="'{% trans "Cambiar idioma" %}'">
+      <span x-text="languages.find(l => l.code === currentLang)?.flag" class="text-sm"></span>
+      <span class="text-sm font-medium hidden sm:inline" x-text="languages.find(l => l.code === currentLang)?.code.toUpperCase()"></span>
+      <i class="fas fa-chevron-down text-xs transition-transform duration-200" :class="{ 'rotate-180': langOpen }"></i>
+    </button>
+    
+    <div x-show="langOpen" 
+         x-transition
+         @click.away="langOpen = false"
+         class="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 min-w-[150px] z-50">
+      <template x-for="lang in languages" :key="lang.code">
+        <a :href="'/i18n/setlang/' + lang.code + '/'" 
+           class="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 first:rounded-t-lg last:rounded-b-lg transition-colors duration-200 text-gray-700 dark:text-gray-300">
+          <span x-text="lang.flag"></span>
+          <span class="text-sm font-medium" x-text="lang.name"></span>
+          <i class="fas fa-check text-green-500 ml-auto" x-show="lang.code === currentLang"></i>
+        </a>
+      </template>
+    </div>
+  </div>
+
+  <!-- Dark Mode Toggle -->
+  <button 
+    @click="$store.theme.toggle()" 
+    class="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 group btn-header"
+    :title="$store.theme.darkMode ? '{% trans "Cambiar a modo claro" %}' : '{% trans "Cambiar a modo oscuro" %}'"
+  >
+    <!-- Sol (Light Mode) -->
+    <i class="fas fa-sun text-yellow-500 absolute inset-0 m-auto transition-all duration-300 transform"
+       :class="$store.theme.darkMode ? 'opacity-0 rotate-180 scale-0' : 'opacity-100 rotate-0 scale-100'"
+       x-show="!$store.theme.darkMode"></i>
+    
+    <!-- Luna (Dark Mode) -->
+    <i class="fas fa-moon text-blue-400 absolute inset-0 m-auto transition-all duration-300 transform"
+       :class="$store.theme.darkMode ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-180 scale-0'"
+       x-show="$store.theme.darkMode" 
+       style="display: none;"></i>
+  </button>
+
+  <!-- Fullscreen Toggle -->
+  <button 
+    x-data="{ 
+      isFullscreen: false,
+      toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().then(() => {
+            this.isFullscreen = true;
+          }).catch(err => {
+            console.log('Error enabling fullscreen:', err);
+          });
+        } else {
+          document.exitFullscreen().then(() => {
+            this.isFullscreen = false;
+          });
+        }
+      }
+    }"
+    @click="toggleFullscreen()"
+    x-init="
+      document.addEventListener('fullscreenchange', () => {
+        isFullscreen = !!document.fullscreenElement;
+      });
+    "
+    class="hidden lg:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 btn-header"
+    :title="isFullscreen ? '{% trans "Salir de pantalla completa" %}' : '{% trans "Pantalla completa" %}'"
+  >
+    <i class="fas transition-all duration-200"
+       :class="isFullscreen ? 'fa-compress text-green-500' : 'fa-expand text-gray-600 dark:text-gray-400'"></i>
+  </button>
+
+  <!-- Settings Dropdown -->
+  <div class="relative" x-data="{ settingsOpen: false }">
+    <button 
+      @click="settingsOpen = !settingsOpen"
+      class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 btn-header"
+      :title="'{% trans "Configuración" %}'"
+    >
+      <i class="fas fa-cog text-gray-600 dark:text-gray-400 transition-transform duration-300"
+         :class="{ 'rotate-180': settingsOpen }"></i>
+    </button>
+    
+    <div x-show="settingsOpen" 
+         x-transition
+         @click.away="settingsOpen = false"
+         class="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 min-w-[200px] z-50">
+      <div class="py-2">
+        <a href="{% url 'perfil:usuario' %}" class="flex items-center space-x-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 text-gray-700 dark:text-gray-300">
+          <i class="fas fa-user text-blue-500"></i>
+          <span class="text-sm">{% trans 'Mi Perfil' %}</span>
+        </a>
+        <a href="{% url 'configuracion:dashboard' %}" class="flex items-center space-x-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 text-gray-700 dark:text-gray-300">
+          <i class="fas fa-sliders-h text-green-500"></i>
+          <span class="text-sm">{% trans 'Configuración' %}</span>
+        </a>
+        <a href="{% url 'perfil:seguridad' %}" class="flex items-center space-x-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 text-gray-700 dark:text-gray-300">
+          <i class="fas fa-shield-alt text-red-500"></i>
+          <span class="text-sm">{% trans 'Seguridad' %}</span>
+        </a>
+        <hr class="my-2 border-gray-200 dark:border-gray-600">
+        <a href="{% url 'ayuda:centro' %}" class="flex items-center space-x-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 text-gray-700 dark:text-gray-300">
+          <i class="fas fa-question-circle text-purple-500"></i>
+          <span class="text-sm">{% trans 'Ayuda' %}</span>
+        </a>
+        <a href="/admin/" class="flex items-center space-x-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 text-gray-700 dark:text-gray-300">
+          <i class="fas fa-book text-indigo-500"></i>
+          <span class="text-sm">{% trans 'Administración' %}</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>

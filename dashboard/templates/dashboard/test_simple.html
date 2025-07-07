@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}Dashboard Simple - Test{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 p-8">
+  
+  <!-- Header de Prueba -->
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">🧪 Dashboard de Prueba</h1>
+    <p class="text-gray-600 mt-2">Verificando que el template se renderiza correctamente</p>
+  </div>
+
+  <!-- Test básico de Alpine.js -->
+  <div x-data="{ 
+    message: 'Alpine.js funciona correctamente!',
+    count: 0,
+    loading: true,
+    init() {
+      console.log('Alpine.js inicializado');
+      setTimeout(() => {
+        this.loading = false;
+      }, 1000);
+    }
+  }" 
+  x-init="init()"
+  class="space-y-6">
+    
+    <!-- Loading Test -->
+    <div x-show="loading" class="p-4 bg-blue-100 rounded-lg">
+      <p class="text-blue-800">⏳ Cargando...</p>
+    </div>
+    
+    <!-- Content Test -->
+    <div x-show="!loading" x-transition class="space-y-4">
+      
+      <!-- Test de Variables -->
+      <div class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-xl font-semibold mb-4">✅ Test de Variables</h2>
+        <p x-text="message" class="text-green-600 font-medium"></p>
+        <button @click="count++" class="mt-2 px-4 py-2 bg-blue-500 text-white rounded">
+          Contador: <span x-text="count"></span>
+        </button>
+      </div>
+      
+      <!-- Test de Datos del Context -->
+      <div class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-xl font-semibold mb-4">📊 Test de Datos del Backend</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="p-3 bg-blue-50 rounded">
+            <div class="text-2xl font-bold text-blue-600">{{ total_empleados|default:0 }}</div>
+            <div class="text-sm text-blue-800">Empleados</div>
+          </div>
+          <div class="p-3 bg-green-50 rounded">
+            <div class="text-2xl font-bold text-green-600">${{ total_nomina_mes|default:0|floatformat:0 }}</div>
+            <div class="text-sm text-green-800">Nómina Mes</div>
+          </div>
+          <div class="p-3 bg-orange-50 rounded">
+            <div class="text-2xl font-bold text-orange-600">{{ prestamos_activos|default:0 }}</div>
+            <div class="text-sm text-orange-800">Préstamos</div>
+          </div>
+          <div class="p-3 bg-purple-50 rounded">
+            <div class="text-2xl font-bold text-purple-600">{{ proyectos_activos|default:0 }}</div>
+            <div class="text-sm text-purple-800">Proyectos</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Test de JSON Data -->
+      <div class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-xl font-semibold mb-4">🔗 Test de JSON Scripts</h2>
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span>Nóminas Data:</span>
+            <span id="nominas-status" class="text-red-500">❌ No encontrado</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Préstamos Data:</span>
+            <span id="prestamos-status" class="text-red-500">❌ No encontrado</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Empleados Data:</span>
+            <span id="empleados-status" class="text-red-500">❌ No encontrado</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Actividad Data:</span>
+            <span id="actividad-status" class="text-red-500">❌ No encontrado</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Test de Chart.js -->
+      <div class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-xl font-semibold mb-4">📈 Test de Chart.js</h2>
+        <div class="h-64 bg-gray-50 rounded flex items-center justify-center">
+          <canvas id="test-chart" width="400" height="200"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- JSON Scripts para probar -->
+  {{ nominas_por_mes|json_script:"nominas-data" }}
+  {{ prestamos_por_estado|json_script:"prestamos-data" }}
+  {{ empleados_por_mes|json_script:"empleados-data" }}
+  {{ actividad_reciente|json_script:"actividad-data" }}
+
+</div>
+
+<script>
+// Test de JSON Scripts
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🚀 Iniciando tests del dashboard...');
+  
+  // Test JSON Scripts
+  const jsonTests = [
+    { id: 'nominas-data', status: 'nominas-status' },
+    { id: 'prestamos-data', status: 'prestamos-status' },
+    { id: 'empleados-data', status: 'empleados-status' },
+    { id: 'actividad-data', status: 'actividad-status' }
+  ];
+  
+  jsonTests.forEach(test => {
+    const element = document.getElementById(test.id);
+    const statusElement = document.getElementById(test.status);
+    
+    if (element) {
+      try {
+        const data = JSON.parse(element.textContent);
+        statusElement.textContent = '✅ OK (' + (Array.isArray(data) ? data.length : Object.keys(data).length) + ' items)';
+        statusElement.className = 'text-green-500';
+        console.log(`✅ ${test.id}:`, data);
+      } catch (e) {
+        statusElement.textContent = '⚠️ Error de parse';
+        statusElement.className = 'text-orange-500';
+        console.error(`❌ Error parsing ${test.id}:`, e);
+      }
+    } else {
+      console.error(`❌ ${test.id} no encontrado en DOM`);
+    }
+  });
+  
+  // Test Chart.js
+  if (typeof Chart !== 'undefined') {
+    console.log('✅ Chart.js disponible');
+    const ctx = document.getElementById('test-chart');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+          datasets: [{
+            label: 'Test Chart',
+            data: [12, 19, 3, 5, 2, 3],
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+      console.log('✅ Chart.js test chart creado');
+    }
+  } else {
+    console.error('❌ Chart.js no está disponible');
+  }
+  
+  console.log('🎉 Tests completados');
+});
+</script>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}

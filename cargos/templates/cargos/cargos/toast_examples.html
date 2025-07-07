@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}Ejemplos de Toast Notifications{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+            <i class="ti ti-bell text-blue-600 mr-3"></i>
+            Sistema de Notificaciones Toast
+        </h1>
+        <p class="text-gray-600 mt-2">
+            Ejemplos y documentación del sistema de notificaciones mejorado
+        </p>
+    </div>
+
+    <!-- Ejemplos Básicos -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Notificaciones Básicas</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <button onclick="toastManager.success('¡Operación completada exitosamente!')" 
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                <i class="ti ti-check mr-2"></i>Éxito
+            </button>
+            
+            <button onclick="toastManager.error('Ha ocurrido un error inesperado')" 
+                    class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                <i class="ti ti-x mr-2"></i>Error
+            </button>
+            
+            <button onclick="toastManager.warning('Esta acción requiere confirmación')" 
+                    class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition">
+                <i class="ti ti-alert-triangle mr-2"></i>Advertencia
+            </button>
+            
+            <button onclick="toastManager.info('Nueva información disponible')" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                <i class="ti ti-info-circle mr-2"></i>Información
+            </button>
+        </div>
+    </div>
+
+    <!-- Ejemplos Avanzados -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Notificaciones Avanzadas</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button onclick="showLoadingExample()" 
+                    class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                <i class="ti ti-loader mr-2"></i>Loading
+            </button>
+            
+            <button onclick="showConfirmExample()" 
+                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                <i class="ti ti-help-circle mr-2"></i>Confirmación
+            </button>
+            
+            <button onclick="showProgressExample()" 
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                <i class="ti ti-progress mr-2"></i>Progreso
+            </button>
+        </div>
+    </div>
+
+    <!-- Ejemplos con Acciones -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Notificaciones con Acciones</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button onclick="showActionsExample()" 
+                    class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition">
+                <i class="ti ti-settings mr-2"></i>Con Acciones
+            </button>
+            
+            <button onclick="showPersistentExample()" 
+                    class="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition">
+                <i class="ti ti-pin mr-2"></i>Persistente
+            </button>
+        </div>
+    </div>
+
+    <!-- Configuración -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Configuración</h2>
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-gray-700">Sonidos habilitados</label>
+                <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)" 
+                       class="w-4 h-4 text-blue-600 rounded">
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-gray-700">Máximo de toasts</label>
+                <select id="maxToasts" onchange="setMaxToasts(this.value)" 
+                        class="px-3 py-1 border border-gray-300 rounded-md">
+                    <option value="3">3</option>
+                    <option value="5" selected>5</option>
+                    <option value="7">7</option>
+                    <option value="10">10</option>
+                </select>
+            </div>
+            
+            <button onclick="toastManager.removeAll()" 
+                    class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                <i class="ti ti-trash mr-2"></i>Limpiar Todas
+            </button>
+        </div>
+    </div>
+
+    <!-- Documentación -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Documentación de Uso</h2>
+        <div class="prose max-w-none">
+            <h3>Métodos Básicos</h3>
+            <pre class="bg-gray-100 p-4 rounded-lg"><code>// Notificaciones básicas
+toastManager.success('Mensaje de éxito');
+toastManager.error('Mensaje de error');
+toastManager.warning('Mensaje de advertencia');
+toastManager.info('Mensaje informativo');
+
+// Con duración personalizada
+toastManager.success('Mensaje', 3000); // 3 segundos</code></pre>
+
+            <h3>Métodos Avanzados</h3>
+            <pre class="bg-gray-100 p-4 rounded-lg"><code>// Notificación con opciones
+toastManager.show('Mensaje', 'success', 5000, {
+    icon: 'ti ti-custom-icon',
+    title: 'Título personalizado',
+    persistent: false,
+    actions: [
+        { text: 'Acción', onClick: 'funcionPersonalizada()', primary: true }
+    ]
+});
+
+// Notificación de carga
+const loading = toastManager.loading('Procesando...');
+// ... después de completar
+toastManager.remove(loading);
+
+// Confirmación
+toastManager.confirm('¿Estás seguro?', 'confirmar()', 'cancelar()');
+
+// Barra de progreso
+const progress = toastManager.progress('Subiendo archivo...');
+progress.updateProgress(50, 'Mitad completado...');
+progress.updateProgress(100, 'Completado!');</code></pre>
+
+            <h3>Integración con Django</h3>
+            <pre class="bg-gray-100 p-4 rounded-lg"><code>// Auto-captura mensajes de Django
+toastManager.fromDjangoMessages();
+
+// Desde respuesta AJAX
+fetch('/api/endpoint/')
+    .then(response => response.json())
+    .then(data => toastManager.fromAjaxResponse(data));</code></pre>
+        </div>
+    </div>
+</div>
+
+<!-- Include the toast system -->
+{% include 'cargos/cargos/toast_notifications.html' %}
+
+<script>
+// Ejemplos de funciones
+
+function showLoadingExample() {
+    const loading = toastManager.loading('Procesando solicitud...');
+    
+    // Simular proceso
+    setTimeout(() => {
+        toastManager.remove(loading);
+        toastManager.success('Proceso completado exitosamente!');
+    }, 3000);
+}
+
+function showConfirmExample() {
+    toastManager.confirm(
+        '¿Estás seguro de que quieres eliminar este elemento?',
+        'toastManager.success("Elemento eliminado!")',
+        'toastManager.info("Acción cancelada")'
+    );
+}
+
+function showProgressExample() {
+    const progress = toastManager.progress('Iniciando descarga...', 0);
+    let percentage = 0;
+    
+    const interval = setInterval(() => {
+        percentage += Math.random() * 20;
+        if (percentage >= 100) {
+            percentage = 100;
+            clearInterval(interval);
+        }
+        
+        progress.updateProgress(percentage, `Descargando... ${Math.round(percentage)}%`);
+    }, 500);
+}
+
+function showActionsExample() {
+    toastManager.show('Nueva actualización disponible', 'info', 0, {
+        title: 'Actualización Disponible',
+        actions: [
+            {
+                text: 'Actualizar Ahora',
+                primary: true,
+                onClick: 'toastManager.success("Actualizando..."); location.reload();'
+            },
+            {
+                text: 'Más Tarde',
+                primary: false,
+                onClick: 'toastManager.info("Recordatorio establecido")'
+            }
+        ]
+    });
+}
+
+function showPersistentExample() {
+    toastManager.show('Esta notificación permanecerá hasta que la cierres manualmente', 'warning', 0, {
+        persistent: true,
+        title: 'Notificación Persistente'
+    });
+}
+
+function toggleSound(enabled) {
+    toastManager.setSoundEnabled(enabled);
+    toastManager.info(`Sonidos ${enabled ? 'activados' : 'desactivados'}`);
+}
+
+function setMaxToasts(max) {
+    toastManager.setMaxToasts(parseInt(max));
+    toastManager.info(`Máximo de toasts establecido a ${max}`);
+}
+
+// Cargar configuración actual
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('soundToggle').checked = toastManager.soundEnabled;
+    document.getElementById('maxToasts').value = toastManager.maxToasts;
+});
+</script>
+{% endblock %}

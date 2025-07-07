@@ -1,0 +1,178 @@
+<!-- Tabla de roles -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for rol in page_obj %}
+    <div class="bg-white rounded-lg border border-gray-200 card-hover overflow-hidden">
+        <!-- Header de la tarjeta -->
+        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="bg-white bg-opacity-20 rounded-full p-2 mr-3">
+                        <i class="fas fa-user-shield text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">{{ rol.nombre }}</h3>
+                        <span class="badge-nivel text-xs px-2 py-1 rounded-full text-white bg-white bg-opacity-20">
+                            Nivel {{ rol.nivel }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Estado -->
+                <div class="flex items-center">
+                    {% if rol.activo %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            Activo
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <i class="fas fa-times-circle mr-1"></i>
+                            Inactivo
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenido de la tarjeta -->
+        <div class="p-6">
+            <!-- Descripción -->
+            <p class="text-gray-600 text-sm mb-4 line-clamp-3">
+                {{ rol.descripcion|default:"Sin descripción" }}
+            </p>
+
+            <!-- Estadísticas -->
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-2xl font-bold text-indigo-600">{{ rol.permisos.count }}</div>
+                    <div class="text-xs text-gray-500">Permisos</div>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <div class="text-2xl font-bold text-purple-600">{{ rol.usuarios_count|default:0 }}</div>
+                    <div class="text-xs text-gray-500">Usuarios</div>
+                </div>
+            </div>
+
+            <!-- Información adicional -->
+            <div class="text-xs text-gray-500 mb-4">
+                <div class="flex items-center mb-1">
+                    <i class="fas fa-calendar-plus mr-2"></i>
+                    Creado: {{ rol.fecha_creacion|date:"d/m/Y H:i" }}
+                </div>
+                {% if rol.fecha_modificacion %}
+                <div class="flex items-center">
+                    <i class="fas fa-edit mr-2"></i>
+                    Modificado: {{ rol.fecha_modificacion|date:"d/m/Y H:i" }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Acciones -->
+            <div class="flex flex-wrap gap-2">
+                <!-- Ver detalles -->
+                <button @click="abrirModal('ver', {{ rol.id }})"
+                        class="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    <i class="fas fa-eye mr-1"></i>
+                    Ver
+                </button>
+
+                <!-- Editar -->
+                <button @click="abrirModal('editar', {{ rol.id }})"
+                        class="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    <i class="fas fa-edit mr-1"></i>
+                    Editar
+                </button>
+
+                <!-- Toggle activo -->
+                <button @click="confirmarToggleActivo({{ rol.id }}, '{{ rol.nombre }}', {{ rol.activo|yesno:'true,false' }})"
+                        class="px-3 py-2 border border-transparent text-sm font-medium rounded-md transition-colors
+                               {% if rol.activo %}
+                                   text-yellow-700 bg-yellow-100 hover:bg-yellow-200
+                               {% else %}
+                                   text-green-700 bg-green-100 hover:bg-green-200
+                               {% endif %}">
+                    {% if rol.activo %}
+                        <i class="fas fa-pause"></i>
+                    {% else %}
+                        <i class="fas fa-play"></i>
+                    {% endif %}
+                </button>
+
+                <!-- Eliminar -->
+                <button @click="confirmarEliminacion({{ rol.id }}, '{{ rol.nombre }}')"
+                        class="px-3 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <!-- Estado vacío -->
+    <div class="col-span-full">
+        <div class="text-center py-12">
+            <div class="bg-gray-100 rounded-full p-6 w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+                <i class="fas fa-user-shield text-gray-400 text-3xl"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No hay roles</h3>
+            <p class="text-gray-500 mb-6">
+                {% if search_query or activo_filter %}
+                    No se encontraron roles con los filtros aplicados.
+                {% else %}
+                    Comienza creando tu primer rol del sistema.
+                {% endif %}
+            </p>
+            <button @click="abrirModal('crear')"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors">
+                <i class="fas fa-plus mr-2"></i>
+                Crear Primer Rol
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Paginación -->
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="mt-8 flex items-center justify-between">
+    <div class="text-sm text-gray-700">
+        Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} roles
+    </div>
+    
+    <nav class="flex items-center space-x-2">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if activo_filter %}&activo={{ activo_filter }}{% endif %}"
+               class="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 border border-gray-300 hover:bg-gray-50">
+                <i class="fas fa-angle-double-left"></i>
+            </a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if activo_filter %}&activo={{ activo_filter }}{% endif %}"
+               class="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 border border-gray-300 hover:bg-gray-50">
+                <i class="fas fa-angle-left"></i>
+            </a>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <span class="px-3 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 border border-indigo-600">
+                    {{ num }}
+                </span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if activo_filter %}&activo={{ activo_filter }}{% endif %}"
+                   class="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 border border-gray-300 hover:bg-gray-50">
+                    {{ num }}
+                </a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if activo_filter %}&activo={{ activo_filter }}{% endif %}"
+               class="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 border border-gray-300 hover:bg-gray-50">
+                <i class="fas fa-angle-right"></i>
+            </a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if activo_filter %}&activo={{ activo_filter }}{% endif %}"
+               class="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 border border-gray-300 hover:bg-gray-50">
+                <i class="fas fa-angle-double-right"></i>
+            </a>
+        {% endif %}
+    </nav>
+</div>
+{% endif %}

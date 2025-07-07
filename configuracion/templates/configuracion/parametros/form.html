@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}
+    {% if parametro %}
+        {% trans "Editar Parámetro" %}: {{ parametro.codigo }}
+    {% else %}
+        {% trans "Nuevo Parámetro" %}
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        display: block;
+        font-weight: 500;
+        color: #374151;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .help-text {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        border: none;
+        border-radius: 25px;
+        padding: 12px 24px;
+        color: white;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,123,255,0.4);
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        border: none;
+        border-radius: 25px;
+        padding: 12px 24px;
+        color: white;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+    }
+    
+    .tipo-preview {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1rem;
+        display: none;
+    }
+    
+    .preview-example {
+        font-family: monospace;
+        background: #e9ecef;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                    <i class="ti ti-adjustments text-blue-600 mr-3"></i>
+                    {% if parametro %}
+                        {% trans "Editar Parámetro" %}
+                    {% else %}
+                        {% trans "Nuevo Parámetro" %}
+                    {% endif %}
+                </h1>
+                {% if parametro %}
+                    <p class="text-gray-600 mt-1">{% trans "Modificar configuración del parámetro" %}: {{ parametro.codigo }}</p>
+                {% else %}
+                    <p class="text-gray-600 mt-1">{% trans "Crear un nuevo parámetro de configuración del sistema" %}</p>
+                {% endif %}
+            </div>
+            <a href="{% url 'configuracion:parametros_list' %}" class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition">
+                <i class="ti ti-arrow-left mr-2"></i>{% trans "Volver" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Formulario -->
+    <div class="bg-white rounded-2xl shadow overflow-hidden">
+        <form method="post" class="p-6 space-y-6">
+            {% csrf_token %}
+            
+            <!-- Información Básica -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="form-group">
+                    <label for="{{ form.codigo.id_for_label }}" class="form-label">
+                        <i class="ti ti-code mr-1"></i>{{ form.codigo.label }}
+                        <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.codigo }}
+                    {% if form.codigo.help_text %}
+                        <div class="help-text">{{ form.codigo.help_text }}</div>
+                    {% endif %}
+                    {% if form.codigo.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.codigo.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="{{ form.tipo_valor.id_for_label }}" class="form-label">
+                        <i class="ti ti-category mr-1"></i>{{ form.tipo_valor.label }}
+                        <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.tipo_valor }}
+                    {% if form.tipo_valor.help_text %}
+                        <div class="help-text">{{ form.tipo_valor.help_text }}</div>
+                    {% endif %}
+                    {% if form.tipo_valor.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.tipo_valor.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.nombre.id_for_label }}" class="form-label">
+                    <i class="ti ti-tag mr-1"></i>{{ form.nombre.label }}
+                    <span class="text-red-500">*</span>
+                </label>
+                {{ form.nombre }}
+                {% if form.nombre.help_text %}
+                    <div class="help-text">{{ form.nombre.help_text }}</div>
+                {% endif %}
+                {% if form.nombre.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.nombre.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.descripcion.id_for_label }}" class="form-label">
+                    <i class="ti ti-file-text mr-1"></i>{{ form.descripcion.label }}
+                </label>
+                {{ form.descripcion }}
+                {% if form.descripcion.help_text %}
+                    <div class="help-text">{{ form.descripcion.help_text }}</div>
+                {% endif %}
+                {% if form.descripcion.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.descripcion.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Valores -->
+            <div class="border-t border-gray-200 pt-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="ti ti-settings mr-2"></i>{% trans "Configuración de Valores" %}
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="form-group">
+                        <label for="{{ form.valor.id_for_label }}" class="form-label">
+                            <i class="ti ti-edit mr-1"></i>{{ form.valor.label }}
+                            <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.valor }}
+                        {% if form.valor.help_text %}
+                            <div class="help-text">{{ form.valor.help_text }}</div>
+                        {% endif %}
+                        {% if form.valor.errors %}
+                            <div class="text-red-500 text-sm mt-1">{{ form.valor.errors.0 }}</div>
+                        {% endif %}
+                        
+                        <!-- Preview de tipo -->
+                        <div id="tipo-preview" class="tipo-preview">
+                            <div class="text-sm font-medium text-gray-700 mb-2">{% trans "Ejemplo de formato:" %}</div>
+                            <div id="preview-content" class="preview-example"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="{{ form.valor_defecto.id_for_label }}" class="form-label">
+                            <i class="ti ti-refresh mr-1"></i>{{ form.valor_defecto.label }}
+                        </label>
+                        {{ form.valor_defecto }}
+                        {% if form.valor_defecto.help_text %}
+                            <div class="help-text">{{ form.valor_defecto.help_text }}</div>
+                        {% endif %}
+                        {% if form.valor_defecto.errors %}
+                            <div class="text-red-500 text-sm mt-1">{{ form.valor_defecto.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuración Adicional -->
+            <div class="border-t border-gray-200 pt-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="ti ti-shield-check mr-2"></i>{% trans "Configuración Adicional" %}
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="form-group">
+                        <div class="flex items-center">
+                            {{ form.activo }}
+                            <label for="{{ form.activo.id_for_label }}" class="ml-2 form-label mb-0">
+                                {{ form.activo.label }}
+                            </label>
+                        </div>
+                        {% if form.activo.help_text %}
+                            <div class="help-text">{{ form.activo.help_text }}</div>
+                        {% endif %}
+                        {% if form.activo.errors %}
+                            <div class="text-red-500 text-sm mt-1">{{ form.activo.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="flex items-center">
+                            {{ form.es_sistema }}
+                            <label for="{{ form.es_sistema.id_for_label }}" class="ml-2 form-label mb-0">
+                                {{ form.es_sistema.label }}
+                            </label>
+                        </div>
+                        {% if form.es_sistema.help_text %}
+                            <div class="help-text">{{ form.es_sistema.help_text }}</div>
+                        {% endif %}
+                        {% if form.es_sistema.errors %}
+                            <div class="text-red-500 text-sm mt-1">{{ form.es_sistema.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones -->
+            <div class="border-t border-gray-200 pt-6">
+                <div class="flex justify-end gap-3">
+                    <a href="{% url 'configuracion:parametros_list' %}" class="btn-secondary">
+                        <i class="ti ti-x mr-2"></i>{% trans "Cancelar" %}
+                    </a>
+                    <button type="submit" class="btn-primary">
+                        <i class="ti ti-check mr-2"></i>
+                        {% if parametro %}
+                            {% trans "Actualizar Parámetro" %}
+                        {% else %}
+                            {% trans "Crear Parámetro" %}
+                        {% endif %}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Include the toast system -->
+{% include 'cargos/cargos/toast_notifications.html' %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoSelect = document.getElementById('{{ form.tipo_valor.id_for_label }}');
+    const preview = document.getElementById('tipo-preview');
+    const previewContent = document.getElementById('preview-content');
+    
+    const ejemplos = {
+        'string': '{% trans "Texto simple" %}<br><code>"Mi empresa"</code>',
+        'integer': '{% trans "Número entero" %}<br><code>123</code>',
+        'decimal': '{% trans "Número decimal" %}<br><code>123.45</code>',
+        'boolean': '{% trans "Verdadero/Falso" %}<br><code>true</code> {% trans "o" %} <code>false</code>',
+        'date': '{% trans "Fecha" %}<br><code>2024-12-31</code>',
+        'json': '{% trans "Objeto JSON" %}<br><code>{"clave": "valor", "numero": 123}</code>'
+    };
+    
+    function actualizarPreview() {
+        const tipo = tipoSelect.value;
+        if (tipo && ejemplos[tipo]) {
+            previewContent.innerHTML = ejemplos[tipo];
+            preview.style.display = 'block';
+        } else {
+            preview.style.display = 'none';
+        }
+    }
+    
+    tipoSelect.addEventListener('change', actualizarPreview);
+    
+    // Mostrar preview inicial si hay tipo seleccionado
+    actualizarPreview();
+    
+    // Validación en tiempo real
+    const valorInput = document.getElementById('{{ form.valor.id_for_label }}');
+    const codigoInput = document.getElementById('{{ form.codigo.id_for_label }}');
+    
+    // Validar código único
+    let codigoTimer;
+    codigoInput.addEventListener('input', function() {
+        clearTimeout(codigoTimer);
+        codigoTimer = setTimeout(() => {
+            const codigo = this.value.trim();
+            if (codigo && codigo !== '{{ parametro.codigo|default:"" }}') {
+                // Validar formato del código
+                if (!/^[A-Z_][A-Z0-9_]*$/.test(codigo)) {
+                    this.style.borderColor = '#ef4444';
+                    toastManager.warning('{% trans "El código debe usar solo letras mayúsculas, números y guiones bajos" %}');
+                } else {
+                    this.style.borderColor = '#10b981';
+                }
+            }
+        }, 500);
+    });
+    
+    // Validar valor según tipo
+    valorInput.addEventListener('input', function() {
+        const tipo = tipoSelect.value;
+        const valor = this.value;
+        
+        if (!valor) return;
+        
+        let valido = true;
+        let mensaje = '';
+        
+        switch(tipo) {
+            case 'integer':
+                if (!/^-?\d+$/.test(valor)) {
+                    valido = false;
+                    mensaje = '{% trans "Debe ser un número entero" %}';
+                }
+                break;
+            case 'decimal':
+                if (!/^-?\d+(\.\d+)?$/.test(valor)) {
+                    valido = false;
+                    mensaje = '{% trans "Debe ser un número decimal válido" %}';
+                }
+                break;
+            case 'boolean':
+                if (!/^(true|false|1|0)$/i.test(valor)) {
+                    valido = false;
+                    mensaje = '{% trans "Debe ser true, false, 1 o 0" %}';
+                }
+                break;
+            case 'date':
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+                    valido = false;
+                    mensaje = '{% trans "Debe ser una fecha en formato YYYY-MM-DD" %}';
+                }
+                break;
+            case 'json':
+                try {
+                    JSON.parse(valor);
+                } catch(e) {
+                    valido = false;
+                    mensaje = '{% trans "Debe ser un JSON válido" %}';
+                }
+                break;
+        }
+        
+        if (valido) {
+            this.style.borderColor = '#10b981';
+        } else {
+            this.style.borderColor = '#ef4444';
+            if (mensaje) {
+                toastManager.warning(mensaje);
+            }
+        }
+    });
+});
+
+// Mostrar notificaciones de Django como toasts
+{% if messages %}
+    {% for message in messages %}
+        toastManager.{{ message.tags|default:'info' }}('{{ message|escapejs }}');
+    {% endfor %}
+{% endif %}
+</script>
+{% endblock %}

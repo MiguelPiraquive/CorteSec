@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dashboard CorteSec</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+        .chart-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-container h3 { margin-top: 0; color: #333; }
+        .status { 
+            padding: 10px; 
+            background: #f0f8ff; 
+            border-left: 4px solid #007bff; 
+            margin: 10px 0;
+        }
+        .error { 
+            background: #fff5f5; 
+            border-left-color: #e53e3e; 
+            color: #e53e3e;
+        }
+        .success { 
+            background: #f0fff4; 
+            border-left-color: #38a169; 
+            color: #38a169;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Test Dashboard CorteSec - Gráficos</h1>
+        
+        <div id="status" class="status">
+            Inicializando prueba de gráficos...
+        </div>
+        
+        <div class="grid">
+            <div class="chart-container">
+                <h3>📊 Evolución de Nóminas</h3>
+                <canvas id="nominasChart" width="400" height="200"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>💰 Estado de Préstamos</h3>
+                <canvas id="prestamosChart" width="400" height="200"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>👥 Crecimiento de Empleados</h3>
+                <canvas id="empleadosChart" width="400" height="200"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>🏆 Top Productividad</h3>
+                <canvas id="productividadChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+        
+        <div id="debugInfo" style="margin-top: 20px; font-size: 12px; color: #666;"></div>
+    </div>
+
+    <script>
+        // Variables globales para los gráficos
+        const charts = {};
+        let chartData = null;
+        
+        // Función para mostrar estado
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        // Función para mostrar información de debug
+        function showDebug(info) {
+            document.getElementById('debugInfo').innerHTML = info;
+        }
+        
+        // Función para cargar datos de la API
+        async function loadChartData() {
+            try {
+                showStatus('Cargando datos de la API...', 'info');
+                
+                const response = await fetch('/dashboard/api/graficos/', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                showDebug(`Status: ${response.status}, Content-Type: ${response.headers.get('Content-Type')}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                showStatus('✅ Datos cargados exitosamente', 'success');
+                
+                showDebug(`
+                    <strong>Datos recibidos:</strong><br>
+                    • Success: ${data.success}<br>
+                    • Nóminas: ${data.nominas_evolucion?.length || 0} registros<br>
+                    • Préstamos: ${data.prestamos_distribucion?.length || 0} registros<br>
+                    • Empleados: ${data.empleados_crecimiento?.length || 0} registros<br>
+                    • Productividad: ${data.top_productividad?.length || 0} registros<br>
+                    • Timestamp: ${data.timestamp}<br>
+                    ${data.error_info ? `• Info: ${data.error_info}` : ''}
+                `);
+                
+                return data;
+                
+            } catch (error) {
+                showStatus(`❌ Error cargando datos: ${error.message}`, 'error');
+                console.error('Error:', error);
+                
+                // Datos de fallback para pruebas
+                showStatus('🔄 Usando datos de demostración', 'info');
+                return {
+                    success: true,
+                    nominas_evolucion: [
+                        { mes: 'Ene 2024', total: 1250000, produccion: 980000, count: 8 },
+                        { mes: 'Feb 2024', total: 1380000, produccion: 1120000, count: 12 },
+                        { mes: 'Mar 2024', total: 1420000, produccion: 1180000, count: 15 },
+                        { mes: 'Abr 2024', total: 1350000, produccion: 1050000, count: 18 },
+                        { mes: 'May 2024', total: 1480000, produccion: 1220000, count: 25 },
+                        { mes: 'Jun 2024', total: 1520000, produccion: 1280000, count: 28 }
+                    ],
+                    prestamos_distribucion: [
+                        { estado: 'Activo', count: 5, monto: 890000, color: '#10b981', porcentaje: 50 },
+                        { estado: 'Pendiente', count: 3, monto: 150000, color: '#f59e0b', porcentaje: 30 },
+                        { estado: 'Completado', count: 2, monto: 120000, color: '#22c55e', porcentaje: 20 }
+                    ],
+                    empleados_crecimiento: [
+                        { mes: 'Feb 2024', total_acumulado: 5, nuevos: 2 },
+                        { mes: 'Mar 2024', total_acumulado: 6, nuevos: 1 },
+                        { mes: 'Abr 2024', total_acumulado: 7, nuevos: 1 },
+                        { mes: 'May 2024', total_acumulado: 8, nuevos: 1 },
+                        { mes: 'Jun 2024', total_acumulado: 9, nuevos: 1 },
+                        { mes: 'Jul 2024', total_acumulado: 9, nuevos: 0 }
+                    ],
+                    top_productividad: [
+                        { empleado: 'Miguel Angel', produccion_promedio: 178200, cargo: 'Administrador' },
+                        { empleado: 'María González', produccion_promedio: 185900, cargo: 'Gerente' },
+                        { empleado: 'Ana García', produccion_promedio: 113100, cargo: 'Desarrollador Senior' },
+                        { empleado: 'Carlos Rodríguez', produccion_promedio: 70400, cargo: 'Desarrollador Junior' }
+                    ]
+                };
+            }
+        }
+        
+        // Función para crear gráfico de nóminas
+        function createNominasChart(data) {
+            const ctx = document.getElementById('nominasChart').getContext('2d');
+            
+            charts.nominas = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(item => item.mes),
+                    datasets: [{
+                        label: 'Total Nóminas',
+                        data: data.map(item => item.total),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Producción',
+                        data: data.map(item => item.produccion),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Evolución Mensual de Nóminas'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + (value / 1000000).toFixed(1) + 'M';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Función para crear gráfico de préstamos
+        function createPrestamosChart(data) {
+            const ctx = document.getElementById('prestamosChart').getContext('2d');
+            
+            charts.prestamos = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(item => item.estado),
+                    datasets: [{
+                        data: data.map(item => item.count),
+                        backgroundColor: data.map(item => item.color),
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Distribución de Préstamos por Estado'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Función para crear gráfico de empleados
+        function createEmpleadosChart(data) {
+            const ctx = document.getElementById('empleadosChart').getContext('2d');
+            
+            charts.empleados = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(item => item.mes),
+                    datasets: [{
+                        label: 'Total Acumulado',
+                        data: data.map(item => item.total_acumulado),
+                        backgroundColor: 'rgba(139, 69, 19, 0.8)',
+                        borderColor: '#8b4513',
+                        borderWidth: 1
+                    }, {
+                        label: 'Nuevos',
+                        data: data.map(item => item.nuevos),
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                        borderColor: '#22c55e',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Crecimiento de Empleados por Mes'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Función para crear gráfico de productividad
+        function createProductividadChart(data) {
+            const ctx = document.getElementById('productividadChart').getContext('2d');
+            
+            charts.productividad = new Chart(ctx, {
+                type: 'horizontalBar',
+                data: {
+                    labels: data.map(item => item.empleado),
+                    datasets: [{
+                        label: 'Producción Promedio',
+                        data: data.map(item => item.produccion_promedio),
+                        backgroundColor: [
+                            '#ff6384', '#36a2eb', '#cc65fe', '#ffce56',
+                            '#ff9f40', '#ff6384', '#c9cbcf', '#4bc0c0'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Top Empleados por Productividad'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + (value / 1000).toFixed(0) + 'K';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Función principal para inicializar todos los gráficos
+        async function initializeCharts() {
+            try {
+                showStatus('🚀 Inicializando dashboard...', 'info');
+                
+                // Cargar datos
+                chartData = await loadChartData();
+                
+                if (!chartData.success) {
+                    throw new Error('Error en datos de la API');
+                }
+                
+                // Crear gráficos
+                showStatus('📊 Creando gráficos...', 'info');
+                
+                if (chartData.nominas_evolucion?.length > 0) {
+                    createNominasChart(chartData.nominas_evolucion);
+                }
+                
+                if (chartData.prestamos_distribucion?.length > 0) {
+                    createPrestamosChart(chartData.prestamos_distribucion);
+                }
+                
+                if (chartData.empleados_crecimiento?.length > 0) {
+                    createEmpleadosChart(chartData.empleados_crecimiento);
+                }
+                
+                if (chartData.top_productividad?.length > 0) {
+                    createProductividadChart(chartData.top_productividad);
+                }
+                
+                showStatus('✅ Dashboard inicializado correctamente', 'success');
+                
+            } catch (error) {
+                showStatus(`❌ Error inicializando dashboard: ${error.message}`, 'error');
+                console.error('Error completo:', error);
+            }
+        }
+        
+        // Inicializar cuando se cargue la página
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Página cargada, iniciando dashboard...');
+            setTimeout(initializeCharts, 500); // Pequeño delay para asegurar que todo esté listo
+        });
+    </script>
+</body>
+</html>

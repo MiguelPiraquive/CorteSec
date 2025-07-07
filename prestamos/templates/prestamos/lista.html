@@ -1,0 +1,435 @@
+{% extends 'core/base.html' %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-container {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+    .card-hover {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    .estadistica-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1px solid #bae6fd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50" x-data="prestamosManager()">
+    <!-- Header con degradado -->
+    <div class="search-container">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center">
+                <h1 class="text-3xl font-bold text-white mb-2">
+                    <i class="fas fa-hand-holding-usd mr-3"></i>{{ title }}
+                </h1>
+                <p class="text-green-100 text-lg">Administra préstamos y cuotas para empleados</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <!-- Total Préstamos -->
+            <div class="estadistica-card rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-blue-600">{{ estadisticas.total_prestamos }}</div>
+                <div class="text-xs text-gray-600">Total</div>
+            </div>
+
+            <!-- Pendientes -->
+            <div class="estadistica-card rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-yellow-600">{{ estadisticas.pendientes }}</div>
+                <div class="text-xs text-gray-600">Pendientes</div>
+            </div>
+
+            <!-- Aprobados -->
+            <div class="estadistica-card rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-green-600">{{ estadisticas.aprobados }}</div>
+                <div class="text-xs text-gray-600">Aprobados</div>
+            </div>
+
+            <!-- Activos -->
+            <div class="estadistica-card rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-blue-600">{{ estadisticas.activos }}</div>
+                <div class="text-xs text-gray-600">Activos</div>
+            </div>
+
+            <!-- Completados -->
+            <div class="estadistica-card rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-gray-600">{{ estadisticas.completados }}</div>
+                <div class="text-xs text-gray-600">Completados</div>
+            </div>
+
+            <!-- Monto Total -->
+            <div class="estadistica-card rounded-lg p-4 text-center">
+                <div class="text-lg font-bold text-green-600">${{ estadisticas.monto_total_prestado|floatformat:0|intcomma }}</div>
+                <div class="text-xs text-gray-600">Monto Total</div>
+            </div>
+        </div>
+
+        <!-- Tarjeta principal -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <!-- Barra de herramientas -->
+            <div class="bg-white border-b border-gray-200 px-6 py-4">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <!-- Búsqueda -->
+                    <div class="flex-1 max-w-lg">
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-search text-gray-400"></i>
+                            </div>
+                            <input type="text" 
+                                   x-model="search"
+                                   @input.debounce.300ms="filtrarPrestamos()"
+                                   class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                                   placeholder="Buscar préstamos por empleado o concepto...">
+                        </div>
+                    </div>
+
+                    <!-- Filtros y acciones -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <!-- Filtro de estado -->
+                        <select x-model="filtroEstado" 
+                                @change="filtrarPrestamos()"
+                                class="rounded-lg border-gray-300 text-sm focus:ring-green-500 focus:border-green-500">
+                            <option value="">Todos los estados</option>
+                            <option value="pendiente">Pendientes</option>
+                            <option value="aprobado">Aprobados</option>
+                            <option value="activo">Activos</option>
+                            <option value="completado">Completados</option>
+                            <option value="cancelado">Cancelados</option>
+                            <option value="rechazado">Rechazados</option>
+                        </select>
+
+                        <!-- Filtro de empleado -->
+                        <select x-model="filtroEmpleado" 
+                                @change="filtrarPrestamos()"
+                                class="rounded-lg border-gray-300 text-sm focus:ring-green-500 focus:border-green-500">
+                            <option value="">Todos los empleados</option>
+                            {% for empleado in empleados %}
+                            <option value="{{ empleado.id }}">{{ empleado.nombre }} {{ empleado.apellido }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <!-- Botón crear -->
+                        <button @click="abrirModal('crear')"
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200">
+                            <i class="fas fa-plus mr-2"></i>
+                            Nuevo Préstamo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de préstamos -->
+            <div class="p-6">
+                <div id="prestamos-container" x-show="!cargando">
+                    {% include 'prestamos/partials/tabla_prestamos.html' %}
+                </div>
+
+                <!-- Loading spinner -->
+                <div x-show="cargando" class="flex justify-center items-center py-12">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para formularios -->
+    <div x-show="mostrarModal" 
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+         style="display: none;">
+        
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-lg bg-white">
+            <!-- Header del modal -->
+            <div class="flex items-center justify-between pb-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-900" x-text="tituloModal"></h3>
+                <button @click="cerrarModal()" 
+                        class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Contenido del modal -->
+            <div class="mt-4" id="modal-content">
+                <!-- El contenido se carga dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación -->
+    <div x-show="mostrarConfirmacion" 
+         x-transition
+         class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+         style="display: none;">
+        
+        <div class="relative top-1/3 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
+            <div class="text-center">
+                <i class="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Confirmar Acción</h3>
+                <p class="text-gray-600 mb-6" x-text="mensajeConfirmacion"></p>
+                
+                <div class="flex justify-center space-x-4">
+                    <button @click="confirmarAccion()" 
+                            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                        Confirmar
+                    </button>
+                    <button @click="cancelarAccion()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function prestamosManager() {
+    return {
+        // Estado
+        cargando: false,
+        mostrarModal: false,
+        mostrarConfirmacion: false,
+        search: '{{ search_query }}',
+        filtroEstado: '{{ estado_filter }}',
+        filtroEmpleado: '{{ empleado_filter }}',
+        currentPage: 1,
+        tituloModal: '',
+        mensajeConfirmacion: '',
+        accionPendiente: null,
+
+        // Métodos
+        init() {
+            // Inicialización si es necesaria
+        },
+
+        async filtrarPrestamos() {
+            this.cargando = true;
+            try {
+                const params = new URLSearchParams({
+                    search: this.search,
+                    estado: this.filtroEstado,
+                    empleado: this.filtroEmpleado,
+                    page: 1
+                });
+
+                const response = await fetch(`?${params}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('prestamos-container').innerHTML = data.html;
+                }
+            } catch (error) {
+                console.error('Error al filtrar préstamos:', error);
+                this.mostrarNotificacion('Error al cargar los datos', 'error');
+            } finally {
+                this.cargando = false;
+            }
+        },
+
+        async abrirModal(accion, id = null) {
+            this.cargando = true;
+            this.mostrarModal = true;
+            
+            let url = '';
+            switch (accion) {
+                case 'crear':
+                    url = '{% url "prestamos:crear" %}';
+                    this.tituloModal = 'Crear Nuevo Préstamo';
+                    break;
+                case 'editar':
+                    url = `/prestamos/${id}/editar/`;
+                    this.tituloModal = 'Editar Préstamo';
+                    break;
+                case 'ver':
+                    url = `/prestamos/${id}/`;
+                    this.tituloModal = 'Detalle del Préstamo';
+                    break;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('modal-content').innerHTML = data.html;
+                }
+            } catch (error) {
+                console.error('Error al cargar modal:', error);
+                this.cerrarModal();
+            } finally {
+                this.cargando = false;
+            }
+        },
+
+        cerrarModal() {
+            this.mostrarModal = false;
+            this.tituloModal = '';
+            document.getElementById('modal-content').innerHTML = '';
+        },
+
+        confirmarEliminacion(id, empleado) {
+            this.mensajeConfirmacion = `¿Estás seguro de que deseas eliminar el préstamo de "${empleado}"? Esta acción no se puede deshacer.`;
+            this.accionPendiente = () => this.eliminarPrestamo(id);
+            this.mostrarConfirmacion = true;
+        },
+
+        confirmarAprobacion(id, empleado) {
+            this.mensajeConfirmacion = `¿Estás seguro de que deseas aprobar el préstamo de "${empleado}"?`;
+            this.accionPendiente = () => this.aprobarPrestamo(id);
+            this.mostrarConfirmacion = true;
+        },
+
+        confirmarRechazo(id, empleado) {
+            this.mensajeConfirmacion = `¿Estás seguro de que deseas rechazar el préstamo de "${empleado}"?`;
+            this.accionPendiente = () => this.rechazarPrestamo(id);
+            this.mostrarConfirmacion = true;
+        },
+
+        async confirmarAccion() {
+            if (this.accionPendiente) {
+                await this.accionPendiente();
+                this.cancelarAccion();
+            }
+        },
+
+        cancelarAccion() {
+            this.mostrarConfirmacion = false;
+            this.mensajeConfirmacion = '';
+            this.accionPendiente = null;
+        },
+
+        async eliminarPrestamo(id) {
+            try {
+                const response = await fetch(`/prestamos/${id}/eliminar/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    this.mostrarNotificacion(data.message, 'success');
+                    this.filtrarPrestamos();
+                } else {
+                    this.mostrarNotificacion(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error al eliminar préstamo:', error);
+                this.mostrarNotificacion('Error al eliminar el préstamo', 'error');
+            }
+        },
+
+        async aprobarPrestamo(id) {
+            try {
+                const response = await fetch(`/prestamos/${id}/aprobar/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    this.mostrarNotificacion(data.message, 'success');
+                    this.filtrarPrestamos();
+                } else {
+                    this.mostrarNotificacion(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error al aprobar préstamo:', error);
+                this.mostrarNotificacion('Error al aprobar el préstamo', 'error');
+            }
+        },
+
+        async rechazarPrestamo(id) {
+            try {
+                const response = await fetch(`/prestamos/${id}/rechazar/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    this.mostrarNotificacion(data.message, 'success');
+                    this.filtrarPrestamos();
+                } else {
+                    this.mostrarNotificacion(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error al rechazar préstamo:', error);
+                this.mostrarNotificacion('Error al rechazar el préstamo', 'error');
+            }
+        },
+
+        mostrarNotificacion(mensaje, tipo = 'info') {
+            // Implementar sistema de notificaciones
+            if (tipo === 'success') {
+                console.log('✅', mensaje);
+            } else if (tipo === 'error') {
+                console.error('❌', mensaje);
+            } else {
+                console.info('ℹ️', mensaje);
+            }
+        }
+    }
+}
+
+// Función global para enviar formularios
+async function enviarFormulario(formElement) {
+    const formData = new FormData(formElement);
+    
+    try {
+        const response = await fetch(formElement.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.reload(); // Recargar página para mostrar cambios
+        } else {
+            // Mostrar errores del formulario
+            console.error('Errores del formulario:', data.errors);
+        }
+    } catch (error) {
+        console.error('Error al enviar formulario:', error);
+    }
+}
+</script>
+{% endblock %}

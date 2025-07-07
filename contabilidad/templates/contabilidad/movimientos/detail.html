@@ -1,0 +1,471 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Detalle del Movimiento - Contabilidad{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .detail-header {
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .status-activo {
+        background-color: #dcfce7;
+        color: #16a34a;
+    }
+    
+    .status-inactivo {
+        background-color: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .info-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #374151;
+        display: flex;
+        align-items: center;
+    }
+    
+    .info-value {
+        color: #1f2937;
+        text-align: right;
+        max-width: 60%;
+    }
+    
+    .amount-display {
+        font-size: 1.5rem;
+        font-weight: 700;
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    .amount-debit {
+        background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 100%);
+        color: #92400e;
+    }
+    
+    .amount-credit {
+        background: linear-gradient(135deg, #dcfce7 0%, #22c55e 100%);
+        color: #15803d;
+    }
+    
+    .btn-action {
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        margin-right: 0.5rem;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 2rem;
+        padding-bottom: 1rem;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0;
+        width: 0.75rem;
+        height: 0.75rem;
+        background: #3b82f6;
+        border-radius: 50%;
+    }
+    
+    .timeline-item::after {
+        content: '';
+        position: absolute;
+        left: 0.875rem;
+        top: 0.75rem;
+        width: 2px;
+        height: calc(100% - 0.75rem);
+        background: #e5e7eb;
+    }
+    
+    .timeline-item:last-child::after {
+        display: none;
+    }
+    
+    .related-movements {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .movement-row {
+        padding: 0.75rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        transition: background-color 0.2s;
+    }
+    
+    .movement-row:hover {
+        background-color: #f9fafb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4" x-data="movimientoDetail()">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="detail-container">
+                <div class="detail-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h2 class="mb-2">
+                                <i class="fas fa-exchange-alt text-primary me-2"></i>
+                                Movimiento Contable #{{ object.id }}
+                            </h2>
+                            <div class="d-flex align-items-center">
+                                <span class="status-badge status-activo">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    Registrado
+                                </span>
+                                <span class="text-muted ms-3">
+                                    <i class="fas fa-clock me-1"></i>
+                                    {{ object.fecha_creacion|date:"d/m/Y H:i" }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <a href="{% url 'contabilidad:movimiento_edit' object.id %}" class="btn btn-primary btn-action">
+                                <i class="fas fa-edit me-1"></i>
+                                Editar
+                            </a>
+                            <button type="button" class="btn btn-danger btn-action" @click="confirmDelete()">
+                                <i class="fas fa-trash me-1"></i>
+                                Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="amount-display {{ object.tipo == 'debito'|yesno:'amount-debit,amount-credit' }}">
+                    <div class="small text-uppercase">{{ object.tipo }}</div>
+                    <div>${{ object.monto|floatformat:2 }}</div>
+                </div>
+
+                <div class="info-card">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        Información General
+                    </h5>
+                    
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-calendar text-muted me-2"></i>
+                            Fecha del Movimiento
+                        </span>
+                        <span class="info-value">{{ object.fecha|date:"d/m/Y" }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-list text-muted me-2"></i>
+                            Cuenta Contable
+                        </span>
+                        <span class="info-value">
+                            <strong>{{ object.cuenta.codigo }}</strong><br>
+                            {{ object.cuenta.nombre }}
+                        </span>
+                    </div>
+                    
+                    {% if object.comprobante %}
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-file-alt text-muted me-2"></i>
+                            Comprobante
+                        </span>
+                        <span class="info-value">
+                            <a href="{% url 'contabilidad:comprobante_detail' object.comprobante.id %}" class="text-decoration-none">
+                                {{ object.comprobante.numero }}<br>
+                                <small class="text-muted">{{ object.comprobante.concepto }}</small>
+                            </a>
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-tag text-muted me-2"></i>
+                            Tipo de Movimiento
+                        </span>
+                        <span class="info-value">
+                            <span class="badge {{ object.tipo == 'debito'|yesno:'bg-warning,bg-success' }}">
+                                {{ object.get_tipo_display }}
+                            </span>
+                        </span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-dollar-sign text-muted me-2"></i>
+                            Monto
+                        </span>
+                        <span class="info-value">
+                            <strong>${{ object.monto|floatformat:2 }}</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-comment text-primary me-2"></i>
+                        Descripción
+                    </h5>
+                    <p class="mb-0">{{ object.descripcion|default:"Sin descripción" }}</p>
+                </div>
+
+                {% if object.comprobante and related_movements %}
+                <div class="info-card">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-link text-primary me-2"></i>
+                        Movimientos Relacionados
+                        <span class="badge bg-secondary ms-2">{{ related_movements|length }}</span>
+                    </h5>
+                    
+                    <div class="related-movements">
+                        {% for mov in related_movements %}
+                        {% if mov.id != object.id %}
+                        <div class="movement-row">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ mov.cuenta.codigo }}</strong> - {{ mov.cuenta.nombre }}<br>
+                                    <small class="text-muted">{{ mov.descripcion }}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge {{ mov.tipo == 'debito'|yesno:'bg-warning,bg-success' }}">
+                                        {{ mov.get_tipo_display }}
+                                    </span><br>
+                                    <strong>${{ mov.monto|floatformat:2 }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="info-card">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-chart-line text-primary me-2"></i>
+                    Impacto Contable
+                </h5>
+                
+                <div class="text-center mb-3">
+                    <div class="small text-muted">Efecto en la cuenta</div>
+                    <div class="h4 {{ object.tipo == 'debito'|yesno:'text-warning,text-success' }}">
+                        {% if object.tipo == 'debito' %}
+                            <i class="fas fa-arrow-up"></i> Aumenta
+                        {% else %}
+                            <i class="fas fa-arrow-down"></i> Disminuye
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <small>
+                        {% if object.cuenta.tipo == 'activo' %}
+                            {% if object.tipo == 'debito' %}
+                                Este débito aumenta el activo.
+                            {% else %}
+                                Este crédito disminuye el activo.
+                            {% endif %}
+                        {% elif object.cuenta.tipo == 'pasivo' %}
+                            {% if object.tipo == 'debito' %}
+                                Este débito disminuye el pasivo.
+                            {% else %}
+                                Este crédito aumenta el pasivo.
+                            {% endif %}
+                        {% elif object.cuenta.tipo == 'patrimonio' %}
+                            {% if object.tipo == 'debito' %}
+                                Este débito disminuye el patrimonio.
+                            {% else %}
+                                Este crédito aumenta el patrimonio.
+                            {% endif %}
+                        {% elif object.cuenta.tipo == 'ingreso' %}
+                            {% if object.tipo == 'debito' %}
+                                Este débito disminuye los ingresos.
+                            {% else %}
+                                Este crédito aumenta los ingresos.
+                            {% endif %}
+                        {% elif object.cuenta.tipo == 'gasto' %}
+                            {% if object.tipo == 'debito' %}
+                                Este débito aumenta los gastos.
+                            {% else %}
+                                Este crédito disminuye los gastos.
+                            {% endif %}
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-history text-primary me-2"></i>
+                    Historial
+                </h5>
+                
+                <div class="timeline-item">
+                    <div class="fw-bold">Creación</div>
+                    <div class="small text-muted">{{ object.fecha_creacion|date:"d/m/Y H:i" }}</div>
+                    <div class="small">Movimiento registrado en el sistema</div>
+                </div>
+                
+                {% if object.fecha_modificacion and object.fecha_modificacion != object.fecha_creacion %}
+                <div class="timeline-item">
+                    <div class="fw-bold">Última Modificación</div>
+                    <div class="small text-muted">{{ object.fecha_modificacion|date:"d/m/Y H:i" }}</div>
+                    <div class="small">Información actualizada</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="info-card">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-tools text-primary me-2"></i>
+                    Acciones
+                </h5>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'contabilidad:movimiento_edit' object.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-1"></i>
+                        Editar Movimiento
+                    </a>
+                    
+                    {% if object.comprobante %}
+                    <a href="{% url 'contabilidad:comprobante_detail' object.comprobante.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-file-alt me-1"></i>
+                        Ver Comprobante
+                    </a>
+                    {% endif %}
+                    
+                    <button type="button" class="btn btn-outline-info" @click="exportMovement()">
+                        <i class="fas fa-download me-1"></i>
+                        Exportar
+                    </button>
+                    
+                    <hr>
+                    
+                    <button type="button" class="btn btn-outline-danger" @click="confirmDelete()">
+                        <i class="fas fa-trash me-1"></i>
+                        Eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="{% url 'contabilidad:movimientos_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Volver a Movimientos
+        </a>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    Confirmar Eliminación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro que desea eliminar este movimiento contable?</p>
+                <div class="alert alert-warning">
+                    <strong>Advertencia:</strong> Esta acción no se puede deshacer. El movimiento será eliminado permanentemente del sistema.
+                </div>
+                <div class="border rounded p-3 bg-light">
+                    <strong>Movimiento #{{ object.id }}</strong><br>
+                    Cuenta: {{ object.cuenta.codigo }} - {{ object.cuenta.nombre }}<br>
+                    Monto: ${{ object.monto|floatformat:2 }}<br>
+                    Tipo: {{ object.get_tipo_display }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <form method="post" action="{% url 'contabilidad:movimiento_delete' object.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>
+                        Eliminar Definitivamente
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function movimientoDetail() {
+    return {
+        confirmDelete() {
+            const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            modal.show();
+        },
+        
+        exportMovement() {
+            window.open(`{% url 'contabilidad:export_movement' object.id %}`, '_blank');
+        }
+    }
+}
+</script>
+{% endblock %}

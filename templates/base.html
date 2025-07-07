@@ -3,41 +3,515 @@
 <!DOCTYPE html>
 <html lang="es"
       x-data="{
-        darkMode: localStorage.getItem('darkMode') === 'true' || window.matchMedia('(prefers-color-scheme: white)').matches,
-        sidebarCollapsed: window.innerWidth < 1024,
+        // Estado del sidebar
+        sidebarCollapsed: $persist(window.innerWidth < 1024).as('sidebar_collapsed'),
         sidebarOpen: false,
+        
+        // Estado de búsqueda y UI
         searchMobile: false,
         pageTransition: false,
-        toggleDark() {
-          this.darkMode = !this.darkMode;
-          localStorage.setItem('darkMode', this.darkMode);
+        scrolled: false,
+        
+        // ===== VARIABLES DEL DASHBOARD =====
+        // Estados del dashboard
+        loading: true,
+        darkMode: localStorage.getItem('darkMode') === 'true',
+        currentPeriod: 'mes',
+        autoRefresh: true,
+        refreshInterval: 30,
+        countdown: 30,
+        
+        // Estado de widgets
+        showFilters: false,
+        expandedWidget: null,
+        kpiView: 'comparison',
+        heatmapPeriod: 'mes',
+        predictiveView: 'nominas',
+        
+        // Variables para datos del dashboard (se inicializarán después)
+        metricas: {},
+        chartData: {},
+        actividad: [],
+        heatmapData: [],
+        sparklineData: {},
+        predictiveData: {},
+        systemIndicators: {
+          cpu: 65,
+          memory: 8.2,
+          network: 750,
+          activeUsers: 23
         },
+        lastUpdate: Date.now(),
+        
+        // ===== VARIABLES PARA FILTROS AVANZADOS =====
+        showAdvancedFilters: false,
+        searchQuery: '',
+        searchSuggestions: [],
+        searchResults: [],
+        activeFilters: [],
+        
+        // Filtros avanzados específicos
+        advancedFilters: {
+            dateFrom: '',
+            dateTo: '',
+            datePreset: '',
+            departments: [],
+            cargos: [],
+            salaryRange: [0, 100000],
+            experienceRange: [0, 30]
+        },
+        
+        availableDepartments: [
+            { id: 1, name: 'Administración', count: 15 },
+            { id: 2, name: 'Producción', count: 45 },
+            { id: 3, name: 'Ventas', count: 12 },
+            { id: 4, name: 'Logística', count: 8 },
+            { id: 5, name: 'Calidad', count: 6 }
+        ],
+        
+        availableCargos: [
+            { id: 1, name: 'Supervisor', count: 8 },
+            { id: 2, name: 'Operario', count: 35 },
+            { id: 3, name: 'Asistente', count: 18 },
+            { id: 4, name: 'Coordinador', count: 12 },
+            { id: 5, name: 'Analista', count: 9 }
+        ],
+        
+        // ===== VARIABLES PARA EXPORTACIÓN AVANZADA =====
+        showExportOptions: false,
+        exportOptions: {
+            includeEmployees: true,
+            includePayrolls: true,
+            includeLoans: false,
+            includeProjects: false,
+            includeCharts: false,
+            includeMetrics: true,
+            csvSeparator: ',',
+            dateFormat: 'dd/mm/yyyy',
+            includeHeaders: true,
+            dateRange: {
+                from: '',
+                to: ''
+            },
+            maxRecords: 1000,
+            compressFile: false
+        },
+        
+        exportProgress: {
+            active: false,
+            percentage: 0,
+            message: ''
+        },
+        
+        exportHistory: [
+            {
+                id: 1,
+                name: 'Dashboard_Completo_2024.xlsx',
+                date: '2024-12-04 10:30',
+                status: 'completed',
+                size: '2.5 MB'
+            },
+            {
+                id: 2,
+                name: 'Nominas_Diciembre.csv',
+                date: '2024-12-03 15:45',
+                status: 'completed',
+                size: '450 KB'
+            },
+            {
+                id: 3,
+                name: 'Reporte_Empleados.pdf',
+                date: '2024-12-02 09:15',
+                status: 'failed',
+                size: '-'
+            }
+        ],
+        
+        // ===== VARIABLES PARA TIEMPO REAL =====
+        realTimeData: {},
+        realTimeEnabled: true,
+        lastRealTimeUpdate: null,
+        
+        // ===== VARIABLES PARA NOTIFICACIONES =====
+        notifications: [],
+        unreadCount: 0,
+        showNotifications: false,
+        
+        // ===== VARIABLES PARA GRÁFICOS =====
+        chartInstances: {},
+        chartOptions: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top'
+            }
+          }
+        },
+        
+        // ===== MÉTODOS PARA FILTROS =====
+        applyAdvancedFilters() {
+          console.log('Aplicando filtros avanzados:', this.advancedFilters);
+          this.activeFilters = [];
+          
+          if (this.advancedFilters.dateFrom) {
+            this.activeFilters.push(`Desde: ${this.advancedFilters.dateFrom}`);
+          }
+          
+          if (this.advancedFilters.dateTo) {
+            this.activeFilters.push(`Hasta: ${this.advancedFilters.dateTo}`);
+          }
+          
+          if (this.advancedFilters.departments.length > 0) {
+            this.activeFilters.push(`Deptos: ${this.advancedFilters.departments.length}`);
+          }
+        },
+        
+        applyDatePreset() {
+          const today = new Date();
+          switch(this.advancedFilters.datePreset) {
+            case 'today':
+              this.advancedFilters.dateFrom = today.toISOString().split('T')[0];
+              this.advancedFilters.dateTo = today.toISOString().split('T')[0];
+              break;
+            case 'week':
+              const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+              this.advancedFilters.dateFrom = weekAgo.toISOString().split('T')[0];
+              this.advancedFilters.dateTo = today.toISOString().split('T')[0];
+              break;
+            case 'month':
+              const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+              this.advancedFilters.dateFrom = monthAgo.toISOString().split('T')[0];
+              this.advancedFilters.dateTo = today.toISOString().split('T')[0];
+              break;
+          }
+          this.applyAdvancedFilters();
+        },
+        
+        getActiveFiltersCount() {
+          return this.activeFilters.length;
+        },
+        
+        // ===== MÉTODOS PARA EXPORTACIÓN =====
+        async exportDashboard(format) {
+          this.exportProgress.active = true;
+          this.exportProgress.percentage = 0;
+          this.exportProgress.message = 'Iniciando exportación...';
+          
+          try {
+            for (let i = 0; i <= 100; i += 10) {
+              this.exportProgress.percentage = i;
+              this.exportProgress.message = `Procesando datos... ${i}%`;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
+            const newExport = {
+              id: Date.now(),
+              name: `Dashboard_Export_${format}_${new Date().toISOString().split('T')[0]}.${format}`,
+              date: new Date().toLocaleString('es-ES'),
+              status: 'completed',
+              size: this.calculateExportSize()
+            };
+            
+            this.exportHistory.unshift(newExport);
+            if (this.exportHistory.length > 10) this.exportHistory.pop();
+            
+            this.exportProgress.message = 'Exportación completada';
+            setTimeout(() => {
+              this.exportProgress.active = false;
+            }, 1000);
+            
+          } catch (error) {
+            this.exportProgress.active = false;
+            console.error('Error durante la exportación', error);
+          }
+        },
+        
+        calculateExportSize() {
+          let size = 50000; // Base size ~50KB
+          
+          if (this.exportOptions.includeEmployees) size += 150000;
+          if (this.exportOptions.includePayrolls) size += 200000;
+          if (this.exportOptions.includeLoans) size += 80000;
+          if (this.exportOptions.includeProjects) size += 75000;
+          if (this.exportOptions.includeCharts) size += 500000;
+          if (this.exportOptions.includeMetrics) size += 10000;
+          
+          return this.formatFileSize(size);
+        },
+        
+        formatFileSize(bytes) {
+          if (bytes === 0) return '0 Bytes';
+          const k = 1024;
+          const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+        
+        // Métodos mejorados
         toggleSidebar() {
           if(window.innerWidth < 1024) {
             this.sidebarOpen = !this.sidebarOpen;
           } else {
             this.sidebarCollapsed = !this.sidebarCollapsed;
           }
+          
+          // Haptic feedback si está disponible
+          if (navigator.vibrate) {
+            navigator.vibrate(50);
+          }
         },
+        
         handleResize() {
-          if(window.innerWidth < 1024) {
+          const isMobile = window.innerWidth < 1024;
+          
+          if(isMobile) {
             this.sidebarCollapsed = true;
             this.sidebarOpen = false;
           } else {
-            this.sidebarCollapsed = false;
             this.sidebarOpen = false;
           }
         },
+        
         startTransition() {
           this.pageTransition = true;
           setTimeout(() => { this.pageTransition = false }, 400);
+        },
+        
+        handleScroll() {
+          this.scrolled = window.scrollY > 20;
+        },
+        
+        // ===== MÉTODOS DEL DASHBOARD =====
+        
+        // Variables para Filtros Avanzados y Búsqueda
+        showAdvancedFilters: false,
+        searchQuery: '',
+        searchSuggestions: [],
+        searchResults: [],
+        activeFilters: [],
+        
+        // Método para cargar datos del dashboard desde el DOM
+        loadDashboardData() {
+          try {
+            // Cargar métricas desde los elementos data- del DOM
+            const metricsEl = document.querySelector('#dashboard-metrics-data');
+            if (metricsEl) {
+              this.metricas = JSON.parse(metricsEl.dataset.dashboardMetrics);
+            }
+            
+            // Cargar datos de gráficos
+            const nominasElement = document.getElementById('nominas-data');
+            if (nominasElement) {
+              this.chartData.nominas = JSON.parse(nominasElement.textContent);
+            }
+            
+            const prestamosElement = document.getElementById('prestamos-data');
+            if (prestamosElement) {
+              this.chartData.prestamos = JSON.parse(prestamosElement.textContent);
+            }
+            
+            const empleadosElement = document.getElementById('empleados-data');
+            if (empleadosElement) {
+              this.chartData.empleados = JSON.parse(empleadosElement.textContent);
+            }
+            
+            const actividadElement = document.getElementById('actividad-data');
+            if (actividadElement) {
+              this.actividad = JSON.parse(actividadElement.textContent);
+            }
+          } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            // Datos por defecto en caso de error
+            this.metricas = {
+              empleados: { total: 0, activos: 0, nuevos_mes: 0, crecimiento: 0 },
+              nominas: { total_mes: 0, produccion_mes: 0, count_mes: 0 },
+              prestamos: { activos: 0, pendientes: 0, en_mora: 0 },
+              proyectos: { activos: 0, completados: 0, este_mes: 0 },
+              rendimiento: { eficiencia: 0, ratio_prestamos: 0 }
+            };
+            this.chartData = { nominas: [], prestamos: [], empleados: [] };
+            this.actividad = [];
+          }
+        },
+        
+        // Inicializar dashboard
+        initDashboard() {
+          this.loadDashboardData();
+          
+          // Simular loading inicial
+          setTimeout(() => {
+            this.loading = false;
+            this.initCharts();
+            this.startAutoRefresh();
+            this.animateCounters();
+          }, 1200);
+        },
+        
+        initCharts() {
+          // Los métodos de gráficos se definirán aquí o en archivos externos
+          console.log('Inicializando gráficos del dashboard...');
+        },
+        
+        // Métodos de formato comunes
+        formatNumber(num) {
+          if (!num && num !== 0) return '0';
+          return new Intl.NumberFormat('es-ES').format(num);
+        },
+        
+        formatCurrency(amount) {
+          if (!amount && amount !== 0) return '$0';
+          return new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: 'COP',
+            minimumFractionDigits: 0
+          }).format(amount);
+        },
+        
+        formatPercentage(value) {
+          if (!value && value !== 0) return '0%';
+          return value.toFixed(1) + '%';
+        },
+        
+        formatDate(date) {
+          if (!date) return '';
+          return new Date(date).toLocaleDateString('es-ES');
+        },
+        
+        // Métodos del dashboard
+        async refreshData() {
+          try {
+            this.loading = true;
+            const response = await fetch('/dashboard/api/metricas/?periodo=' + this.currentPeriod);
+            if (response.ok) {
+              const data = await response.json();
+              this.updateMetricas(data);
+              this.updateCharts(data);
+            }
+          } catch (error) {
+            console.error('Error refreshing data:', error);
+            this.showToast('Error al actualizar datos', 'error');
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        updateMetricas(data) {
+          this.metricas = { ...this.metricas, ...data };
+          this.animateCounters();
+        },
+        
+        updateCharts(data) {
+          // Actualizar gráficos con nuevos datos
+          console.log('Actualizando gráficos con:', data);
+          // TODO: Implementar actualización de gráficos Chart.js
+        },
+        
+        startAutoRefresh() {
+          if (!this.autoRefresh) return;
+          
+          setInterval(() => {
+            this.countdown--;
+            if (this.countdown <= 0) {
+              this.refreshData();
+              this.countdown = this.refreshInterval;
+            }
+            this.updateRealTimeIndicators();
+          }, 1000);
+        },
+        
+        updateRealTimeIndicators() {
+          try {
+            const now = Date.now();
+            this.systemIndicators = {
+              cpu: Math.floor(Math.random() * 30) + 45,
+              memory: (Math.random() * 2 + 7).toFixed(1),
+              network: Math.floor(Math.random() * 100) + 500,
+              activeUsers: Math.floor(Math.random() * 10) + 15
+            };
+            this.lastUpdate = now;
+          } catch (error) {
+            console.log('Actualizando indicadores...');
+          }
+        },
+        
+        toggleAutoRefresh() {
+          this.autoRefresh = !this.autoRefresh;
+          if (this.autoRefresh) {
+            this.countdown = this.refreshInterval;
+            this.startAutoRefresh();
+          }
+        },
+        
+        animateCounters() {
+          document.querySelectorAll('[data-counter]').forEach(el => {
+            const target = parseInt(el.dataset.counter);
+            const duration = 1000;
+            const increment = target / (duration / 16);
+            let current = 0;
+            
+            const timer = setInterval(() => {
+              current += increment;
+              if (current >= target) {
+                current = target;
+                clearInterval(timer);
+              }
+              el.textContent = Math.floor(current).toLocaleString();
+            }, 16);
+          });
+        },
+        
+        // Métodos de UI
+        toggleFilters() {
+          this.showFilters = !this.showFilters;
+        },
+        
+        toggleAdvancedFilters() {
+          this.showAdvancedFilters = !this.showAdvancedFilters;
+        },
+        
+        toggleWidget(widget) {
+          this.expandedWidget = this.expandedWidget === widget ? null : widget;
+        },
+        
+        showToast(message, type = 'info') {
+          // Implementación simple de toast
+          console.log(`${type.toUpperCase()}: ${message}`);
+        },
+        
+        // Método para manejar scroll en el contenedor específico
+        handleContainerScroll(event) {
+          this.scrolled = event.target.scrollTop > 20;
+        },
+        
+        // Método para cerrar sidebar con escape
+        handleKeydown(event) {
+          if (event.key === 'Escape') {
+            if (this.sidebarOpen) {
+              this.sidebarOpen = false;
+            }
+            if (this.searchMobile) {
+              this.searchMobile = false;
+            }
+          }
+        },
+
+        // Inicialización automática
+        init() {
+          // Event listeners optimizados
+          window.addEventListener('resize', this.handleResize);
+          window.addEventListener('beforeunload', this.startTransition);
+          window.addEventListener('scroll', this.handleScroll, { passive: true });
+          document.addEventListener('keydown', this.handleKeydown);
+          
+          // Inicialización
+          this.handleResize();
+          this.handleScroll();
         }
       }"
-      x-init="
-        window.addEventListener('resize', handleResize);
-        window.addEventListener('beforeunload', startTransition);
-      "
-      :class="{ 'dark': darkMode }">
+      x-init="init()"
+      :class="{ 'dark': $store.theme?.darkMode }">
 <head>
   <link rel="preconnect" href="https://ui-avatars.com">
   <link rel="preconnect" href="https://unpkg.com">
@@ -46,6 +520,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <meta name="description" content="Panel administrativo de CorteSec. Gestión de empresas, empleados, pagos y más.">
+  
+  <!-- Prevenir HTTPS automático en desarrollo -->
+  {% if debug %}
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: https:; block-all-mixed-content;">
+  {% endif %}
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -71,9 +550,189 @@
 
   <!-- Tabler Icons -->
   <link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+  
+  <!-- Font Awesome para iconos del header -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-  <!-- Alpine.js -->
+  <!-- Alpine.js con persistencia y plugins -->
+  <script src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@alpinejs/tooltip@3.x.x/dist/cdn.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  
+  <!-- Header Advanced JavaScript -->
+  <script src="{% static 'js/header-advanced.js' %}" defer></script>
+  
+  <!-- Alpine.js configuration and stores -->
+  <script>
+    document.addEventListener('alpine:init', () => {
+      // Store para notificaciones del header
+      Alpine.store('header', {
+        notifications: [
+          {
+            id: 1,
+            type: 'success',
+            icon: 'fas fa-check-circle',
+            title: 'Sistema Actualizado',
+            message: 'El dashboard se ha cargado correctamente',
+            time: 'Hace 2 min',
+            read: false
+          },
+          {
+            id: 2,
+            type: 'info', 
+            icon: 'fas fa-info-circle',
+            title: 'Nueva Funcionalidad',
+            message: 'Búsqueda avanzada disponible',
+            time: 'Hace 10 min',
+            read: false
+          }
+        ],
+        
+        get unreadCount() {
+          return this.notifications.filter(n => !n.read).length;
+        },
+        
+        markAsRead(id) {
+          const notification = this.notifications.find(n => n.id === id);
+          if (notification) {
+            notification.read = true;
+            // Guardar en localStorage
+            localStorage.setItem('header_notifications', JSON.stringify(this.notifications));
+          }
+        },
+        
+        clearAllNotifications() {
+          this.notifications.forEach(n => n.read = true);
+          localStorage.setItem('header_notifications', JSON.stringify(this.notifications));
+        },
+        
+        addNotification(notification) {
+          const newNotification = {
+            id: Date.now(),
+            read: false,
+            time: 'Ahora',
+            ...notification
+          };
+          this.notifications.unshift(newNotification);
+          
+          // Mantener solo las últimas 20
+          if (this.notifications.length > 20) {
+            this.notifications = this.notifications.slice(0, 20);
+          }
+          
+          localStorage.setItem('header_notifications', JSON.stringify(this.notifications));
+        },
+        
+        init() {
+          // Cargar notificaciones guardadas
+          const saved = localStorage.getItem('header_notifications');
+          if (saved) {
+            try {
+              this.notifications = JSON.parse(saved);
+            } catch (error) {
+              console.warn('Error loading notifications:', error);
+            }
+          }
+        }
+      });
+
+      // Store para tema avanzado
+      Alpine.store('theme', {
+        darkMode: localStorage.getItem('darkMode') === 'true',
+        
+        toggle() {
+          this.darkMode = !this.darkMode;
+          localStorage.setItem('darkMode', this.darkMode);
+          document.documentElement.classList.toggle('dark', this.darkMode);
+          
+          // Disparar evento personalizado para otros componentes
+          window.dispatchEvent(new CustomEvent('theme-changed', { 
+            detail: { darkMode: this.darkMode } 
+          }));
+        },
+        
+        init() {
+          if (this.darkMode) {
+            document.documentElement.classList.add('dark');
+          }
+        }
+      });
+      
+      // Store para idiomas
+      Alpine.store('language', {
+        current: document.documentElement.lang || 'es',
+        available: [
+          { code: 'es', name: 'Español', flag: '🇪🇸' },
+          { code: 'en', name: 'English', flag: '🇺🇸' }
+        ],
+        
+        set(langCode) {
+          this.current = langCode;
+          localStorage.setItem('preferredLanguage', langCode);
+        }
+      });
+      
+      // Store para estado del sistema
+      Alpine.store('system', {
+        status: 'online',
+        performance: 'good',
+        lastCheck: new Date(),
+        
+        async checkHealth() {
+          try {
+            const startTime = performance.now();
+            const response = await fetch('/health/', { 
+              method: 'HEAD',
+              cache: 'no-cache'
+            });
+            const endTime = performance.now();
+            const responseTime = endTime - startTime;
+            
+            this.lastCheck = new Date();
+            
+            if (response.ok) {
+              this.status = 'online';
+              this.performance = responseTime < 500 ? 'good' : responseTime < 1000 ? 'warning' : 'poor';
+            } else {
+              this.status = 'warning';
+              this.performance = 'poor';
+            }
+          } catch (error) {
+            this.status = 'offline';
+            this.performance = 'poor';
+          }
+        },
+        
+        init() {
+          // Verificar estado inicial
+          this.checkHealth();
+          
+          // Verificar cada 30 segundos
+          setInterval(() => {
+            this.checkHealth();
+          }, 30000);
+          
+          // Escuchar eventos de conexión
+          window.addEventListener('online', () => {
+            this.status = 'online';
+            this.checkHealth();
+          });
+          
+          window.addEventListener('offline', () => {
+            this.status = 'offline';
+            this.performance = 'poor';
+          });
+        }
+      });
+      
+      // Inicializar stores
+      Alpine.store('theme').init();
+      Alpine.store('system').init();
+      Alpine.store('header').init();
+    });
+  </script>
 
   <!-- NProgress (barra de carga) -->
   <link rel="stylesheet" href="https://unpkg.com/nprogress@0.2.0/nprogress.css"/>
@@ -88,14 +747,32 @@
 
   <!-- Tus estilos personalizados -->
   <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base-improvements.css' %}">
 
   {% block extra_head %}{% endblock %}
+  
+  <!-- Alpine.js Debugger para desarrollo -->
+  {% if debug %}
+  <script src="{% static 'js/alpine-debugger.js' %}" defer></script>
+  {% endif %}
+  
+  <!-- Script anti-HTTPS para desarrollo -->
+  {% if debug %}
+  <script>
+    // Forzar HTTP en modo desarrollo
+    if (location.protocol === 'https:' && location.hostname === 'localhost') {
+      const httpUrl = location.href.replace('https:', 'http:').replace(':8000', ':8080');
+      console.log('Redirigiendo de HTTPS a HTTP:', httpUrl);
+      location.replace(httpUrl);
+    }
+  </script>
+  {% endif %}
 </head>
 
 <body
   @keydown.window.ctrl.k.prevent="searchMobile = true"
   @keydown.window.meta.k.prevent="searchMobile = true"
-  class="bg-gradient-to-br from-blue-50 to-white dark:from-zinc-900 dark:to-zinc-800 text-gray-900 dark:text-gray-200 min-h-screen transition-all duration-300"
+  class="bg-gradient-to-br from-blue-50 to-white dark:from-zinc-900 dark:to-zinc-800 text-gray-900 dark:text-gray-200 min-h-screen transition-all duration-300 overflow-x-hidden"
 >
 <div :class="sidebarCollapsed ? 'sidebar-collapsed' : ''" class="flex min-h-screen w-full">
 
@@ -114,45 +791,61 @@
        class="fixed inset-0 bg-black bg-opacity-30 z-20"
        x-cloak></div>
 
-  <!-- Contenido principal con transición -->
-  <div
-    class="flex-1 flex flex-col min-h-screen bg-white dark:bg-zinc-900 transition-all duration-300 relative overflow-x-hidden"
-    role="main"
-  >
-    <!-- Transición de página -->
-    <div
-      x-show="!pageTransition"
-      x-transition:enter="transition-all ease-out duration-400"
-      x-transition:enter-start="opacity-0 translate-y-4"
-      x-transition:enter-end="opacity-100 translate-y-0"
-      x-transition:leave="transition-all ease-in duration-300"
-      x-transition:leave-start="opacity-100 translate-y-0"
-      x-transition:leave-end="opacity-0 translate-y-4"
-      class="flex flex-col min-h-screen"
-      style="will-change: opacity, transform;"
+  <!-- Contenido principal - ESTRUCTURA CORRECTA PARA STICKY -->
+  <div class="sticky-container flex-1 min-h-screen flex flex-col bg-white dark:bg-zinc-900">
+    
+    <!-- Header Sticky - AHORA SÍ FUNCIONARÁ -->
+    <header 
+      class="sticky-header bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border-b border-gray-200/50 dark:border-zinc-800/50 transition-all duration-300"
+      :class="{ 'shadow-lg border-gray-300/70 dark:border-zinc-700/70': scrolled, 'shadow-sm': !scrolled }"
     >
-      <!-- Header -->
       {% include 'components/header.html' %}
+    </header>
 
-      <!-- Tooltips Alpine plugin -->
-      <script src="https://cdn.jsdelivr.net/npm/@alpinejs/tooltip@3.x.x/dist/cdn.min.js" defer></script>
+    <!-- Área de contenido con scroll -->
+    <div 
+      class="flex-1 overflow-y-auto"
+      @scroll="handleContainerScroll($event)"
+    >
+      
+      <!-- Transición de página -->
+      <div
+        x-show="!pageTransition"
+        x-transition:enter="transition-all ease-out duration-400"
+        x-transition:enter-start="opacity-0 translate-y-4"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition-all ease-in duration-300"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 translate-y-4"
+        class="min-h-full bg-white dark:bg-zinc-900"
+        style="will-change: opacity, transform;"
+      >
 
-      <!-- Breadcrumbs -->
-      <nav class="max-w-6xl mx-auto w-full mt-2 md:mt-4 mb-2 px-2" aria-label="Breadcrumb">
-        {% block breadcrumbs %}{% endblock %}
-      </nav>
+        <!-- Breadcrumbs -->
+        <nav class="px-4 md:px-8 py-3 bg-gray-50/50 dark:bg-zinc-800/30 border-b border-gray-200/30 dark:border-zinc-700/30" aria-label="Breadcrumb">
+          <div class="max-w-6xl mx-auto">
+            {% block breadcrumbs %}{% endblock %}
+          </div>
+        </nav>
 
-      <!-- Mensajes Django -->
-      {% include 'components/messages.html' %}
+        <!-- Mensajes Django -->
+        <div class="px-4 md:px-8 py-2">
+          <div class="max-w-6xl mx-auto">
+            {% include 'components/messages.html' %}
+          </div>
+        </div>
 
-      <!-- Main content -->
-      <main class="grow overflow-y-auto p-4 md:p-8 max-w-6xl w-full mx-auto">
-        {% block content %}{% endblock %}
-      </main>
-
-      <!-- Footer -->
-      {% include 'components/footer.html' %}
+        <!-- Main content -->
+        <main class="flex-1 px-4 md:px-8 py-6 max-w-6xl w-full mx-auto">
+          {% block content %}{% endblock %}
+        </main>
+        
+      </div>
+      <!-- Fin transición -->
+      
     </div>
+    <!-- Fin área de contenido con scroll -->
+    
     <!-- Fondo animado al cambiar de modo -->
     <div
       x-show="pageTransition"
@@ -164,10 +857,12 @@
       x-transition:leave-end="opacity-0"
       class="absolute inset-0 bg-gradient-to-br from-blue-50 to-white dark:from-zinc-900 dark:to-zinc-800 pointer-events-none z-50"
     ></div>
+    
   </div>
+  <!-- Fin contenido principal -->
 </div>
 
-<!-- MODAL: Buscador móvil centrado y profesional -->
+<!-- MODAL: Buscador móvil mejorado -->
 <div
   x-show="searchMobile"
   x-transition:enter="transition ease-out duration-200"
@@ -176,45 +871,79 @@
   x-transition:leave="transition ease-in duration-150"
   x-transition:leave-start="opacity-100 scale-100"
   x-transition:leave-end="opacity-0 scale-95"
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
   x-cloak
   @keydown.escape.window="searchMobile = false"
 >
   <div
-    class="bg-white dark:bg-zinc-900 rounded-2xl p-6 w-11/12 max-w-lg shadow-2xl space-y-4 border border-gray-100 dark:border-zinc-800 relative"
+    class="bg-white dark:bg-zinc-900 rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4 border border-gray-100 dark:border-zinc-800 relative transform transition-all"
     @click.away="searchMobile = false"
     x-trap="searchMobile"
   >
-    <form action="#" method="get" class="flex flex-col gap-4">
-      <div class="flex items-center gap-3">
-        <span class="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-zinc-800 w-10 h-10">
-          <i class="ti ti-search text-2xl"></i>
-        </span>
+    <!-- Header del modal -->
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+        <i class="ti ti-search text-primary"></i>
+        {% trans "Búsqueda Global" %}
+      </h3>
+      <button 
+        type="button" 
+        @click="searchMobile = false" 
+        class="text-gray-400 hover:text-red-500 transition-colors p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg" 
+        aria-label="Cerrar"
+      >
+        <i class="ti ti-x text-xl"></i>
+      </button>
+    </div>
+
+    <form action="#" method="get" class="space-y-4">
+      <div class="relative">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <i class="ti ti-search text-gray-400"></i>
+        </div>
         <input
           id="modal-search"
           name="q"
           type="search"
-          placeholder="{% trans 'Buscar en CorteSec...' %}"
-          class="flex-1 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary transition shadow"
+          placeholder="{% trans 'Buscar empresas, empleados, proyectos...' %}"
+          class="block w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           autofocus
           autocomplete="off"
         >
-        <button type="submit" class="ml-2 px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-blue-700 transition flex items-center gap-2 shadow">
-          <i class="ti ti-search"></i>
-          <span class="hidden sm:inline">{% trans "Buscar" %}</span>
-        </button>
-        <button type="button" @click="searchMobile = false" class="ml-2 text-gray-400 hover:text-red-500 transition" aria-label="Cerrar">
-          <i class="ti ti-x text-xl"></i>
-        </button>
       </div>
-      <div class="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-        <span>
-          <i class="ti ti-keyboard"></i>
-          <span class="ml-1">{% trans "Atajo:" %} <kbd class="px-1 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 text-xs font-mono">Ctrl</kbd> + <kbd class="px-1 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 text-xs font-mono">K</kbd>
-        </span>
-        <span>{% trans "Presiona Esc para cerrar" %}</span>
+      
+      <!-- Botones de acción -->
+      <div class="flex gap-3">
+        <button 
+          type="submit" 
+          class="flex-1 px-4 py-2 rounded-xl bg-primary text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all flex items-center justify-center gap-2"
+        >
+          <i class="ti ti-search"></i>
+          {% trans "Buscar" %}
+        </button>
+        <button 
+          type="button" 
+          @click="searchMobile = false"
+          class="px-4 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all"
+        >
+          {% trans "Cancelar" %}
+        </button>
       </div>
     </form>
+    
+    <!-- Ayuda de atajos -->
+    <div class="pt-3 border-t border-gray-200 dark:border-zinc-700">
+      <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+        <span class="flex items-center gap-1">
+          <i class="ti ti-keyboard text-sm"></i>
+          {% trans "Atajos:" %}
+          <kbd class="px-2 py-1 rounded bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 font-mono">Ctrl</kbd>
+          +
+          <kbd class="px-2 py-1 rounded bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 font-mono">K</kbd>
+        </span>
+        <span>{% trans "Esc para cerrar" %}</span>
+      </div>
+    </div>
   </div>
 </div>
 

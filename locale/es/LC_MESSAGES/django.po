@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-06-21 18:57-0500\n"
+"POT-Creation-Date: 2025-06-30 01:48-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,92 +18,1758 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:3
-#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:6
-msgid "Eliminar Empleado"
+#: .\ayuda\models.py:16 .\documentacion\models.py:17
+msgid "Nombre de la categoría"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:7
-#, python-format
-msgid ""
-"¿Estás seguro de que deseas eliminar al empleado %(nombre)s %(apellido)s?"
+#: .\ayuda\models.py:22 .\ayuda\models.py:159 .\cargos\models.py:29
+#: .\configuracion\models.py:248 .\contabilidad\models.py:42
+#: .\contabilidad\models.py:171 .\documentacion\models.py:23
+#: .\documentacion\models.py:83 .\items\templates\items\item_list.html:32
+#: .\permisos\models.py:29 .\permisos\models.py:110 .\permisos\models.py:163
+#: .\prestamos\models.py:30 .\roles\models.py:25 .\tipos_cantidad\models.py:22
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:136
+msgid "Descripción"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:12
-#: .\payroll\templates\payroll\empleado_lista.html:38
-#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:12
-#: .\payroll\templates\payroll\nomina_detalle.html:65
-#: .\payroll\templates\payroll\nomina_formulario.html:91
-#: .\payroll\templates\payroll\nomina_formulario.html:149
-#: .\payroll\templates\payroll\nomina_lista.html:36
-msgid "Eliminar"
+#: .\ayuda\models.py:29 .\configuracion\models.py:375
+#: .\documentacion\models.py:30 .\permisos\models.py:37
+msgid "Icono"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:15
-#: .\payroll\templates\payroll\empleado_formulario.html:30
-#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:15
-#: .\payroll\templates\payroll\nomina_formulario.html:108
-msgid "Cancelar"
+#: .\ayuda\models.py:30 .\documentacion\models.py:31
+msgid "Clase CSS del icono"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_detalle.html:9
+#: .\ayuda\models.py:35 .\ayuda\models.py:91 .\documentacion\models.py:36
+#: .\documentacion\models.py:126 .\permisos\models.py:51
+#: .\tipos_cantidad\models.py:48
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:142
+msgid "Orden"
+msgstr ""
+
+#: .\ayuda\models.py:36 .\documentacion\models.py:37
+#: .\tipos_cantidad\models.py:49
+msgid "Orden de visualización"
+msgstr ""
+
+#: .\ayuda\models.py:41 .\contabilidad\models.py:86
+#: .\documentacion\models.py:42
+msgid "Activa"
+msgstr ""
+
+#: .\ayuda\models.py:45
+msgid "Categoría de Ayuda"
+msgstr ""
+
+#: .\ayuda\models.py:46
+msgid "Categorías de Ayuda"
+msgstr ""
+
+#: .\ayuda\models.py:62 .\documentacion\models.py:72
+msgid "Categoría"
+msgstr ""
+
+#: .\ayuda\models.py:67 .\documentacion\models.py:77
+msgid "Título"
+msgstr ""
+
+#: .\ayuda\models.py:71
+msgid "Contenido"
+msgstr ""
+
+#: .\ayuda\models.py:72
+msgid "Contenido del artículo (soporta HTML)"
+msgstr ""
+
+#: .\ayuda\models.py:79 .\documentacion\models.py:108
+msgid "Etiquetas"
+msgstr ""
+
+#: .\ayuda\models.py:80 .\documentacion\models.py:109
+msgid "Etiquetas separadas por comas para búsqueda"
+msgstr ""
+
+#: .\ayuda\models.py:85
+msgid "Es FAQ"
+msgstr ""
+
+#: .\ayuda\models.py:86
+msgid "Si es una pregunta frecuente"
+msgstr ""
+
+#: .\ayuda\models.py:96
+msgid "Publicado"
+msgstr ""
+
+#: .\ayuda\models.py:104 .\cargos\models.py:272 .\contabilidad\models.py:220
+#: .\documentacion\models.py:139 .\documentacion\models.py:252
+msgid "Creado por"
+msgstr ""
+
+#: .\ayuda\models.py:109 .\ayuda\models.py:188 .\cargos\models.py:115
+#: .\configuracion\models.py:284 .\contabilidad\models.py:92
+#: .\contabilidad\models.py:225 .\documentacion\models.py:144
+#: .\documentacion\models.py:257 .\perfil\models.py:266
+#: .\prestamos\models.py:79 .\prestamos\models.py:251 .\roles\models.py:87
+#: .\tipos_cantidad\models.py:55
+msgid "Fecha de creación"
+msgstr ""
+
+#: .\ayuda\models.py:114 .\ayuda\models.py:193 .\cargos\models.py:120
+#: .\configuracion\models.py:289 .\configuracion\models.py:390
+#: .\documentacion\models.py:149 .\prestamos\models.py:256 .\roles\models.py:92
+#: .\tipos_cantidad\models.py:60
+msgid "Fecha de modificación"
+msgstr ""
+
+#: .\ayuda\models.py:118
+msgid "Artículo de Ayuda"
+msgstr ""
+
+#: .\ayuda\models.py:119
+msgid "Artículos de Ayuda"
+msgstr ""
+
+#: .\ayuda\models.py:132
+msgid "Baja"
+msgstr ""
+
+#: .\ayuda\models.py:133
+msgid "Media"
+msgstr ""
+
+#: .\ayuda\models.py:134
+msgid "Alta"
+msgstr ""
+
+#: .\ayuda\models.py:135
+msgid "Crítica"
+msgstr ""
+
+#: .\ayuda\models.py:139
+msgid "Abierto"
+msgstr ""
+
+#: .\ayuda\models.py:140
+msgid "En proceso"
+msgstr ""
+
+#: .\ayuda\models.py:141
+#, fuzzy
+#| msgid "Menú de usuario"
+msgid "Esperando usuario"
+msgstr "Menú de usuario"
+
+#: .\ayuda\models.py:142
+msgid "Resuelto"
+msgstr ""
+
+#: .\ayuda\models.py:143
+msgid "Cerrado"
+msgstr ""
+
+#: .\ayuda\models.py:150 .\ayuda\models.py:230 .\configuracion\models.py:457
+#: .\documentacion\models.py:197 .\perfil\models.py:48 .\roles\models.py:173
+msgid "Usuario"
+msgstr ""
+
+#: .\ayuda\models.py:155
+msgid "Asunto"
+msgstr ""
+
+#: .\ayuda\models.py:160
+msgid "Descripción detallada del problema o consulta"
+msgstr ""
+
+#: .\ayuda\models.py:167
+msgid "Prioridad"
+msgstr ""
+
+#: .\ayuda\models.py:174 .\contabilidad\forms.py:289
+#: .\contabilidad\models.py:179 .\prestamos\models.py:197
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:145
+msgid "Estado"
+msgstr ""
+
+#: .\ayuda\models.py:183
+msgid "Asignado a"
+msgstr ""
+
+#: .\ayuda\models.py:197
+msgid "Solicitud de Soporte"
+msgstr ""
+
+#: .\ayuda\models.py:198
+msgid "Solicitudes de Soporte"
+msgstr ""
+
+#: .\ayuda\models.py:214
+msgid "Solicitud"
+msgstr ""
+
+#: .\ayuda\models.py:218
+msgid "Respuesta"
+msgstr ""
+
+#: .\ayuda\models.py:223
+msgid "Es interna"
+msgstr ""
+
+#: .\ayuda\models.py:224
+msgid "Si es una nota interna, no visible para el usuario"
+msgstr ""
+
+#: .\ayuda\models.py:235
+msgid "Fecha de respuesta"
+msgstr ""
+
+#: .\ayuda\models.py:239
+msgid "Respuesta de Soporte"
+msgstr ""
+
+#: .\ayuda\models.py:240
+msgid "Respuestas de Soporte"
+msgstr ""
+
+#: .\cargos\forms.py:81
+msgid "Ya existe un cargo con este código."
+msgstr ""
+
+#: .\cargos\forms.py:92
+msgid "Ya existe un cargo con este nombre."
+msgstr ""
+
+#: .\cargos\models.py:15
+msgid "Nombre del cargo"
+msgstr ""
+
+#: .\cargos\models.py:16
+msgid "Nombre único del cargo"
+msgstr ""
+
+#: .\cargos\models.py:22 .\configuracion\models.py:235
+#: .\locations\templates\locations\departamento_detalle.html:11
+#: .\locations\templates\locations\departamento_lista.html:22
+#: .\locations\templates\locations\municipio_detalle.html:16
+#: .\locations\templates\locations\municipio_lista.html:29
+#: .\permisos\models.py:22 .\permisos\models.py:156 .\prestamos\models.py:23
+#: .\tipos_cantidad\models.py:16
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:133
+msgid "Código"
+msgstr ""
+
+#: .\cargos\models.py:23
+msgid "Código único del cargo"
+msgstr ""
+
+#: .\cargos\models.py:30
+msgid "Descripción detallada del cargo y sus responsabilidades"
+msgstr ""
+
+#: .\cargos\models.py:40
+msgid "Cargo superior"
+msgstr ""
+
+#: .\cargos\models.py:41
+msgid "Cargo del cual depende jerárquicamente"
+msgstr ""
+
+#: .\cargos\models.py:46
+msgid "Nivel jerárquico"
+msgstr ""
+
+#: .\cargos\models.py:47
+msgid "Nivel en la jerarquía (1=más alto)"
+msgstr ""
+
+#: .\cargos\models.py:55
+msgid "Salario base mínimo"
+msgstr ""
+
+#: .\cargos\models.py:56
+msgid "Salario base mínimo para este cargo"
+msgstr ""
+
+#: .\cargos\models.py:64
+msgid "Salario base máximo"
+msgstr ""
+
+#: .\cargos\models.py:65
+msgid "Salario base máximo para este cargo"
+msgstr ""
+
+#: .\cargos\models.py:73
+msgid "Roles permitidos"
+msgstr ""
+
+#: .\cargos\models.py:74
+msgid "Roles que pueden ser asignados a este cargo"
+msgstr ""
+
+#: .\cargos\models.py:80 .\prestamos\models.py:66
+msgid "Requiere aprobación"
+msgstr ""
+
+#: .\cargos\models.py:81
+msgid "Si las acciones de este cargo requieren aprobación"
+msgstr ""
+
+#: .\cargos\models.py:86
+msgid "Puede aprobar"
+msgstr ""
+
+#: .\cargos\models.py:87
+msgid "Si este cargo puede aprobar acciones de otros"
+msgstr ""
+
+#: .\cargos\models.py:95
+msgid "Límite de aprobación"
+msgstr ""
+
+#: .\cargos\models.py:96
+msgid "Monto máximo que puede aprobar"
+msgstr ""
+
+#: .\cargos\models.py:102 .\configuracion\models.py:278
+#: .\contabilidad\models.py:14 .\documentacion\models.py:131
+#: .\permisos\models.py:57 .\permisos\models.py:116 .\permisos\models.py:177
+#: .\permisos\models.py:308 .\prestamos\models.py:72 .\roles\models.py:31
+#: .\tipos_cantidad\models.py:36
+msgid "Activo"
+msgstr ""
+
+#: .\cargos\models.py:103
+msgid "Si está activo, el cargo estará disponible"
+msgstr ""
+
+#: .\cargos\models.py:108
+msgid "Es temporal"
+msgstr ""
+
+#: .\cargos\models.py:109
+msgid "Si es un cargo temporal"
+msgstr ""
+
+#: .\cargos\models.py:124 .\payroll\templates\payroll\empleado_detalle.html:61
+#: .\payroll\templates\payroll\empleado_lista.html:19
+msgid "Cargo"
+msgstr ""
+
+#: .\cargos\models.py:125 .\payroll\templates\payroll\cargo_list.html:3
+#: .\templates\components\sidebar.html:164
+#: .\templates\components\sidebar.html:166
+msgid "Cargos"
+msgstr ""
+
+#: .\cargos\models.py:141
+msgid "Un cargo no puede ser superior de sí mismo"
+msgstr ""
+
+#: .\cargos\models.py:147
+msgid "El salario mínimo no puede ser mayor que el máximo"
+msgstr ""
+
+#: .\cargos\models.py:153
+msgid "Debe especificar un límite de aprobación si puede aprobar"
+msgstr ""
+
+#: .\cargos\models.py:215
+#: .\payroll\templates\payroll\empleado_formulario.html:4
+#: .\payroll\templates\payroll\nomina_lista.html:17 .\prestamos\models.py:119
+msgid "Empleado"
+msgstr ""
+
+#: .\cargos\models.py:224
+msgid "Cargo anterior"
+msgstr ""
+
+#: .\cargos\models.py:231
+msgid "Cargo nuevo"
+msgstr ""
+
+#: .\cargos\models.py:235 .\permisos\models.py:316 .\roles\models.py:193
+msgid "Fecha de inicio"
+msgstr ""
+
+#: .\cargos\models.py:236
+msgid "Fecha en que inició en el nuevo cargo"
+msgstr ""
+
+#: .\cargos\models.py:242 .\permisos\models.py:323 .\roles\models.py:200
+msgid "Fecha de fin"
+msgstr ""
+
+#: .\cargos\models.py:243
+msgid "Fecha en que terminó en el cargo (si aplica)"
+msgstr ""
+
+#: .\cargos\models.py:249
+msgid "Salario asignado"
+msgstr ""
+
+#: .\cargos\models.py:250
+msgid "Salario asignado en este cargo"
+msgstr ""
+
+#: .\cargos\models.py:256
+msgid "Motivo del cambio"
+msgstr ""
+
+#: .\cargos\models.py:257
+msgid "Razón del cambio de cargo"
+msgstr ""
+
+#: .\cargos\models.py:263 .\contabilidad\models.py:390 .\permisos\models.py:330
+#: .\prestamos\models.py:204 .\prestamos\models.py:458 .\roles\models.py:207
+#, fuzzy
+#| msgid "Ubicaciones"
+msgid "Observaciones"
+msgstr "Ubicaciones"
+
+#: .\cargos\models.py:264
+msgid "Observaciones adicionales"
+msgstr ""
+
+#: .\cargos\models.py:277 .\prestamos\models.py:481
+msgid "Fecha de registro"
+msgstr ""
+
+#: .\cargos\models.py:281
+#, fuzzy
+#| msgid "Historial reciente"
+msgid "Historial de Cargo"
+msgstr "Historial reciente"
+
+#: .\cargos\models.py:282
+msgid "Historiales de Cargo"
+msgstr ""
+
+#: .\cargos\models.py:297
+msgid "La fecha de inicio no puede ser mayor que la fecha de fin"
+msgstr ""
+
+#: .\cargos\models.py:303
+msgid "El salario asignado no está en el rango permitido para este cargo"
+msgstr ""
+
+#: .\cargos\templates\cargos\cargos\list.html:12
+msgid "Gestión de Cargos"
+msgstr ""
+
+#: .\cargos\templates\cargos\cargos\list.html:13
+msgid "Administra los cargos de la organización"
+msgstr ""
+
+#: .\cargos\templates\cargos\cargos\list.html:17
+#: .\payroll\templates\payroll\cargo_form.html:4
+#: .\payroll\templates\payroll\cargo_form.html:9
+#: .\payroll\templates\payroll\cargo_list.html:27
+msgid "Nuevo Cargo"
+msgstr ""
+
+#: .\cargos\templates\cargos\niveles_salariales\list.html:12
+msgid "Niveles Salariales"
+msgstr ""
+
+#: .\cargos\templates\cargos\niveles_salariales\list.html:13
+msgid "Administra los niveles salariales de la organización"
+msgstr ""
+
+#: .\cargos\templates\cargos\niveles_salariales\list.html:17
+msgid "Nuevo Nivel"
+msgstr ""
+
+#: .\configuracion\forms.py:146
+msgid "El NIT debe tener al menos 8 caracteres"
+msgstr ""
+
+#: .\configuracion\forms.py:155
+msgid "Email inválido"
+msgstr ""
+
+#: .\configuracion\forms.py:162
+msgid "El día debe estar entre 1 y 31"
+msgstr ""
+
+#: .\configuracion\forms.py:225
+msgid "El código solo puede contener letras, números, guiones y guiones bajos"
+msgstr ""
+
+#: .\configuracion\forms.py:230 .\configuracion\forms.py:233
+msgid "Ya existe un parámetro con este código"
+msgstr ""
+
+#: .\configuracion\forms.py:251
+msgid "Valor booleano inválido"
+msgstr ""
+
+#: .\configuracion\forms.py:274
+#, fuzzy
+#| msgid "Configuración"
+msgid "Configuración en formato JSON"
+msgstr "Configuración"
+
+#: .\configuracion\forms.py:431
+msgid "Puerto debe estar entre 1 y 65535"
+msgstr ""
+
+#: .\configuracion\models.py:16
+msgid "Nombre de la empresa"
+msgstr ""
+
+#: .\configuracion\models.py:17
+msgid "Nombre oficial de la empresa"
+msgstr ""
+
+#: .\configuracion\models.py:22
+msgid "NIT"
+msgstr ""
+
+#: .\configuracion\models.py:23
+msgid "Número de identificación tributaria"
+msgstr ""
+
+#: .\configuracion\models.py:27
+#: .\payroll\templates\payroll\empleado_detalle.html:23
+msgid "Dirección"
+msgstr ""
+
+#: .\configuracion\models.py:28
+msgid "Dirección principal de la empresa"
+msgstr ""
+
+#: .\configuracion\models.py:33
+msgid "Teléfono principal"
+msgstr ""
+
+#: .\configuracion\models.py:37
+msgid "Email principal"
+msgstr ""
+
+#: .\configuracion\models.py:38
+msgid "Email principal de la empresa"
+msgstr ""
+
+#: .\configuracion\models.py:44
+msgid "Sitio web"
+msgstr ""
+
+#: .\configuracion\models.py:51
+msgid "Logo de la empresa"
+msgstr ""
+
+#: .\configuracion\models.py:58
+msgid "Moneda"
+msgstr ""
+
+#: .\configuracion\models.py:59
+msgid "Código de moneda (ej: COP, USD)"
+msgstr ""
+
+#: .\configuracion\models.py:65
+msgid "Símbolo de moneda"
+msgstr ""
+
+#: .\configuracion\models.py:72
+msgid "Zona horaria"
+msgstr ""
+
+#: .\configuracion\models.py:73
+msgid "Zona horaria de la empresa"
+msgstr ""
+
+#: .\configuracion\models.py:84
+msgid "Formato de fecha"
+msgstr ""
+
+#: .\configuracion\models.py:91
+msgid "Día de pago de nómina"
+msgstr ""
+
+#: .\configuracion\models.py:92
+msgid "Día del mes para pago de nómina"
+msgstr ""
+
+#: .\configuracion\models.py:98
+msgid "Mensual"
+msgstr ""
+
+#: .\configuracion\models.py:99
+msgid "Quincenal"
+msgstr ""
+
+#: .\configuracion\models.py:100
+msgid "Semanal"
+msgstr ""
+
+#: .\configuracion\models.py:103
+msgid "Período de nómina"
+msgstr ""
+
+#: .\configuracion\models.py:111
+msgid "Cuenta de efectivo por defecto"
+msgstr ""
+
+#: .\configuracion\models.py:112
+msgid "Código de cuenta contable para efectivo"
+msgstr ""
+
+#: .\configuracion\models.py:119
+msgid "Cuenta de nómina por defecto"
+msgstr ""
+
+#: .\configuracion\models.py:120
+msgid "Código de cuenta contable para nómina"
+msgstr ""
+
+#: .\configuracion\models.py:126
+msgid "Timeout de sesión (minutos)"
+msgstr ""
+
+#: .\configuracion\models.py:127
+msgid "Tiempo de inactividad antes de cerrar sesión"
+msgstr ""
+
+#: .\configuracion\models.py:132
+msgid "Máximo intentos de login"
+msgstr ""
+
+#: .\configuracion\models.py:133
+msgid "Máximo intentos fallidos antes de bloquear cuenta"
+msgstr ""
+
+#: .\configuracion\models.py:138
+msgid "Requiere cambio de contraseña"
+msgstr ""
+
+#: .\configuracion\models.py:139
+msgid "Si los usuarios deben cambiar contraseña periódicamente"
+msgstr ""
+
+#: .\configuracion\models.py:144
+msgid "Días para cambio de contraseña"
+msgstr ""
+
+#: .\configuracion\models.py:145
+msgid "Cada cuántos días se debe cambiar la contraseña"
+msgstr ""
+
+#: .\configuracion\models.py:153
+msgid "Servidor de email"
+msgstr ""
+
+#: .\configuracion\models.py:154
+msgid "Servidor SMTP para envío de correos"
+msgstr ""
+
+#: .\configuracion\models.py:159
+msgid "Puerto de email"
+msgstr ""
+
+#: .\configuracion\models.py:166
+msgid "Usuario de email"
+msgstr ""
+
+#: .\configuracion\models.py:171
+msgid "Usar TLS"
+msgstr ""
+
+#: .\configuracion\models.py:172
+msgid "Usar conexión segura TLS para email"
+msgstr ""
+
+#: .\configuracion\models.py:178
+msgid "Última modificación"
+msgstr ""
+
+#: .\configuracion\models.py:186
+msgid "Modificado por"
+msgstr ""
+
+#: .\configuracion\models.py:190 .\configuracion\models.py:191
+#: .\configuracion\models.py:418
+#, fuzzy
+#| msgid "Configuración"
+msgid "Configuración General"
+msgstr "Configuración"
+
+#: .\configuracion\models.py:199
+msgid "Solo puede existir una configuración general"
+msgstr ""
+
+#: .\configuracion\models.py:224
+msgid "Texto"
+msgstr ""
+
+#: .\configuracion\models.py:225
+msgid "Número entero"
+msgstr ""
+
+#: .\configuracion\models.py:226
+msgid "Número decimal"
+msgstr ""
+
+#: .\configuracion\models.py:227
+msgid "Verdadero/Falso"
+msgstr ""
+
+#: .\configuracion\models.py:228 .\contabilidad\models.py:358
+msgid "Fecha"
+msgstr ""
+
+#: .\configuracion\models.py:229
+msgid "JSON"
+msgstr ""
+
+#: .\configuracion\models.py:236
+msgid "Código único del parámetro"
+msgstr ""
+
+#: .\configuracion\models.py:241 .\items\templates\items\item_list.html:31
+#: .\locations\templates\locations\departamento_lista.html:21
+#: .\locations\templates\locations\municipio_lista.html:30
+#: .\payroll\templates\payroll\cargo_list.html:34
+#: .\payroll\templates\payroll\empleado_lista.html:16 .\permisos\models.py:103
+msgid "Nombre"
+msgstr ""
+
+#: .\configuracion\models.py:242
+msgid "Nombre descriptivo del parámetro"
+msgstr ""
+
+#: .\configuracion\models.py:249
+msgid "Descripción detallada del parámetro"
+msgstr ""
+
+#: .\configuracion\models.py:255
+msgid "Tipo de valor"
+msgstr ""
+
+#: .\configuracion\models.py:259 .\contabilidad\models.py:375
+msgid "Valor"
+msgstr ""
+
+#: .\configuracion\models.py:260
+msgid "Valor del parámetro"
+msgstr ""
+
+#: .\configuracion\models.py:266
+msgid "Valor por defecto"
+msgstr ""
+
+#: .\configuracion\models.py:267
+msgid "Valor por defecto del parámetro"
+msgstr ""
+
+#: .\configuracion\models.py:272 .\permisos\models.py:63
+#: .\permisos\models.py:217 .\roles\models.py:37 .\tipos_cantidad\models.py:42
+msgid "Es del sistema"
+msgstr ""
+
+#: .\configuracion\models.py:273
+msgid "Los parámetros del sistema no se pueden eliminar"
+msgstr ""
+
+#: .\configuracion\models.py:293
+msgid "Parámetro del Sistema"
+msgstr ""
+
+#: .\configuracion\models.py:294
+msgid "Parámetros del Sistema"
+msgstr ""
+
+#: .\configuracion\models.py:340 .\permisos\models.py:68
+#: .\permisos\models.py:137
+msgid "Módulo"
+msgstr ""
+
+#: .\configuracion\models.py:341
+msgid "Nombre del módulo a configurar"
+msgstr ""
+
+#: .\configuracion\models.py:346
+msgid "Módulo activo"
+msgstr ""
+
+#: .\configuracion\models.py:347
+msgid "Si el módulo está activo y disponible"
+msgstr ""
+
+#: .\configuracion\models.py:354 .\documentacion\models.py:101
+#: .\documentacion\models.py:234
+#, fuzzy
+#| msgid "Cerrar sesión"
+msgid "Versión"
+msgstr "Cerrar sesión"
+
+#: .\configuracion\models.py:355
+msgid "Versión del módulo"
+msgstr ""
+
+#: .\configuracion\models.py:361
+#, fuzzy
+#| msgid "Configuración"
+msgid "Configuración JSON"
+msgstr "Configuración"
+
+#: .\configuracion\models.py:362
+msgid "Configuración específica del módulo en formato JSON"
+msgstr ""
+
+#: .\configuracion\models.py:367
+msgid "Orden en menú"
+msgstr ""
+
+#: .\configuracion\models.py:368
+msgid "Orden de aparición en el menú principal"
+msgstr ""
+
+#: .\configuracion\models.py:376
+msgid "Clase CSS del icono del módulo"
+msgstr ""
+
+#: .\configuracion\models.py:383
+msgid "Color"
+msgstr ""
+
+#: .\configuracion\models.py:384
+msgid "Color principal del módulo"
+msgstr ""
+
+#: .\configuracion\models.py:394
+#, fuzzy
+#| msgid "Configuración"
+msgid "Configuración de Módulo"
+msgstr "Configuración"
+
+#: .\configuracion\models.py:395
+#, fuzzy
+#| msgid "Configuración"
+msgid "Configuraciones de Módulo"
+msgstr "Configuración"
+
+#: .\configuracion\models.py:419
+msgid "Parámetro"
+msgstr ""
+
+#: .\configuracion\models.py:420
+#, fuzzy
+#| msgid "Configuración"
+msgid "Configuración Módulo"
+msgstr "Configuración"
+
+#: .\configuracion\models.py:426
+msgid "Tipo de cambio"
+msgstr ""
+
+#: .\configuracion\models.py:431
+msgid "Item modificado"
+msgstr ""
+
+#: .\configuracion\models.py:432
+msgid "Nombre o código del item modificado"
+msgstr ""
+
+#: .\configuracion\models.py:438
+msgid "Valor anterior"
+msgstr ""
+
+#: .\configuracion\models.py:444
+msgid "Valor nuevo"
+msgstr ""
+
+#: .\configuracion\models.py:450
+msgid "Descripción del cambio"
+msgstr ""
+
+#: .\configuracion\models.py:462
+msgid "Fecha del cambio"
+msgstr ""
+
+#: .\configuracion\models.py:468 .\documentacion\models.py:208
+msgid "Dirección IP"
+msgstr ""
+
+#: .\configuracion\models.py:472
+#, fuzzy
+#| msgid "Configuración"
+msgid "Log de Configuración"
+msgstr "Configuración"
+
+#: .\configuracion\models.py:473
+#, fuzzy
+#| msgid "Configuración"
+msgid "Logs de Configuración"
+msgstr "Configuración"
+
+#: .\contabilidad\forms.py:82
+msgid "El código debe contener solo números y puntos"
+msgstr ""
+
+#: .\contabilidad\forms.py:93
+msgid "Las cuentas con subcuentas no pueden aceptar movimientos directos"
+msgstr ""
+
+#: .\contabilidad\forms.py:253 .\contabilidad\forms.py:334
+msgid "Fecha inicio"
+msgstr ""
+
+#: .\contabilidad\forms.py:262 .\contabilidad\forms.py:342
+msgid "Fecha fin"
+msgstr ""
+
+#: .\contabilidad\forms.py:271 .\contabilidad\models.py:283
+msgid "Cuenta"
+msgstr ""
+
+#: .\contabilidad\forms.py:280
+msgid "Tipo comprobante"
+msgstr ""
+
+#: .\contabilidad\forms.py:301
+msgid "Fecha de corte"
+msgstr ""
+
+#: .\contabilidad\forms.py:309 .\contabilidad\forms.py:350
+msgid "Incluir cuentas con saldo cero"
+msgstr ""
+
+#: .\contabilidad\forms.py:322
+msgid "Nivel de detalle"
+msgstr ""
+
+#: .\contabilidad\forms.py:358
+msgid "Generar comparativo con período anterior"
+msgstr ""
+
+#: .\contabilidad\models.py:15
+msgid "Pasivo"
+msgstr ""
+
+#: .\contabilidad\models.py:16
+msgid "Patrimonio"
+msgstr ""
+
+#: .\contabilidad\models.py:17 .\contabilidad\models.py:141
+#: .\contabilidad\models.py:353
+msgid "Ingreso"
+msgstr ""
+
+#: .\contabilidad\models.py:18
+msgid "Gasto"
+msgstr ""
+
+#: .\contabilidad\models.py:19
+msgid "Costo"
+msgstr ""
+
+#: .\contabilidad\models.py:23
+msgid "Débito"
+msgstr ""
+
+#: .\contabilidad\models.py:24
+msgid "Crédito"
+msgstr ""
+
+#: .\contabilidad\models.py:30
+msgid "Código de cuenta"
+msgstr ""
+
+#: .\contabilidad\models.py:31
+msgid "Código único de la cuenta contable"
+msgstr ""
+
+#: .\contabilidad\models.py:36
+msgid "Nombre de la cuenta"
+msgstr ""
+
+#: .\contabilidad\models.py:51
+msgid "Cuenta padre"
+msgstr ""
+
+#: .\contabilidad\models.py:56
+msgid "Nivel"
+msgstr ""
+
+#: .\contabilidad\models.py:57
+msgid "Nivel en la jerarquía del plan de cuentas"
+msgstr ""
+
+#: .\contabilidad\models.py:63 .\perfil\models.py:208
+msgid "Tipo de cuenta"
+msgstr ""
+
+#: .\contabilidad\models.py:69
+msgid "Naturaleza de la cuenta"
+msgstr ""
+
+#: .\contabilidad\models.py:74
+#, fuzzy
+#| msgid "Departamentos"
+msgid "Acepta movimientos"
+msgstr "Departamentos"
+
+#: .\contabilidad\models.py:75
+msgid "Si la cuenta acepta movimientos directos"
+msgstr ""
+
+#: .\contabilidad\models.py:80
+msgid "Requiere tercero"
+msgstr ""
+
+#: .\contabilidad\models.py:81
+msgid "Si los movimientos requieren especificar tercero"
+msgstr ""
+
+#: .\contabilidad\models.py:96 .\contabilidad\models.py:97
+#: .\contabilidad\templates\contabilidad\plan_cuentas\list.html:12
+msgid "Plan de Cuentas"
+msgstr ""
+
+#: .\contabilidad\models.py:140
+msgid "Diario"
+msgstr ""
+
+#: .\contabilidad\models.py:142 .\contabilidad\models.py:354
+msgid "Egreso"
+msgstr ""
+
+#: .\contabilidad\models.py:143
+#: .\payroll\templates\payroll\nomina_formulario.html:4
+#, fuzzy
+#| msgid "Nóminas"
+msgid "Nómina"
+msgstr "Nóminas"
+
+#: .\contabilidad\models.py:144
+msgid "Ajuste"
+msgstr ""
+
+#: .\contabilidad\models.py:145
+msgid "Cierre"
+msgstr ""
+
+#: .\contabilidad\models.py:149
+msgid "Borrador"
+msgstr ""
+
+#: .\contabilidad\models.py:150
+msgid "Contabilizado"
+msgstr ""
+
+#: .\contabilidad\models.py:151
+msgid "Anulado"
+msgstr ""
+
+#: .\contabilidad\models.py:157
+msgid "Número de comprobante"
+msgstr ""
+
+#: .\contabilidad\models.py:163
+msgid "Tipo de comprobante"
+msgstr ""
+
+#: .\contabilidad\models.py:167
+msgid "Fecha del comprobante"
+msgstr ""
+
+#: .\contabilidad\models.py:172
+msgid "Descripción general del comprobante"
+msgstr ""
+
+#: .\contabilidad\models.py:186
+msgid "Total débito"
+msgstr ""
+
+#: .\contabilidad\models.py:193
+msgid "Total crédito"
+msgstr ""
+
+#: .\contabilidad\models.py:203 .\prestamos\models.py:468
+msgid "Nómina relacionada"
+msgstr ""
+
+#: .\contabilidad\models.py:212
+msgid "Préstamo relacionado"
+msgstr ""
+
+#: .\contabilidad\models.py:234
+msgid "Contabilizado por"
+msgstr ""
+
+#: .\contabilidad\models.py:240
+msgid "Fecha de contabilización"
+msgstr ""
+
+#: .\contabilidad\models.py:244
+msgid "Comprobante Contable"
+msgstr ""
+
+#: .\contabilidad\models.py:245
+msgid "Comprobantes Contables"
+msgstr ""
+
+#: .\contabilidad\models.py:254
+msgid "El total débito debe ser igual al total crédito"
+msgstr ""
+
+#: .\contabilidad\models.py:259
+msgid "Solo se pueden contabilizar comprobantes en borrador"
+msgstr ""
+
+#: .\contabilidad\models.py:276
+msgid "Comprobante"
+msgstr ""
+
+#: .\contabilidad\models.py:288
+msgid "Descripción del movimiento"
+msgstr ""
+
+#: .\contabilidad\models.py:295
+msgid "Valor débito"
+msgstr ""
+
+#: .\contabilidad\models.py:302
+msgid "Valor crédito"
+msgstr ""
+
+#: .\contabilidad\models.py:309
+msgid "Tercero"
+msgstr ""
+
+#: .\contabilidad\models.py:310
+msgid "Identificación o nombre del tercero"
+msgstr ""
+
+#: .\contabilidad\models.py:317
+msgid "Centro de costo"
+msgstr ""
+
+#: .\contabilidad\models.py:321
+msgid "Movimiento Contable"
+msgstr ""
+
+#: .\contabilidad\models.py:322
+msgid "Movimientos Contables"
+msgstr ""
+
+#: .\contabilidad\models.py:333
+msgid "Un movimiento no puede tener valor en débito y crédito"
+msgstr ""
+
+#: .\contabilidad\models.py:336
+msgid "Un movimiento debe tener valor en débito o crédito"
+msgstr ""
+
+#: .\contabilidad\models.py:340
+msgid "La cuenta seleccionada no acepta movimientos directos"
+msgstr ""
+
+#: .\contabilidad\models.py:344
+msgid "Esta cuenta requiere especificar un tercero"
+msgstr ""
+
+#: .\contabilidad\models.py:364
+msgid "Tipo de movimiento"
+msgstr ""
+
+#: .\contabilidad\models.py:369
+msgid "Concepto"
+msgstr ""
+
+#: .\contabilidad\models.py:384
+msgid "Comprobante relacionado"
+msgstr ""
+
+#: .\contabilidad\models.py:394 .\contabilidad\models.py:395
+msgid "Flujo de Caja"
+msgstr ""
+
+#: .\contabilidad\templates\contabilidad\plan_cuentas\list.html:13
+msgid "Gestiona la estructura contable de la organización"
+msgstr ""
+
+#: .\contabilidad\templates\contabilidad\plan_cuentas\list.html:18
+#: .\permisos\models.py:86
+msgid "Exportar"
+msgstr ""
+
+#: .\contabilidad\templates\contabilidad\plan_cuentas\list.html:22
+msgid "Nueva Cuenta"
+msgstr ""
+
+#: .\documentacion\models.py:46
+msgid "Categoría de Documento"
+msgstr ""
+
+#: .\documentacion\models.py:47
+msgid "Categorías de Documento"
+msgstr ""
+
+#: .\documentacion\models.py:60
+msgid "Manual"
+msgstr ""
+
+#: .\documentacion\models.py:61
+msgid "Guía"
+msgstr ""
+
+#: .\documentacion\models.py:62
+msgid "Política"
+msgstr ""
+
+#: .\documentacion\models.py:63
+#, fuzzy
+#| msgid "Documentación"
+msgid "Procedimiento"
+msgstr "Documentación"
+
+#: .\documentacion\models.py:64
+msgid "Formato"
+msgstr ""
+
+#: .\documentacion\models.py:65 .\perfil\models.py:28 .\prestamos\models.py:396
+msgid "Otro"
+msgstr ""
+
+#: .\documentacion\models.py:89
+#, fuzzy
+#| msgid "Documentación"
+msgid "Tipo de documento"
+msgstr "Documentación"
+
+#: .\documentacion\models.py:94
+msgid "Archivo"
+msgstr ""
+
+#: .\documentacion\models.py:95
+msgid "Archivo del documento"
+msgstr ""
+
+#: .\documentacion\models.py:114
+msgid "Es público"
+msgstr ""
+
+#: .\documentacion\models.py:115
+msgid "Si es visible para todos los usuarios"
+msgstr ""
+
+#: .\documentacion\models.py:120
+msgid "Requiere descarga"
+msgstr ""
+
+#: .\documentacion\models.py:121
+msgid "Si se debe descargar en lugar de ver en línea"
+msgstr ""
+
+#: .\documentacion\models.py:153 .\documentacion\models.py:190
+#: .\documentacion\models.py:229
+#: .\payroll\templates\payroll\empleado_detalle.html:11
 #: .\payroll\templates\payroll\empleado_lista.html:17
 #, fuzzy
 #| msgid "Documentación"
 msgid "Documento"
 msgstr "Documentación"
 
-#: .\payroll\templates\payroll\empleado_detalle.html:13
+#: .\documentacion\models.py:154
+#, fuzzy
+#| msgid "Documentación"
+msgid "Documentos"
+msgstr "Documentación"
+
+#: .\documentacion\models.py:202
+msgid "Fecha de descarga"
+msgstr ""
+
+#: .\documentacion\models.py:212
+#, fuzzy
+#| msgid "Documentación"
+msgid "Descarga de Documento"
+msgstr "Documentación"
+
+#: .\documentacion\models.py:213
+msgid "Descargas de Documento"
+msgstr ""
+
+#: .\documentacion\models.py:239
+msgid "Archivo de la versión"
+msgstr ""
+
+#: .\documentacion\models.py:245
+msgid "Notas de la versión"
+msgstr ""
+
+#: .\documentacion\models.py:246
+msgid "Cambios realizados en esta versión"
+msgstr ""
+
+#: .\documentacion\models.py:261
+#, fuzzy
+#| msgid "Documentación"
+msgid "Versión de Documento"
+msgstr "Documentación"
+
+#: .\documentacion\models.py:262
+msgid "Versiones de Documento"
+msgstr ""
+
+#: .\items\templates\items\item_formulario.html:4
+#: .\payroll\templates\payroll\nomina_detalle.html:24
+#: .\payroll\templates\payroll\nomina_formulario.html:252
+#, fuzzy
+#| msgid "Ítems"
+msgid "Ítem"
+msgstr "Ítems"
+
+#: .\items\templates\items\item_formulario.html:8
+#, fuzzy
+#| msgid "Nóminas"
+msgid "Editar Ítem"
+msgstr "Nóminas"
+
+#: .\items\templates\items\item_formulario.html:8
+#: .\items\templates\items\item_list.html:24
+#: .\payroll\templates\payroll\nomina_formulario.html:115
+msgid "Agregar Ítem"
+msgstr ""
+
+#: .\items\templates\items\item_formulario.html:51
+#: .\locations\templates\locations\departamento_formulario.html:33
+#: .\locations\templates\locations\municipio_formulario.html:51
+#: .\payroll\templates\payroll\cargo_form.html:28
+#: .\payroll\templates\payroll\nomina_formulario.html:121
+#, fuzzy
+#| msgid "Nóminas"
+msgid "Guardar"
+msgstr "Nóminas"
+
+#: .\items\templates\items\item_formulario.html:54
+#: .\locations\templates\locations\departamento_confirmar_eliminar.html:20
+#: .\locations\templates\locations\departamento_formulario.html:36
+#: .\locations\templates\locations\importar_excel.html:37
+#: .\locations\templates\locations\municipio_confirmar_eliminar.html:20
+#: .\locations\templates\locations\municipio_formulario.html:54
+#: .\payroll\templates\payroll\cargo_confirm_delete.html:18
+#: .\payroll\templates\payroll\cargo_form.html:31
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:20
+#: .\payroll\templates\payroll\empleado_formulario.html:78
+#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:20
+#: .\payroll\templates\payroll\nomina_formulario.html:124
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:311
+msgid "Cancelar"
+msgstr ""
+
+#: .\items\templates\items\item_list.html:3
+#: .\items\templates\items\item_list.html:7
+#: .\items\templates\items\item_list.html:22
+#: .\templates\components\header.html:14
+#: .\templates\components\sidebar.html:140
+#: .\templates\components\sidebar.html:142
+msgid "Ítems"
+msgstr "Ítems"
+
+#: .\items\templates\items\item_list.html:33
+msgid "Precio Unitario"
+msgstr ""
+
+#: .\items\templates\items\item_list.html:34 .\tipos_cantidad\models.py:64
+msgid "Tipo de Cantidad"
+msgstr ""
+
+#: .\items\templates\items\item_list.html:52
+#: .\locations\templates\locations\departamento_detalle.html:18
+#: .\locations\templates\locations\municipio_detalle.html:22
+#: .\payroll\templates\payroll\cargo_detail.html:12
+#: .\payroll\templates\payroll\cargo_list.html:47
+#: .\payroll\templates\payroll\empleado_detalle.html:67
+#: .\payroll\templates\payroll\empleado_lista.html:35
+#: .\payroll\templates\payroll\nomina_detalle.html:76
+#: .\payroll\templates\payroll\nomina_lista.html:38 .\permisos\models.py:84
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:205
+msgid "Editar"
+msgstr ""
+
+#: .\items\templates\items\item_list.html:55
+#: .\locations\templates\locations\departamento_confirmar_eliminar.html:17
+#: .\locations\templates\locations\departamento_detalle.html:21
+#: .\locations\templates\locations\municipio_confirmar_eliminar.html:17
+#: .\locations\templates\locations\municipio_detalle.html:25
+#: .\payroll\templates\payroll\cargo_list.html:50
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:17
+#: .\payroll\templates\payroll\empleado_lista.html:38
+#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:17
+#: .\payroll\templates\payroll\nomina_detalle.html:79
+#: .\payroll\templates\payroll\nomina_formulario.html:107
+#: .\payroll\templates\payroll\nomina_formulario.html:270
+#: .\payroll\templates\payroll\nomina_lista.html:41 .\permisos\models.py:85
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:213
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:307
+msgid "Eliminar"
+msgstr ""
+
+#: .\items\templates\items\item_list.html:62
+#: .\payroll\templates\payroll\nomina_detalle.html:46
+msgid "No hay ítems registrados."
+msgstr ""
+
+#: .\locations\templates\locations\departamento_confirmar_eliminar.html:3
+#, fuzzy
+#| msgid "Departamentos"
+msgid "Eliminar Departamento"
+msgstr "Departamentos"
+
+#: .\locations\templates\locations\departamento_confirmar_eliminar.html:7
+#, fuzzy
+#| msgid "Departamentos"
+msgid "¿Eliminar Departamento?"
+msgstr "Departamentos"
+
+#: .\locations\templates\locations\departamento_confirmar_eliminar.html:10
+#, python-format
+msgid ""
+"\n"
+"            ¿Estás seguro de que deseas eliminar el departamento "
+"<strong>%(nombre)s</strong>?\n"
+"        "
+msgstr ""
+
+#: .\locations\templates\locations\departamento_detalle.html:3
+#, fuzzy
+#| msgid "Departamentos"
+msgid "Detalle Departamento"
+msgstr "Departamentos"
+
+#: .\locations\templates\locations\departamento_detalle.html:24
+#: .\locations\templates\locations\municipio_detalle.html:28
+#: .\payroll\templates\payroll\nomina_detalle.html:82
+msgid "Volver"
+msgstr ""
+
+#: .\locations\templates\locations\departamento_formulario.html:4
+#: .\locations\templates\locations\municipio_detalle.html:12
+#: .\locations\templates\locations\municipio_lista.html:31
+#: .\payroll\templates\payroll\empleado_detalle.html:41
+#, fuzzy
+#| msgid "Departamentos"
+msgid "Departamento"
+msgstr "Departamentos"
+
+#: .\locations\templates\locations\departamento_formulario.html:8
+#, fuzzy
+#| msgid "Departamentos"
+msgid "Editar Departamento"
+msgstr "Departamentos"
+
+#: .\locations\templates\locations\departamento_formulario.html:8
+#: .\locations\templates\locations\departamento_lista.html:13
+#, fuzzy
+#| msgid "Departamentos"
+msgid "Agregar Departamento"
+msgstr "Departamentos"
+
+#: .\locations\templates\locations\departamento_lista.html:3
+#: .\locations\templates\locations\departamento_lista.html:7
+#: .\templates\components\sidebar.html:60
+msgid "Departamentos"
+msgstr "Departamentos"
+
+#: .\locations\templates\locations\departamento_lista.html:10
+#: .\locations\templates\locations\importar_excel.html:3
+msgid "Importar desde Excel"
+msgstr ""
+
+#: .\locations\templates\locations\departamento_lista.html:46
+#, fuzzy
+#| msgid "Todos los derechos reservados."
+msgid "No hay departamentos registrados."
+msgstr "Todos los derechos reservados."
+
+#: .\locations\templates\locations\importar_excel.html:8
+msgid "Importar Departamentos y Municipios desde Excel"
+msgstr ""
+
+#: .\locations\templates\locations\importar_excel.html:28
+msgid "Archivo Excel"
+msgstr ""
+
+#: .\locations\templates\locations\importar_excel.html:34
+msgid "Cargar"
+msgstr ""
+
+#: .\locations\templates\locations\importar_excel.html:45
+msgid "Procesando archivo..."
+msgstr ""
+
+#: .\locations\templates\locations\importar_excel.html:49
+msgid "El archivo debe tener las columnas:"
+msgstr ""
+
+#: .\locations\templates\locations\municipio_confirmar_eliminar.html:3
+#, fuzzy
+#| msgid "Municipios"
+msgid "Eliminar Municipio"
+msgstr "Municipios"
+
+#: .\locations\templates\locations\municipio_confirmar_eliminar.html:7
+msgid "¿Eliminar Municipio?"
+msgstr ""
+
+#: .\locations\templates\locations\municipio_confirmar_eliminar.html:10
+#, python-format
+msgid ""
+"\n"
+"            ¿Estás seguro de que deseas eliminar el municipio "
+"<strong>%(nombre)s</strong>?\n"
+"        "
+msgstr ""
+
+#: .\locations\templates\locations\municipio_detalle.html:3
+#, fuzzy
+#| msgid "Municipios"
+msgid "Detalle Municipio"
+msgstr "Municipios"
+
+#: .\locations\templates\locations\municipio_formulario.html:4
+#: .\payroll\templates\payroll\empleado_detalle.html:51
+#, fuzzy
+#| msgid "Municipios"
+msgid "Municipio"
+msgstr "Municipios"
+
+#: .\locations\templates\locations\municipio_formulario.html:9
+#, fuzzy
+#| msgid "Municipios"
+msgid "Editar Municipio"
+msgstr "Municipios"
+
+#: .\locations\templates\locations\municipio_formulario.html:9
+#, fuzzy
+#| msgid "Municipios"
+msgid "Nuevo Municipio"
+msgstr "Municipios"
+
+#: .\locations\templates\locations\municipio_lista.html:3
+#: .\locations\templates\locations\municipio_lista.html:7
+#: .\templates\components\sidebar.html:68
+msgid "Municipios"
+msgstr "Municipios"
+
+#: .\locations\templates\locations\municipio_lista.html:9
+#, fuzzy
+#| msgid "Municipios"
+msgid "Agregar Municipio"
+msgstr "Municipios"
+
+#: .\locations\templates\locations\municipio_lista.html:14
+msgid "Buscar por código, nombre o departamento..."
+msgstr ""
+
+#: .\locations\templates\locations\municipio_lista.html:16
+#: .\templates\base.html:204 .\templates\components\header.html:50
+#: .\templates\components\header.html:63 .\templates\components\header.html:108
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:86
+msgid "Buscar"
+msgstr "Buscar"
+
+#: .\locations\templates\locations\municipio_lista.html:20
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:118
+msgid "Limpiar"
+msgstr ""
+
+#: .\locations\templates\locations\municipio_lista.html:63
+msgid "No hay municipios registrados."
+msgstr ""
+
+#: .\login\models.py:6
+msgid "Full name"
+msgstr ""
+
+#: .\login\models.py:7
+msgid "Email address"
+msgstr ""
+
+#: .\login\models.py:8
+msgid "Phone"
+msgstr ""
+
+#: .\login\models.py:9
+msgid "Birth date"
+msgstr ""
+
+#: .\login\models.py:10
+msgid "Avatar"
+msgstr ""
+
+#: .\login\models.py:11
+msgid "Biography"
+msgstr ""
+
+#: .\login\models.py:12
+msgid "Address"
+msgstr ""
+
+#: .\login\models.py:13
+msgid "City"
+msgstr ""
+
+#: .\login\models.py:14
+msgid "Country"
+msgstr ""
+
+#: .\login\models.py:15
+msgid "Email verified"
+msgstr ""
+
+#: .\login\models.py:16
+msgid "Active"
+msgstr ""
+
+#: .\login\models.py:17
+msgid "Staff status"
+msgstr ""
+
+#: .\login\models.py:18
+msgid "Date joined"
+msgstr ""
+
+#: .\login\models.py:19
+msgid "Last updated"
+msgstr ""
+
+#: .\login\models.py:28
+msgid "User"
+msgstr ""
+
+#: .\login\models.py:29
+msgid "Users"
+msgstr ""
+
+#: .\payroll\templates\payroll\cargo_confirm_delete.html:3
+#: .\payroll\templates\payroll\cargo_confirm_delete.html:6
+msgid "Eliminar Cargo"
+msgstr ""
+
+#: .\payroll\templates\payroll\cargo_confirm_delete.html:8
+#, python-format
+msgid ""
+"\n"
+"            ¿Estás seguro de que deseas eliminar el cargo \"%(nombre)s\"?\n"
+"        "
+msgstr ""
+
+#: .\payroll\templates\payroll\cargo_confirm_delete.html:15
+msgid "Sí, eliminar"
+msgstr ""
+
+#: .\payroll\templates\payroll\cargo_detail.html:3
+#: .\payroll\templates\payroll\cargo_detail.html:6
+msgid "Detalle de Cargo"
+msgstr ""
+
+#: .\payroll\templates\payroll\cargo_detail.html:8
+msgid "Nombre:"
+msgstr ""
+
+#: .\payroll\templates\payroll\cargo_detail.html:15
+#: .\payroll\templates\payroll\empleado_detalle.html:70
+msgid "Volver a la lista"
+msgstr ""
+
+#: .\payroll\templates\payroll\cargo_form.html:4
+#: .\payroll\templates\payroll\cargo_form.html:9
+#, fuzzy
+#| msgid "Nóminas"
+msgid "Editar Cargo"
+msgstr "Nóminas"
+
+#: .\payroll\templates\payroll\cargo_list.html:20
+#, fuzzy
+#| msgid "Buscar en CorteSec..."
+msgid "Buscar cargo..."
+msgstr "Buscar en CorteSec..."
+
+#: .\payroll\templates\payroll\cargo_list.html:57
+msgid "No hay cargos registrados."
+msgstr ""
+
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:3
+msgid "Eliminar Empleado"
+msgstr ""
+
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:7
+msgid "¿Eliminar Empleado?"
+msgstr ""
+
+#: .\payroll\templates\payroll\empleado_confirmar_eliminar.html:10
+#, python-format
+msgid ""
+"\n"
+"            ¿Estás seguro de que deseas eliminar al empleado "
+"<strong>%(nombre)s %(apellido)s</strong>?\n"
+"        "
+msgstr ""
+
+#: .\payroll\templates\payroll\empleado_detalle.html:15
 #: .\payroll\templates\payroll\empleado_lista.html:18
 msgid "Correo"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_detalle.html:17
-#: .\payroll\templates\payroll\empleado_lista.html:19
-msgid "Cargo"
+#: .\payroll\templates\payroll\empleado_detalle.html:19 .\perfil\models.py:100
+msgid "Teléfono"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_detalle.html:23
-#: .\payroll\templates\payroll\empleado_lista.html:35
-#: .\payroll\templates\payroll\nomina_detalle.html:62
-#: .\payroll\templates\payroll\nomina_lista.html:33
-msgid "Editar"
+#: .\payroll\templates\payroll\empleado_detalle.html:27 .\perfil\models.py:63
+msgid "Fecha de nacimiento"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_detalle.html:26
-msgid "Volver a la lista"
+#: .\payroll\templates\payroll\empleado_detalle.html:32
+msgid "No registrada"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_formulario.html:3
-#: .\payroll\templates\payroll\nomina_lista.html:16
-msgid "Empleado"
+#: .\payroll\templates\payroll\empleado_detalle.html:37 .\perfil\models.py:71
+msgid "Género"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_formulario.html:7
+#: .\payroll\templates\payroll\empleado_detalle.html:46
+#: .\payroll\templates\payroll\empleado_detalle.html:56
+msgid "No registrado"
+msgstr ""
+
+#: .\payroll\templates\payroll\empleado_formulario.html:8
 msgid "Editar Empleado"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_formulario.html:7
+#: .\payroll\templates\payroll\empleado_formulario.html:8
 #: .\payroll\templates\payroll\empleado_lista.html:9
 msgid "Agregar Empleado"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_formulario.html:27
+#: .\payroll\templates\payroll\empleado_formulario.html:44
+msgid "Foto"
+msgstr ""
+
+#: .\payroll\templates\payroll\empleado_formulario.html:50
+msgid "Eliminar foto"
+msgstr ""
+
+#: .\payroll\templates\payroll\empleado_formulario.html:62
+#, fuzzy
+#| msgid "Cambiar tema"
+msgid "Cambiar foto"
+msgstr "Cambiar tema"
+
+#: .\payroll\templates\payroll\empleado_formulario.html:75
 msgid "Guardar Cambios"
 msgstr ""
 
-#: .\payroll\templates\payroll\empleado_formulario.html:27
+#: .\payroll\templates\payroll\empleado_formulario.html:75
 msgid "Crear Empleado"
 msgstr ""
 
 #: .\payroll\templates\payroll\empleado_lista.html:3
 #: .\payroll\templates\payroll\empleado_lista.html:7
-#: .\payroll\templates\payroll\nomina_formulario.html:8
 msgid "Empleados"
-msgstr ""
-
-#: .\payroll\templates\payroll\empleado_lista.html:16
-msgid "Nombre"
 msgstr ""
 
 #: .\payroll\templates\payroll\empleado_lista.html:45
@@ -111,13 +1777,17 @@ msgid "No hay empleados registrados."
 msgstr ""
 
 #: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:3
-#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:6
+#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:7
 msgid "Eliminar Nómina"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:7
+#: .\payroll\templates\payroll\nomina_confirmar_eliminar.html:10
 #, python-format
-msgid "¿Estás seguro de que deseas eliminar la nómina de %(empleado)s?"
+msgid ""
+"\n"
+"            ¿Estás seguro de que deseas eliminar la nómina de "
+"<strong>%(nombre)s %(apellido)s</strong>?\n"
+"        "
 msgstr ""
 
 #: .\payroll\templates\payroll\nomina_detalle.html:3
@@ -126,143 +1796,1103 @@ msgstr ""
 msgid "Detalle Nómina"
 msgstr "Nóminas"
 
-#: .\payroll\templates\payroll\nomina_detalle.html:6
+#: .\payroll\templates\payroll\nomina_detalle.html:7
 #, python-format
-msgid "Nómina de %(nomina.empleado)s"
+msgid ""
+"\n"
+"            Nómina de %(nombre)s %(apellido)s\n"
+"        "
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:9
-#: .\payroll\templates\payroll\nomina_lista.html:17
+#: .\payroll\templates\payroll\nomina_detalle.html:13
+#: .\payroll\templates\payroll\nomina_lista.html:18
 msgid "Periodo"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:11
+#: .\payroll\templates\payroll\nomina_detalle.html:15
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:233
 msgid "a"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:15
-#: .\payroll\templates\payroll\nomina_formulario.html:56
+#: .\payroll\templates\payroll\nomina_detalle.html:19
+#: .\payroll\templates\payroll\nomina_formulario.html:72
 msgid "Ítems producidos"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:20
-#, fuzzy
-#| msgid "Ítems"
-msgid "Ítem"
-msgstr "Ítems"
-
-#: .\payroll\templates\payroll\nomina_detalle.html:21
+#: .\payroll\templates\payroll\nomina_detalle.html:25
+#: .\payroll\templates\payroll\nomina_formulario.html:95
+#: .\payroll\templates\payroll\nomina_formulario.html:262
 msgid "Cantidad"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:22
+#: .\payroll\templates\payroll\nomina_detalle.html:26
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:148
 msgid "Tipo"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:23
+#: .\payroll\templates\payroll\nomina_detalle.html:27
 msgid "Precio c/u"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:24
+#: .\payroll\templates\payroll\nomina_detalle.html:28
 msgid "Subtotal"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:42
-msgid "No hay ítems registrados."
-msgstr ""
-
-#: .\payroll\templates\payroll\nomina_detalle.html:49
+#: .\payroll\templates\payroll\nomina_detalle.html:53
 msgid "Total producción:"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:53
+#: .\payroll\templates\payroll\nomina_detalle.html:58
 msgid "Seguridad"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:54
+#: .\payroll\templates\payroll\nomina_detalle.html:62 .\prestamos\models.py:261
+#: .\templates\components\sidebar.html:176
+#: .\templates\components\sidebar.html:178
 msgid "Préstamos"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:55
+#: .\payroll\templates\payroll\nomina_detalle.html:66
 msgid "Restaurante"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:57
+#: .\payroll\templates\payroll\nomina_detalle.html:70
 msgid "Total a pagar"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_detalle.html:68
-msgid "Volver"
-msgstr ""
-
-#: .\payroll\templates\payroll\nomina_formulario.html:4
+#: .\payroll\templates\payroll\nomina_formulario.html:8
 #, fuzzy
 #| msgid "Nóminas"
-msgid "Nómina"
+msgid "Editar Nómina"
 msgstr "Nóminas"
 
-#: .\payroll\templates\payroll\nomina_formulario.html:10
-#: .\payroll\templates\payroll\nomina_lista.html:3
-#: .\payroll\templates\payroll\nomina_lista.html:7
+#: .\payroll\templates\payroll\nomina_formulario.html:8
+#: .\payroll\templates\payroll\nomina_lista.html:10
+#, fuzzy
+#| msgid "Nóminas"
+msgid "Agregar Nómina"
+msgstr "Nóminas"
+
+#: .\payroll\templates\payroll\nomina_formulario.html:18
+msgid "Busca por nombre o documento"
+msgstr ""
+
+#: .\payroll\templates\payroll\nomina_formulario.html:106
+#: .\payroll\templates\payroll\nomina_formulario.html:269
+msgid "Eliminar ítem"
+msgstr ""
+
+#: .\payroll\templates\payroll\nomina_formulario.html:166
+#: .\payroll\templates\payroll\nomina_formulario.html:280
+#, fuzzy
+#| msgid "Buscar en CorteSec..."
+msgid "Buscar ítem..."
+msgstr "Buscar en CorteSec..."
+
+#: .\payroll\templates\payroll\nomina_formulario.html:174
+#, fuzzy
+#| msgid "Buscar en CorteSec..."
+msgid "Buscar empleado..."
+msgstr "Buscar en CorteSec..."
+
+#: .\payroll\templates\payroll\nomina_formulario.html:198
+msgid "Lado 1"
+msgstr ""
+
+#: .\payroll\templates\payroll\nomina_formulario.html:199
+msgid "Lado 2"
+msgstr ""
+
+#: .\payroll\templates\payroll\nomina_formulario.html:200
+msgid "Cantidad (m²)"
+msgstr ""
+
+#: .\payroll\templates\payroll\nomina_formulario.html:254
+msgid "---------"
+msgstr ""
+
+#: .\payroll\templates\payroll\nomina_lista.html:4
+#: .\payroll\templates\payroll\nomina_lista.html:8
 #: .\templates\components\header.html:13
 #: .\templates\components\sidebar.html:128
 #: .\templates\components\sidebar.html:130
 msgid "Nóminas"
 msgstr "Nóminas"
 
-#: .\payroll\templates\payroll\nomina_formulario.html:12
-#: .\payroll\templates\payroll\nomina_formulario.html:27
-#, fuzzy
-#| msgid "Nóminas"
-msgid "Editar Nómina"
-msgstr "Nóminas"
-
-#: .\payroll\templates\payroll\nomina_formulario.html:12
-#: .\payroll\templates\payroll\nomina_formulario.html:27
-#: .\payroll\templates\payroll\nomina_lista.html:9
-#, fuzzy
-#| msgid "Nóminas"
-msgid "Agregar Nómina"
-msgstr "Nóminas"
-
-#: .\payroll\templates\payroll\nomina_formulario.html:90
-#: .\payroll\templates\payroll\nomina_formulario.html:149
-msgid "Eliminar ítem"
-msgstr ""
-
-#: .\payroll\templates\payroll\nomina_formulario.html:99
-msgid "Agregar Ítem"
-msgstr ""
-
-#: .\payroll\templates\payroll\nomina_formulario.html:105
-#, fuzzy
-#| msgid "Nóminas"
-msgid "Guardar Nómina"
-msgstr "Nóminas"
-
-#: .\payroll\templates\payroll\nomina_formulario.html:128
-#: .\payroll\templates\payroll\nomina_formulario.html:153
-#, fuzzy
-#| msgid "Buscar en CorteSec..."
-msgid "Buscar ítem..."
-msgstr "Buscar en CorteSec..."
-
-#: .\payroll\templates\payroll\nomina_lista.html:18
+#: .\payroll\templates\payroll\nomina_lista.html:19
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:74
 msgid "Total"
 msgstr ""
 
-#: .\payroll\templates\payroll\nomina_lista.html:43
+#: .\payroll\templates\payroll\nomina_lista.html:48
 msgid "No hay nóminas registradas."
+msgstr ""
+
+#: .\perfil\models.py:18
+msgid "Soltero/a"
+msgstr ""
+
+#: .\perfil\models.py:19
+msgid "Casado/a"
+msgstr ""
+
+#: .\perfil\models.py:20
+msgid "Unión libre"
+msgstr ""
+
+#: .\perfil\models.py:21
+msgid "Divorciado/a"
+msgstr ""
+
+#: .\perfil\models.py:22
+msgid "Viudo/a"
+msgstr ""
+
+#: .\perfil\models.py:26
+msgid "Masculino"
+msgstr ""
+
+#: .\perfil\models.py:27
+msgid "Femenino"
+msgstr ""
+
+#: .\perfil\models.py:29
+msgid "Prefiero no decir"
+msgstr ""
+
+#: .\perfil\models.py:56
+msgid "Foto de perfil"
+msgstr ""
+
+#: .\perfil\models.py:57
+#, fuzzy
+#| msgid "Avatar de usuario"
+msgid "Foto de perfil del usuario"
+msgstr "Avatar de usuario"
+
+#: .\perfil\models.py:79
+msgid "Estado civil"
+msgstr ""
+
+#: .\perfil\models.py:86
+msgid "Nacionalidad"
+msgstr ""
+
+#: .\perfil\models.py:92
+msgid "El teléfono debe tener entre 9 y 15 dígitos."
+msgstr ""
+
+#: .\perfil\models.py:108
+msgid "Teléfono de emergencia"
+msgstr ""
+
+#: .\perfil\models.py:115
+msgid "Contacto de emergencia"
+msgstr ""
+
+#: .\perfil\models.py:116
+msgid "Nombre del contacto de emergencia"
+msgstr ""
+
+#: .\perfil\models.py:123
+msgid "Dirección de residencia"
+msgstr ""
+
+#: .\perfil\models.py:130
+msgid "Ciudad de residencia"
+msgstr ""
+
+#: .\perfil\models.py:137
+msgid "Código postal"
+msgstr ""
+
+#: .\perfil\models.py:146
+msgid "Tipo de sangre"
+msgstr ""
+
+#: .\perfil\models.py:152
+msgid "Alergias"
+msgstr ""
+
+#: .\perfil\models.py:153
+msgid "Alergias conocidas"
+msgstr ""
+
+#: .\perfil\models.py:159
+#, fuzzy
+#| msgid "Departamentos"
+msgid "Medicamentos"
+msgstr "Departamentos"
+
+#: .\perfil\models.py:160
+msgid "Medicamentos que toma regularmente"
+msgstr ""
+
+#: .\perfil\models.py:168
+msgid "Nivel de educación"
+msgstr ""
+
+#: .\perfil\models.py:175
+msgid "Profesión"
+msgstr ""
+
+#: .\perfil\models.py:181
+msgid "Habilidades"
+msgstr ""
+
+#: .\perfil\models.py:182
+msgid "Habilidades profesionales principales"
+msgstr ""
+
+#: .\perfil\models.py:190
+msgid "Banco"
+msgstr ""
+
+#: .\perfil\models.py:197
+msgid "Número de cuenta"
+msgstr ""
+
+#: .\perfil\models.py:203
+msgid "Ahorros"
+msgstr ""
+
+#: .\perfil\models.py:204
+msgid "Corriente"
+msgstr ""
+
+#: .\perfil\models.py:215
+msgid "Claro"
+msgstr ""
+
+#: .\perfil\models.py:216
+msgid "Oscuro"
+msgstr ""
+
+#: .\perfil\models.py:217
+msgid "Automático"
+msgstr ""
+
+#: .\perfil\models.py:220
+msgid "Tema preferido"
+msgstr ""
+
+#: .\perfil\models.py:226 .\templates\components\header.html:186
+msgid "Español"
+msgstr "Español"
+
+#: .\perfil\models.py:227
+msgid "English"
+msgstr ""
+
+#: .\perfil\models.py:230
+msgid "Idioma preferido"
+msgstr ""
+
+#: .\perfil\models.py:235
+#, fuzzy
+#| msgid "Notificaciones"
+msgid "Recibir notificaciones"
+msgstr "Notificaciones"
+
+#: .\perfil\models.py:236
+#, fuzzy
+#| msgid "Notificaciones recientes"
+msgid "Recibir notificaciones por email"
+msgstr "Notificaciones recientes"
+
+#: .\perfil\models.py:242
+msgid "Acepta biometría"
+msgstr ""
+
+#: .\perfil\models.py:243
+msgid "Acepta usar datos biométricos para autenticación"
+msgstr ""
+
+#: .\perfil\models.py:249
+msgid "Perfil completado"
+msgstr ""
+
+#: .\perfil\models.py:250
+msgid "Si el perfil tiene la información mínima completa"
+msgstr ""
+
+#: .\perfil\models.py:255
+msgid "Información pública"
+msgstr ""
+
+#: .\perfil\models.py:256
+msgid "Si algunos datos pueden ser visibles a otros usuarios"
+msgstr ""
+
+#: .\perfil\models.py:261
+msgid "Última actualización"
+msgstr ""
+
+#: .\perfil\models.py:270
+#, fuzzy
+#| msgid "Menú de usuario"
+msgid "Perfil de Usuario"
+msgstr "Menú de usuario"
+
+#: .\perfil\models.py:271
+#, fuzzy
+#| msgid "Menú de usuario"
+msgid "Perfiles de Usuario"
+msgstr "Menú de usuario"
+
+#: .\perfil\models.py:363 .\templates\components\header.html:249
+msgid "Perfil"
+msgstr "Perfil"
+
+#: .\perfil\models.py:369
+#, fuzzy
+#| msgid "Notificaciones recientes"
+msgid "Notificaciones de préstamos"
+msgstr "Notificaciones recientes"
+
+#: .\perfil\models.py:370
+msgid "Recibir notificaciones sobre préstamos"
+msgstr ""
+
+#: .\perfil\models.py:375
+#, fuzzy
+#| msgid "Notificaciones recientes"
+msgid "Notificaciones de nómina"
+msgstr "Notificaciones recientes"
+
+#: .\perfil\models.py:376
+#, fuzzy
+#| msgid "Notificaciones recientes"
+msgid "Recibir notificaciones sobre nómina"
+msgstr "Notificaciones recientes"
+
+#: .\perfil\models.py:381
+#, fuzzy
+#| msgid "Notificaciones recientes"
+msgid "Notificaciones de documentos"
+msgstr "Notificaciones recientes"
+
+#: .\perfil\models.py:382
+#, fuzzy
+#| msgid "Notificaciones recientes"
+msgid "Recibir notificaciones sobre documentos"
+msgstr "Notificaciones recientes"
+
+#: .\perfil\models.py:387
+#, fuzzy
+#| msgid "Notificaciones recientes"
+msgid "Notificaciones del sistema"
+msgstr "Notificaciones recientes"
+
+#: .\perfil\models.py:388
+msgid "Recibir notificaciones importantes del sistema"
+msgstr ""
+
+#: .\perfil\models.py:394
+msgid "Vía email"
+msgstr ""
+
+#: .\perfil\models.py:395
+msgid "Recibir notificaciones por correo electrónico"
+msgstr ""
+
+#: .\perfil\models.py:400
+msgid "Vía SMS"
+msgstr ""
+
+#: .\perfil\models.py:401
+msgid "Recibir notificaciones por SMS"
+msgstr ""
+
+#: .\perfil\models.py:406
+msgid "En la plataforma"
+msgstr ""
+
+#: .\perfil\models.py:407
+msgid "Mostrar notificaciones en la plataforma"
+msgstr ""
+
+#: .\perfil\models.py:413
+#, fuzzy
+#| msgid "Ver todas las notificaciones"
+msgid "Hora inicio notificaciones"
+msgstr "Ver todas las notificaciones"
+
+#: .\perfil\models.py:414
+#, fuzzy
+#| msgid "Ver todas las notificaciones"
+msgid "Hora desde la cual recibir notificaciones"
+msgstr "Ver todas las notificaciones"
+
+#: .\perfil\models.py:419
+#, fuzzy
+#| msgid "Ver todas las notificaciones"
+msgid "Hora fin notificaciones"
+msgstr "Ver todas las notificaciones"
+
+#: .\perfil\models.py:420
+#, fuzzy
+#| msgid "Ver todas las notificaciones"
+msgid "Hora hasta la cual recibir notificaciones"
+msgstr "Ver todas las notificaciones"
+
+#: .\perfil\models.py:424
+#, fuzzy
+#| msgid "Notificaciones"
+msgid "Configuración de Notificaciones"
+msgstr "Notificaciones"
+
+#: .\perfil\models.py:425
+msgid "Configuraciones de Notificaciones"
+msgstr ""
+
+#: .\permisos\forms.py:60 .\permisos\forms.py:180
+msgid "El código solo puede contener letras, números, guiones y guiones bajos."
+msgstr ""
+
+#: .\permisos\forms.py:69
+msgid "Ya existe un módulo con este código."
+msgstr ""
+
+#: .\permisos\forms.py:82
+msgid "Los módulos del sistema deben estar activos."
+msgstr ""
+
+#: .\permisos\forms.py:121
+msgid "Ya existe un tipo de permiso con este código."
+msgstr ""
+
+#: .\permisos\forms.py:190
+msgid "Ya existe un permiso con este código en el módulo seleccionado."
+msgstr ""
+
+#: .\permisos\forms.py:204
+msgid "Los permisos del sistema deben estar activos."
+msgstr ""
+
+#: .\permisos\models.py:15
+msgid "Nombre del módulo"
+msgstr ""
+
+#: .\permisos\models.py:16
+msgid "Nombre único del módulo del sistema"
+msgstr ""
+
+#: .\permisos\models.py:23
+msgid "Código único del módulo (ej: payroll, prestamos)"
+msgstr ""
+
+#: .\permisos\models.py:30
+msgid "Descripción detallada del módulo"
+msgstr ""
+
+#: .\permisos\models.py:38
+msgid "Clase CSS del icono (ej: fas fa-users)"
+msgstr ""
+
+#: .\permisos\models.py:45
+msgid "URL base"
+msgstr ""
+
+#: .\permisos\models.py:46
+msgid "URL base del módulo"
+msgstr ""
+
+#: .\permisos\models.py:52
+msgid "Orden de visualización en el menú"
+msgstr ""
+
+#: .\permisos\models.py:58
+msgid "Si está activo, el módulo estará disponible"
+msgstr ""
+
+#: .\permisos\models.py:64
+msgid "Los módulos del sistema no se pueden eliminar"
+msgstr ""
+
+#: .\permisos\models.py:69
+msgid "Módulos"
+msgstr ""
+
+#: .\permisos\models.py:82
+msgid "Ver"
+msgstr ""
+
+#: .\permisos\models.py:83
+msgid "Crear"
+msgstr ""
+
+#: .\permisos\models.py:87
+msgid "Importar"
+msgstr ""
+
+#: .\permisos\models.py:88
+msgid "Aprobar"
+msgstr ""
+
+#: .\permisos\models.py:89
+msgid "Rechazar"
+msgstr ""
+
+#: .\permisos\models.py:90
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:197
+msgid "Personalizado"
+msgstr ""
+
+#: .\permisos\models.py:97
+msgid "Código del tipo"
+msgstr ""
+
+#: .\permisos\models.py:98
+msgid "Código único del tipo de permiso"
+msgstr ""
+
+#: .\permisos\models.py:104
+msgid "Nombre descriptivo del tipo de permiso"
+msgstr ""
+
+#: .\permisos\models.py:111
+msgid "Descripción detallada del tipo de permiso"
+msgstr ""
+
+#: .\permisos\models.py:120
+msgid "Tipo de Permiso"
+msgstr ""
+
+#: .\permisos\models.py:121
+msgid "Tipos de Permiso"
+msgstr ""
+
+#: .\permisos\models.py:144
+msgid "Tipo de permiso"
+msgstr ""
+
+#: .\permisos\models.py:149
+msgid "Nombre del permiso"
+msgstr ""
+
+#: .\permisos\models.py:150
+msgid "Nombre descriptivo del permiso específico"
+msgstr ""
+
+#: .\permisos\models.py:157
+msgid "Código único del permiso (ej: payroll.view_nomina)"
+msgstr ""
+
+#: .\permisos\models.py:164
+msgid "Descripción detallada del permiso"
+msgstr ""
+
+#: .\permisos\models.py:171
+msgid "Vista asociada"
+msgstr ""
+
+#: .\permisos\models.py:172
+msgid "Nombre de la vista o función asociada"
+msgstr ""
+
+#: .\permisos\models.py:178
+msgid "Si está activo, el permiso estará disponible"
+msgstr ""
+
+#: .\permisos\models.py:184 .\roles\models.py:44
+msgid "Tiene restricción de horario"
+msgstr ""
+
+#: .\permisos\models.py:185
+msgid "Si está activo, se aplicarán restricciones de horario"
+msgstr ""
+
+#: .\permisos\models.py:191 .\roles\models.py:51
+msgid "Hora de inicio"
+msgstr ""
+
+#: .\permisos\models.py:192
+msgid "Hora de inicio para usar este permiso"
+msgstr ""
+
+#: .\permisos\models.py:198 .\roles\models.py:58
+msgid "Hora de fin"
+msgstr ""
+
+#: .\permisos\models.py:199
+msgid "Hora de fin para usar este permiso"
+msgstr ""
+
+#: .\permisos\models.py:206 .\roles\models.py:73
+msgid "Fecha inicio vigencia"
+msgstr ""
+
+#: .\permisos\models.py:212 .\roles\models.py:80
+msgid "Fecha fin vigencia"
+msgstr ""
+
+#: .\permisos\models.py:218
+msgid "Los permisos del sistema no se pueden eliminar"
+msgstr ""
+
+#: .\permisos\models.py:222 .\permisos\models.py:303
+msgid "Permiso"
+msgstr ""
+
+#: .\permisos\models.py:223 .\templates\components\sidebar.html:216
+#: .\templates\components\sidebar.html:218
+msgid "Permisos"
+msgstr ""
+
+#: .\permisos\models.py:242 .\roles\models.py:114
+msgid "Debe especificar hora de inicio y fin si tiene restricción de horario"
+msgstr ""
+
+#: .\permisos\models.py:247 .\roles\models.py:119
+msgid "La hora de inicio debe ser menor que la hora de fin"
+msgstr ""
+
+#: .\permisos\models.py:254 .\permisos\models.py:359 .\roles\models.py:126
+#: .\roles\models.py:243
+msgid "La fecha de inicio debe ser menor que la fecha de fin"
+msgstr ""
+
+#: .\permisos\models.py:296 .\roles\models.py:96 .\roles\models.py:180
+#, fuzzy
+#| msgid "Rol:"
+msgid "Rol"
+msgstr "Rol:"
+
+#: .\permisos\models.py:309
+msgid "Si está activo, el rol tiene este permiso"
+msgstr ""
+
+#: .\permisos\models.py:317
+msgid "Fecha desde la cual el permiso es válido para el rol"
+msgstr ""
+
+#: .\permisos\models.py:324
+msgid "Fecha hasta la cual el permiso es válido para el rol"
+msgstr ""
+
+#: .\permisos\models.py:331 .\roles\models.py:208
+msgid "Notas adicionales sobre la asignación"
+msgstr ""
+
+#: .\permisos\models.py:337 .\roles\models.py:221
+msgid "Fecha de asignación"
+msgstr ""
+
+#: .\permisos\models.py:341
+msgid "Rol - Permiso"
+msgstr ""
+
+#: .\permisos\models.py:342
+msgid "Roles - Permisos"
+msgstr ""
+
+#: .\prestamos\models.py:16
+msgid "Nombre del tipo"
+msgstr ""
+
+#: .\prestamos\models.py:17
+msgid "Nombre descriptivo del tipo de préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:24
+msgid "Código único del tipo de préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:31
+msgid "Descripción detallada del tipo de préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:39
+msgid "Tasa de interés por defecto (%)"
+msgstr ""
+
+#: .\prestamos\models.py:40
+msgid "Tasa de interés anual por defecto"
+msgstr ""
+
+#: .\prestamos\models.py:45
+msgid "Plazo máximo (meses)"
+msgstr ""
+
+#: .\prestamos\models.py:46
+msgid "Plazo máximo permitido en meses"
+msgstr ""
+
+#: .\prestamos\models.py:54
+msgid "Monto máximo"
+msgstr ""
+
+#: .\prestamos\models.py:55
+msgid "Monto máximo permitido para este tipo"
+msgstr ""
+
+#: .\prestamos\models.py:60
+msgid "Requiere garantía"
+msgstr ""
+
+#: .\prestamos\models.py:61
+msgid "Si este tipo de préstamo requiere garantía"
+msgstr ""
+
+#: .\prestamos\models.py:67
+msgid "Si requiere aprobación de un superior"
+msgstr ""
+
+#: .\prestamos\models.py:73
+msgid "Si está activo, estará disponible para nuevos préstamos"
+msgstr ""
+
+#: .\prestamos\models.py:83
+msgid "Tipo de Préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:84
+msgid "Tipos de Préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:97
+#, fuzzy
+#| msgid "Hay un nuevo colaborador pendiente de aprobación."
+msgid "Pendiente de aprobación"
+msgstr "Hay un nuevo colaborador pendiente de aprobación."
+
+#: .\prestamos\models.py:98
+msgid "Aprobado"
+msgstr ""
+
+#: .\prestamos\models.py:99
+msgid "Rechazado"
+msgstr ""
+
+#: .\prestamos\models.py:100
+msgid "Desembolsado"
+msgstr ""
+
+#: .\prestamos\models.py:101
+msgid "Activo (en pago)"
+msgstr ""
+
+#: .\prestamos\models.py:102
+msgid "Completado"
+msgstr ""
+
+#: .\prestamos\models.py:103
+msgid "Cancelado"
+msgstr ""
+
+#: .\prestamos\models.py:104
+msgid "En mora"
+msgstr ""
+
+#: .\prestamos\models.py:111
+msgid "Número de préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:112
+msgid "Número único del préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:126
+msgid "Tipo de préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:133
+msgid "Monto solicitado"
+msgstr ""
+
+#: .\prestamos\models.py:134
+msgid "Monto solicitado por el empleado"
+msgstr ""
+
+#: .\prestamos\models.py:142
+msgid "Monto aprobado"
+msgstr ""
+
+#: .\prestamos\models.py:143
+msgid "Monto aprobado (puede ser diferente al solicitado)"
+msgstr ""
+
+#: .\prestamos\models.py:149
+msgid "Tasa de interés (%)"
+msgstr ""
+
+#: .\prestamos\models.py:150
+msgid "Tasa de interés anual aplicada"
+msgstr ""
+
+#: .\prestamos\models.py:154
+msgid "Plazo (meses)"
+msgstr ""
+
+#: .\prestamos\models.py:155
+msgid "Plazo del préstamo en meses"
+msgstr ""
+
+#: .\prestamos\models.py:163
+msgid "Cuota mensual"
+msgstr ""
+
+#: .\prestamos\models.py:164
+msgid "Cuota mensual calculada"
+msgstr ""
+
+#: .\prestamos\models.py:170
+msgid "Fecha de solicitud"
+msgstr ""
+
+#: .\prestamos\models.py:176
+msgid "Fecha de aprobación"
+msgstr ""
+
+#: .\prestamos\models.py:182
+msgid "Fecha de desembolso"
+msgstr ""
+
+#: .\prestamos\models.py:188
+msgid "Fecha primer pago"
+msgstr ""
+
+#: .\prestamos\models.py:189
+msgid "Fecha programada para el primer pago"
+msgstr ""
+
+#: .\prestamos\models.py:198
+msgid "Estado actual del préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:205
+msgid "Observaciones adicionales sobre el préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:211
+msgid "Descripción de garantía"
+msgstr ""
+
+#: .\prestamos\models.py:212
+msgid "Descripción de la garantía ofrecida"
+msgstr ""
+
+#: .\prestamos\models.py:220
+msgid "Saldo pendiente"
+msgstr ""
+
+#: .\prestamos\models.py:221
+msgid "Saldo pendiente por pagar"
+msgstr ""
+
+#: .\prestamos\models.py:228
+msgid "Total pagado"
+msgstr ""
+
+#: .\prestamos\models.py:229
+msgid "Total pagado hasta la fecha"
+msgstr ""
+
+#: .\prestamos\models.py:237
+msgid "Solicitado por"
+msgstr ""
+
+#: .\prestamos\models.py:246
+msgid "Aprobado por"
+msgstr ""
+
+#: .\prestamos\models.py:260 .\prestamos\models.py:403
+msgid "Préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:279
+msgid "El monto solicitado excede el máximo permitido para este tipo"
+msgstr ""
+
+#: .\prestamos\models.py:285
+msgid "El plazo excede el máximo permitido para este tipo"
+msgstr ""
+
+#: .\prestamos\models.py:291
+msgid "La fecha de aprobación no puede ser anterior a la solicitud"
+msgstr ""
+
+#: .\prestamos\models.py:347
+msgid "Solo se pueden aprobar préstamos pendientes"
+msgstr ""
+
+#: .\prestamos\models.py:363
+msgid "Solo se pueden rechazar préstamos pendientes"
+msgstr ""
+
+#: .\prestamos\models.py:392
+#, fuzzy
+#| msgid "Nóminas"
+msgid "Descuento de nómina"
+msgstr "Nóminas"
+
+#: .\prestamos\models.py:393
+msgid "Pago en efectivo"
+msgstr ""
+
+#: .\prestamos\models.py:394
+msgid "Transferencia bancaria"
+msgstr ""
+
+#: .\prestamos\models.py:395
+msgid "Cheque"
+msgstr ""
+
+#: .\prestamos\models.py:407
+msgid "Número de pago"
+msgstr ""
+
+#: .\prestamos\models.py:408
+msgid "Número consecutivo del pago"
+msgstr ""
+
+#: .\prestamos\models.py:414
+msgid "Monto del pago"
+msgstr ""
+
+#: .\prestamos\models.py:415
+msgid "Monto pagado"
+msgstr ""
+
+#: .\prestamos\models.py:421
+msgid "Monto a capital"
+msgstr ""
+
+#: .\prestamos\models.py:422
+msgid "Parte del pago que va a capital"
+msgstr ""
+
+#: .\prestamos\models.py:428
+msgid "Monto a interés"
+msgstr ""
+
+#: .\prestamos\models.py:429
+msgid "Parte del pago que va a interés"
+msgstr ""
+
+#: .\prestamos\models.py:433
+msgid "Fecha de pago"
+msgstr ""
+
+#: .\prestamos\models.py:437
+msgid "Fecha programada"
+msgstr ""
+
+#: .\prestamos\models.py:438
+msgid "Fecha en que estaba programado el pago"
+msgstr ""
+
+#: .\prestamos\models.py:444
+msgid "Tipo de pago"
+msgstr ""
+
+#: .\prestamos\models.py:451
+#, fuzzy
+#| msgid "Sugerencias"
+msgid "Referencia"
+msgstr "Sugerencias"
+
+#: .\prestamos\models.py:452
+msgid "Referencia del pago (número de cheque, transferencia, etc.)"
+msgstr ""
+
+#: .\prestamos\models.py:476
+msgid "Registrado por"
+msgstr ""
+
+#: .\prestamos\models.py:485
+msgid "Pago de Préstamo"
+msgstr ""
+
+#: .\prestamos\models.py:486
+msgid "Pagos de Préstamo"
+msgstr ""
+
+#: .\roles\models.py:18
+msgid "Nombre del rol"
+msgstr ""
+
+#: .\roles\models.py:19
+msgid "Nombre único del rol"
+msgstr ""
+
+#: .\roles\models.py:26
+msgid "Descripción detallada del rol y sus responsabilidades"
+msgstr ""
+
+#: .\roles\models.py:32
+msgid "Si está activo, el rol estará disponible para asignar"
+msgstr ""
+
+#: .\roles\models.py:38
+msgid "Los roles del sistema no se pueden eliminar"
+msgstr ""
+
+#: .\roles\models.py:45
+msgid "Si está activo, se aplicarán las restricciones de horario"
+msgstr ""
+
+#: .\roles\models.py:52
+msgid "Hora de inicio de acceso permitido"
+msgstr ""
+
+#: .\roles\models.py:59
+msgid "Hora de fin de acceso permitido"
+msgstr ""
+
+#: .\roles\models.py:65
+msgid "Días de la semana"
+msgstr ""
+
+#: .\roles\models.py:66
+msgid "Días permitidos (1=Lunes, 7=Domingo). Ej: 12345 para L-V"
+msgstr ""
+
+#: .\roles\models.py:74
+msgid "Fecha desde la cual el rol está vigente"
+msgstr ""
+
+#: .\roles\models.py:81
+msgid "Fecha hasta la cual el rol está vigente"
+msgstr ""
+
+#: .\roles\models.py:97 .\templates\components\sidebar.html:204
+#: .\templates\components\sidebar.html:206
+msgid "Roles"
+msgstr ""
+
+#: .\roles\models.py:185
+msgid "Asignación activa"
+msgstr ""
+
+#: .\roles\models.py:186
+msgid "Si está activa, el usuario tiene este rol"
+msgstr ""
+
+#: .\roles\models.py:194
+msgid "Fecha desde la cual la asignación es válida"
+msgstr ""
+
+#: .\roles\models.py:201
+msgid "Fecha hasta la cual la asignación es válida"
+msgstr ""
+
+#: .\roles\models.py:216
+msgid "Asignado por"
+msgstr ""
+
+#: .\roles\models.py:225
+msgid "Asignación de Rol"
+msgstr ""
+
+#: .\roles\models.py:226
+msgid "Asignaciones de Rol"
 msgstr ""
 
 #: .\templates\base.html:197
 msgid "Buscar en CorteSec..."
 msgstr "Buscar en CorteSec..."
-
-#: .\templates\base.html:204 .\templates\components\header.html:50
-#: .\templates\components\header.html:63 .\templates\components\header.html:108
-msgid "Buscar"
-msgstr "Buscar"
 
 #: .\templates\base.html:213
 msgid "Atajo:"
@@ -300,12 +2930,6 @@ msgstr "Colaboradores"
 #: .\templates\components\sidebar.html:106
 msgid "Pagos"
 msgstr "Pagos"
-
-#: .\templates\components\header.html:14
-#: .\templates\components\sidebar.html:140
-#: .\templates\components\sidebar.html:142
-msgid "Ítems"
-msgstr "Ítems"
 
 #: .\templates\components\header.html:36
 msgid "Abrir menú lateral"
@@ -364,10 +2988,6 @@ msgstr "Ver todas las notificaciones"
 msgid "Idioma"
 msgstr "Idioma"
 
-#: .\templates\components\header.html:186
-msgid "Español"
-msgstr "Español"
-
 #: .\templates\components\header.html:190
 msgid "Inglés"
 msgstr "Inglés"
@@ -394,11 +3014,7 @@ msgstr "Hola,"
 msgid "Rol:"
 msgstr "Rol:"
 
-#: .\templates\components\header.html:249
-msgid "Perfil"
-msgstr "Perfil"
-
-#: .\templates\components\header.html:250
+#: .\templates\components\header.html:250 .\tipos_cantidad\admin.py:44
 msgid "Configuración"
 msgstr "Configuración"
 
@@ -410,9 +3026,9 @@ msgstr "Ayuda"
 msgid "Documentación"
 msgstr "Documentación"
 
-#: .\templates\components\header.html:256
-#: .\templates\components\sidebar.html:155
-#: .\templates\components\sidebar.html:157
+#: .\templates\components\header.html:257
+#: .\templates\components\sidebar.html:231
+#: .\templates\components\sidebar.html:233
 msgid "Cerrar sesión"
 msgstr "Cerrar sesión"
 
@@ -437,24 +3053,166 @@ msgstr "Abrir menú de ubicaciones"
 msgid "Ubicaciones"
 msgstr "Ubicaciones"
 
-#: .\templates\components\sidebar.html:60
-msgid "Departamentos"
-msgstr "Departamentos"
-
-#: .\templates\components\sidebar.html:68
-msgid "Municipios"
-msgstr "Municipios"
-
 #: .\templates\components\sidebar.html:92
 #: .\templates\components\sidebar.html:94
 msgid "Proyectos"
 msgstr "Proyectos"
 
-#: .\templates\components\sidebar.html:166
+#: .\templates\components\sidebar.html:152
+#: .\templates\components\sidebar.html:154 .\tipos_cantidad\models.py:65
+#: .\tipos_cantidad\views.py:42
+msgid "Tipos de Cantidad"
+msgstr ""
+
+#: .\templates\components\sidebar.html:188
+#: .\templates\components\sidebar.html:190
+msgid "Contabilidad"
+msgstr ""
+
+#: .\templates\components\sidebar.html:242
 msgid "Colapsar menú"
 msgstr "Colapsar menú"
 
-#: .\templates\components\sidebar.html:173
-#: .\templates\components\sidebar.html:181
+#: .\templates\components\sidebar.html:249
+#: .\templates\components\sidebar.html:257
 msgid "Expandir menú"
 msgstr "Expandir menú"
+
+#: .\tipos_cantidad\admin.py:41
+msgid "Información básica"
+msgstr ""
+
+#: .\tipos_cantidad\admin.py:47
+msgid "Auditoría"
+msgstr ""
+
+#: .\tipos_cantidad\models.py:17
+msgid "Código único de la unidad (ej: m2, m3, ml)"
+msgstr ""
+
+#: .\tipos_cantidad\models.py:23
+msgid "Descripción completa de la unidad de medida"
+msgstr ""
+
+#: .\tipos_cantidad\models.py:30
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:139
+msgid "Símbolo"
+msgstr ""
+
+#: .\tipos_cantidad\models.py:31
+msgid "Símbolo de la unidad (ej: m², m³)"
+msgstr ""
+
+#: .\tipos_cantidad\models.py:37
+msgid "Si está activo, estará disponible para asignar"
+msgstr ""
+
+#: .\tipos_cantidad\models.py:43
+msgid "Las unidades del sistema no se pueden eliminar"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:29
+msgid "Gestión de unidades de medida del sistema"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:36
+msgid "Nuevo Tipo"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:50
+msgid "Activos"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:62
+msgid "Inactivos"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:94
+msgid "Buscar por código, descripción o símbolo..."
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:102
+#, fuzzy
+#| msgid "Todos los derechos reservados."
+msgid "Todos los estados"
+msgstr "Todos los derechos reservados."
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:103
+msgid "Solo activos"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:104
+msgid "Solo inactivos"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:111
+msgid "Filtrar"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:151
+#, fuzzy
+#| msgid "Ubicaciones"
+msgid "Acciones"
+msgstr "Ubicaciones"
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:192
+msgid "Sistema"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:231
+msgid "Mostrando"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:235
+msgid "de"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:237
+msgid "resultados"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:244
+msgid "Anterior"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:264
+msgid "Siguiente"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:275
+msgid "No se encontraron resultados"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:278
+msgid "Intenta ajustar tus filtros de búsqueda"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:282
+msgid "Ver todos"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:296
+#, fuzzy
+#| msgid "Configuración"
+msgid "Confirmar eliminación"
+msgstr "Configuración"
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:299
+msgid "¿Estás seguro de que deseas eliminar el tipo de cantidad"
+msgstr ""
+
+#: .\tipos_cantidad\templates\tipos_cantidad\lista.html:301
+msgid "Esta acción no se puede deshacer."
+msgstr ""
+
+#: .\tipos_cantidad\views.py:132
+msgid "No se pueden modificar tipos de cantidad del sistema"
+msgstr ""
+
+#: .\tipos_cantidad\views.py:138
+msgid "activado"
+msgstr ""
+
+#: .\tipos_cantidad\views.py:138
+msgid "desactivado"
+msgstr ""

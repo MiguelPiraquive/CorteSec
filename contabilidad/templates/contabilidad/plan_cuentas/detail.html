@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{{ cuenta.nombre }}{% endblock %}
+{% block content %}
+<div class="bg-white rounded-2xl shadow-xl p-8 max-w-5xl mx-auto mt-10">
+    <div class="text-center mb-8">
+        <h2 class="text-3xl font-bold text-blue-700 tracking-tight mb-2">
+            {{ cuenta.nombre }}
+        </h2>
+        <div class="flex justify-center items-center space-x-4 mt-3">
+            <span class="text-xl font-mono font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-lg">
+                {{ cuenta.codigo }}
+            </span>
+            <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold
+                {% if cuenta.tipo_cuenta == 'activo' %}bg-blue-100 text-blue-800
+                {% elif cuenta.tipo_cuenta == 'pasivo' %}bg-red-100 text-red-800
+                {% elif cuenta.tipo_cuenta == 'patrimonio' %}bg-purple-100 text-purple-800
+                {% elif cuenta.tipo_cuenta == 'ingreso' %}bg-green-100 text-green-800
+                {% elif cuenta.tipo_cuenta == 'gasto' %}bg-orange-100 text-orange-800
+                {% elif cuenta.tipo_cuenta == 'costo' %}bg-yellow-100 text-yellow-800
+                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {{ cuenta.get_tipo_cuenta_display }}
+            </span>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Información básica -->
+        <div class="space-y-4">
+            <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2 mb-4">
+                <i class="ti ti-info-circle mr-2"></i>{% trans "Información Básica" %}
+            </h3>
+            
+            <ul class="divide-y divide-blue-100 space-y-0">
+                <li class="py-3 flex justify-between">
+                    <span class="text-blue-700 font-semibold">{% trans "Código" %}:</span>
+                    <span class="font-mono font-bold">{{ cuenta.codigo }}</span>
+                </li>
+                <li class="py-3 flex justify-between">
+                    <span class="text-blue-700 font-semibold">{% trans "Nombre" %}:</span>
+                    <span>{{ cuenta.nombre }}</span>
+                </li>
+                {% if cuenta.descripcion %}
+                <li class="py-3">
+                    <span class="text-blue-700 font-semibold">{% trans "Descripción" %}:</span>
+                    <div class="mt-2 text-gray-800 bg-gray-50 p-3 rounded-lg">
+                        {{ cuenta.descripcion }}
+                    </div>
+                </li>
+                {% endif %}
+                <li class="py-3 flex justify-between">
+                    <span class="text-blue-700 font-semibold">{% trans "Tipo de cuenta" %}:</span>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                        {% if cuenta.tipo_cuenta == 'activo' %}bg-blue-100 text-blue-800
+                        {% elif cuenta.tipo_cuenta == 'pasivo' %}bg-red-100 text-red-800
+                        {% elif cuenta.tipo_cuenta == 'patrimonio' %}bg-purple-100 text-purple-800
+                        {% elif cuenta.tipo_cuenta == 'ingreso' %}bg-green-100 text-green-800
+                        {% elif cuenta.tipo_cuenta == 'gasto' %}bg-orange-100 text-orange-800
+                        {% elif cuenta.tipo_cuenta == 'costo' %}bg-yellow-100 text-yellow-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ cuenta.get_tipo_cuenta_display }}
+                    </span>
+                </li>
+                <li class="py-3 flex justify-between">
+                    <span class="text-blue-700 font-semibold">{% trans "Naturaleza" %}:</span>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                        {% if cuenta.naturaleza == 'debito' %}bg-blue-100 text-blue-800
+                        {% else %}bg-green-100 text-green-800{% endif %}">
+                        {% if cuenta.naturaleza == 'debito' %}
+                            <i class="ti ti-arrow-left mr-1"></i>{% trans "Débito" %}
+                        {% else %}
+                            <i class="ti ti-arrow-right mr-1"></i>{% trans "Crédito" %}
+                        {% endif %}
+                    </span>
+                </li>
+                {% if cuenta.cuenta_padre %}
+                <li class="py-3 flex justify-between">
+                    <span class="text-blue-700 font-semibold">{% trans "Cuenta padre" %}:</span>
+                    <span>{{ cuenta.cuenta_padre.codigo }} - {{ cuenta.cuenta_padre.nombre }}</span>
+                </li>
+                {% endif %}
+                <li class="py-3 flex justify-between">
+                    <span class="text-blue-700 font-semibold">{% trans "Nivel" %}:</span>
+                    <span class="font-bold">{{ cuenta.nivel }}</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Configuración y estado -->
+        <div class="space-y-6">
+            <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2">
+                <i class="ti ti-settings mr-2"></i>{% trans "Configuración" %}
+            </h3>
+            
+            <div class="space-y-4">
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-blue-700 font-semibold">{% trans "Acepta movimientos" %}:</span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                            {% if cuenta.acepta_movimientos %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {% if cuenta.acepta_movimientos %}
+                                <i class="ti ti-check mr-1"></i>{% trans "Sí" %}
+                            {% else %}
+                                <i class="ti ti-x mr-1"></i>{% trans "No" %}
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-blue-700 font-semibold">{% trans "Requiere tercero" %}:</span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                            {% if cuenta.requiere_tercero %}bg-orange-100 text-orange-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {% if cuenta.requiere_tercero %}
+                                <i class="ti ti-user mr-1"></i>{% trans "Sí" %}
+                            {% else %}
+                                <i class="ti ti-user-off mr-1"></i>{% trans "No" %}
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-blue-700 font-semibold">{% trans "Estado" %}:</span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                            {% if cuenta.activa %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {% if cuenta.activa %}
+                                <i class="ti ti-check mr-1"></i>{% trans "Activa" %}
+                            {% else %}
+                                <i class="ti ti-x mr-1"></i>{% trans "Inactiva" %}
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                {% if cuenta.acepta_movimientos %}
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-center">
+                    <h4 class="text-lg font-bold text-blue-700 mb-2">{% trans "Saldo Actual" %}</h4>
+                    <div class="text-3xl font-bold {% if saldo_actual >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        ${{ saldo_actual|default:0|floatformat:2 }}
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">{% trans "Calculado al" %} {{ "now"|date:"d/m/Y H:i" }}</p>
+                </div>
+                {% else %}
+                <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-6 text-center">
+                    <i class="ti ti-ban text-4xl text-gray-400 mb-2"></i>
+                    <p class="text-gray-600">{% trans "Esta cuenta no acepta movimientos directos" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Subcuentas si las tiene -->
+    {% if subcuentas %}
+    <div class="mt-8">
+        <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2 mb-4">
+            <i class="ti ti-git-branch mr-2"></i>{% trans "Subcuentas" %} ({{ subcuentas.count }})
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for subcuenta in subcuentas %}
+            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="font-mono text-sm font-semibold text-blue-600">{{ subcuenta.codigo }}</span>
+                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium
+                        {% if subcuenta.activa %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {% if subcuenta.activa %}{% trans "Activa" %}{% else %}{% trans "Inactiva" %}{% endif %}
+                    </span>
+                </div>
+                <h4 class="font-semibold text-gray-900 text-sm">{{ subcuenta.nombre }}</h4>
+                <div class="mt-2 flex justify-between text-xs text-gray-600">
+                    <span>{% trans "Nivel" %}: {{ subcuenta.nivel }}</span>
+                    {% if subcuenta.acepta_movimientos %}
+                        <span class="text-green-600">{% trans "Acepta mov." %}</span>
+                    {% else %}
+                        <span class="text-red-600">{% trans "No acepta mov." %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Botones de acción -->
+    <div class="flex justify-center gap-4 mt-8">
+        <a href="{% url 'contabilidad:plan_cuentas_update' cuenta.pk %}" class="px-8 py-3 bg-yellow-400 text-white rounded-xl shadow hover:bg-yellow-500 transition font-bold text-lg transform hover:scale-105">
+            <i class="ti ti-pencil mr-2"></i>{% trans "Editar" %}
+        </a>
+        <a href="{% url 'contabilidad:plan_cuentas_list' %}" class="px-8 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold text-lg shadow transform hover:scale-105">
+            <i class="ti ti-arrow-left mr-2"></i>{% trans "Volver a la lista" %}
+        </a>
+    </div>
+</div>
+{% endblock %}
+                <i class="fas fa-info-circle mr-2 text-blue-600"></i>Información Básica
+            </h4>
+            <dl class="space-y-3">
+                <div>
+                    <dt class="text-sm font-medium text-gray-600">Descripción:</dt>
+                    <dd class="text-sm text-gray-900 mt-1">
+                        {% if cuenta.descripcion %}
+                            {{ cuenta.descripcion }}
+                        {% else %}
+                            <span class="text-gray-400">Sin descripción</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-600">Cuenta Padre:</dt>
+                    <dd class="text-sm text-gray-900 mt-1">
+                        {% if cuenta.cuenta_padre %}
+                            <a href="#" @click="$parent.openDetailModal({{ cuenta.cuenta_padre.id }})" 
+                               class="text-blue-600 hover:text-blue-800 transition-colors">
+                                <i class="fas fa-level-up-alt mr-1"></i>
+                                {{ cuenta.cuenta_padre.codigo }} - {{ cuenta.cuenta_padre.nombre }}
+                            </a>
+                        {% else %}
+                            <span class="text-gray-400">Cuenta raíz</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-600">Jerarquía Completa:</dt>
+                    <dd class="text-sm text-gray-900 mt-1">
+                        <div class="bg-gray-50 p-2 rounded border text-xs font-mono">
+                            {{ cuenta.get_jerarquia_completa }}
+                        </div>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-600">Nivel:</dt>
+                    <dd class="text-sm text-gray-900 mt-1">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                            Nivel {{ cuenta.nivel }}
+                        </span>
+                    </dd>
+                </div>
+            </dl>
+        </div>
+
+        <!-- Configuración -->
+        <div class="bg-white border border-gray-200 p-6 rounded-lg">
+            <h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <i class="fas fa-cogs mr-2 text-green-600"></i>Configuración
+            </h4>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">Estado</div>
+                        <div class="text-xs text-gray-500">Disponibilidad de la cuenta</div>
+                    </div>
+                    <div>
+                        {% if cuenta.activa %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <span class="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5"></span>
+                                Activa
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <span class="w-1.5 h-1.5 bg-red-400 rounded-full mr-1.5"></span>
+                                Inactiva
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">Acepta Movimientos</div>
+                        <div class="text-xs text-gray-500">Permite registrar asientos contables</div>
+                    </div>
+                    <div>
+                        {% if cuenta.acepta_movimientos %}
+                            <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200">
+                                <i class="fas fa-check mr-1"></i>Sí
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-50 text-gray-700 border border-gray-200">
+                                <i class="fas fa-times mr-1"></i>No
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">Requiere Tercero</div>
+                        <div class="text-xs text-gray-500">Debe especificar tercero en movimientos</div>
+                    </div>
+                    <div>
+                        {% if cuenta.requiere_tercero %}
+                            <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-purple-50 text-purple-700 border border-purple-200">
+                                <i class="fas fa-user mr-1"></i>Sí
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-50 text-gray-700 border border-gray-200">
+                                <i class="fas fa-times mr-1"></i>No
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subcuentas -->
+    {% if subcuentas %}
+    <div class="bg-white border border-gray-200 p-6 rounded-lg">
+        <h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-sitemap mr-2 text-purple-600"></i>
+            Subcuentas ({{ subcuentas.count }})
+        </h4>
+        <div class="space-y-2">
+            {% for subcuenta in subcuentas %}
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm font-mono font-semibold text-gray-700">{{ subcuenta.codigo }}</span>
+                        <span class="text-sm font-medium text-gray-900">{{ subcuenta.nombre }}</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {{ subcuenta.get_tipo_cuenta_display }}
+                        </span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        {% if subcuenta.acepta_movimientos %}
+                            <span class="text-sm font-semibold {% if subcuenta.saldo_actual >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                                ${{ subcuenta.saldo_actual|floatformat:2 }}
+                            </span>
+                        {% endif %}
+                        <button @click="$parent.openDetailModal({{ subcuenta.id }})" 
+                                class="text-blue-600 hover:text-blue-800 transition-colors" 
+                                title="Ver detalle">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Movimientos recientes -->
+    {% if movimientos %}
+    <div class="bg-white border border-gray-200 p-6 rounded-lg">
+        <h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-exchange-alt mr-2 text-orange-600"></i>
+            Movimientos Recientes
+        </h4>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fecha
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Comprobante
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Descripción
+                        </th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Débito
+                        </th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Crédito
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for movimiento in movimientos %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                {{ movimiento.comprobante.fecha|date:"d/m/Y" }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                <a href="{% url 'contabilidad:comprobante_detail' movimiento.comprobante.pk %}" 
+                                   class="text-blue-600 hover:text-blue-800 transition-colors">
+                                    {{ movimiento.comprobante.numero }}
+                                </a>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-900">
+                                {{ movimiento.descripcion|truncatechars:50 }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                                {% if movimiento.valor_debito > 0 %}
+                                    <span class="font-semibold text-blue-600">
+                                        ${{ movimiento.valor_debito|floatformat:2 }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                                {% if movimiento.valor_credito > 0 %}
+                                    <span class="font-semibold text-green-600">
+                                        ${{ movimiento.valor_credito|floatformat:2 }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if cuenta.acepta_movimientos %}
+            <div class="mt-4 text-center">
+                <a href="{% url 'contabilidad:libro_mayor' %}?cuenta={{ cuenta.id }}" 
+                   class="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                    <i class="fas fa-book mr-2"></i>
+                    Ver Libro Mayor Completo
+                </a>
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Información de auditoría -->
+    <div class="bg-gray-50 p-4 rounded-lg">
+        <h4 class="text-lg font-medium text-gray-900 mb-4">Información de Auditoría</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <span class="font-medium text-gray-600">Fecha de creación:</span>
+                <p class="text-gray-900 mt-1">{{ cuenta.fecha_creacion|date:"d/m/Y H:i" }}</p>
+            </div>
+            {% if cuenta.creado_por %}
+            <div>
+                <span class="font-medium text-gray-600">Creado por:</span>
+                <p class="text-gray-900 mt-1">{{ cuenta.creado_por.get_full_name|default:cuenta.creado_por.username }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div class="flex justify-between items-center pt-6 border-t border-gray-200">
+        <div class="space-x-3">
+            {% if cuenta.acepta_movimientos %}
+                <a href="{% url 'contabilidad:libro_mayor' %}?cuenta={{ cuenta.id }}" 
+                   class="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                    <i class="fas fa-book mr-2"></i>Libro Mayor
+                </a>
+            {% endif %}
+        </div>
+        <div class="space-x-3">
+            <button @click="$parent.openEditModal({{ cuenta.id }})" 
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 transition-colors">
+                <i class="fas fa-edit mr-2"></i>Editar Cuenta
+            </button>
+            <button @click="$parent.closeModal()" 
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 transition-colors">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,276 @@
+<form method="post" @submit.prevent="$parent.submitForm($el)" class="space-y-6">
+    {% csrf_token %}
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Información básica -->
+        <div class="space-y-4">
+            <h4 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">
+                Información Básica
+            </h4>
+            
+            <div>
+                <label for="{{ form.codigo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.codigo.label }}
+                    {% if form.codigo.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                {{ form.codigo }}
+                {% if form.codigo.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.codigo.help_text }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.nombre.label }}
+                    {% if form.nombre.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                {{ form.nombre }}
+                {% if form.nombre.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.nombre.help_text }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.descripcion.label }}
+                    {% if form.descripcion.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                {{ form.descripcion }}
+                {% if form.descripcion.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.descripcion.help_text }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Configuración salarial -->
+        <div class="space-y-4">
+            <h4 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">
+                Configuración Salarial
+            </h4>
+            
+            <div>
+                <label for="{{ form.salario_minimo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.salario_minimo.label }}
+                    {% if form.salario_minimo.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span class="text-gray-500">$</span>
+                    </div>
+                    <input type="number" id="{{ form.salario_minimo.id_for_label }}" name="{{ form.salario_minimo.name }}" 
+                           value="{{ form.salario_minimo.value|default:'' }}"
+                           class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           step="0.01" min="0">
+                </div>
+                {% if form.salario_minimo.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.salario_minimo.help_text }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.salario_maximo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.salario_maximo.label }}
+                    {% if form.salario_maximo.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span class="text-gray-500">$</span>
+                    </div>
+                    <input type="number" id="{{ form.salario_maximo.id_for_label }}" name="{{ form.salario_maximo.name }}" 
+                           value="{{ form.salario_maximo.value|default:'' }}"
+                           class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           step="0.01" min="0">
+                </div>
+                {% if form.salario_maximo.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.salario_maximo.help_text }}</p>
+                {% endif %}
+            </div>
+            
+            {% if form.salario_promedio %}
+            <div>
+                <label for="{{ form.salario_promedio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.salario_promedio.label }}
+                    {% if form.salario_promedio.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span class="text-gray-500">$</span>
+                    </div>
+                    <input type="number" id="{{ form.salario_promedio.id_for_label }}" name="{{ form.salario_promedio.name }}" 
+                           value="{{ form.salario_promedio.value|default:'' }}"
+                           class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           step="0.01" min="0">
+                </div>
+                {% if form.salario_promedio.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.salario_promedio.help_text }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Configuración adicional -->
+    <div class="space-y-4">
+        <h4 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">
+            Configuración Adicional
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% if form.periodicidad_pago %}
+            <div>
+                <label for="{{ form.periodicidad_pago.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.periodicidad_pago.label }}
+                    {% if form.periodicidad_pago.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                {{ form.periodicidad_pago }}
+                {% if form.periodicidad_pago.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.periodicidad_pago.help_text }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <div>
+                <label for="{{ form.activo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.activo.label }}
+                </label>
+                <div class="flex items-center">
+                    {{ form.activo }}
+                    <label for="{{ form.activo.id_for_label }}" class="ml-2 text-sm text-gray-600">
+                        Nivel salarial activo y disponible
+                    </label>
+                </div>
+                {% if form.activo.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.activo.help_text }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Beneficios y bonificaciones -->
+    {% if form.incluye_bonificaciones or form.incluye_beneficios %}
+    <div class="space-y-4">
+        <h4 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">
+            Beneficios y Bonificaciones
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% if form.incluye_bonificaciones %}
+            <div>
+                <label for="{{ form.incluye_bonificaciones.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.incluye_bonificaciones.label }}
+                </label>
+                <div class="flex items-center">
+                    {{ form.incluye_bonificaciones }}
+                    <label for="{{ form.incluye_bonificaciones.id_for_label }}" class="ml-2 text-sm text-gray-600">
+                        Incluye bonificaciones variables
+                    </label>
+                </div>
+                {% if form.incluye_bonificaciones.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.incluye_bonificaciones.help_text }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            {% if form.incluye_beneficios %}
+            <div>
+                <label for="{{ form.incluye_beneficios.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.incluye_beneficios.label }}
+                </label>
+                <div class="flex items-center">
+                    {{ form.incluye_beneficios }}
+                    <label for="{{ form.incluye_beneficios.id_for_label }}" class="ml-2 text-sm text-gray-600">
+                        Incluye beneficios adicionales
+                    </label>
+                </div>
+                {% if form.incluye_beneficios.help_text %}
+                    <p class="text-sm text-gray-500 mt-1">{{ form.incluye_beneficios.help_text }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if form.descripcion_beneficios %}
+        <div>
+            <label for="{{ form.descripcion_beneficios.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                {{ form.descripcion_beneficios.label }}
+                {% if form.descripcion_beneficios.field.required %}<span class="text-red-500">*</span>{% endif %}
+            </label>
+            {{ form.descripcion_beneficios }}
+            {% if form.descripcion_beneficios.help_text %}
+                <p class="text-sm text-gray-500 mt-1">{{ form.descripcion_beneficios.help_text }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Botones -->
+    <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+        <button type="button" @click="$parent.closeModal()" 
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            Cancelar
+        </button>
+        <button type="submit" 
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            {% if nivel %}Actualizar{% else %}Crear{% endif %} Nivel Salarial
+        </button>
+    </div>
+</form>
+
+<style>
+/* Estilos para los campos del formulario */
+form input[type="text"],
+form input[type="number"],
+form input[type="email"],
+form select,
+form textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+}
+
+form input[type="text"]:focus,
+form input[type="number"]:focus,
+form input[type="email"]:focus,
+form select:focus,
+form textarea:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+form textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+form input[type="checkbox"] {
+    height: 1rem;
+    width: 1rem;
+    color: #3B82F6;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.25rem;
+}
+
+form input[type="checkbox"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+form select {
+    background-color: white;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+}
+
+.form-error {
+    color: #DC2626;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+</style>

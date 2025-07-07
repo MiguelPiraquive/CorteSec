@@ -1,0 +1,607 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Detalle del Reporte - Contabilidad{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .report-header {
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 1.5rem;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .status-completado {
+        background-color: #dcfce7;
+        color: #16a34a;
+    }
+    
+    .status-procesando {
+        background-color: #fef3c7;
+        color: #d97706;
+    }
+    
+    .status-error {
+        background-color: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .info-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #374151;
+        display: flex;
+        align-items: center;
+    }
+    
+    .info-value {
+        color: #1f2937;
+        text-align: right;
+        max-width: 60%;
+    }
+    
+    .report-preview {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    
+    .preview-header {
+        background: #f9fafb;
+        padding: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+    }
+    
+    .preview-content {
+        padding: 1.5rem;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 0.75rem;
+        border: 1px solid #e5e7eb;
+        text-align: left;
+    }
+    
+    .data-table th {
+        background: #f9fafb;
+        font-weight: 600;
+    }
+    
+    .data-table tr:nth-child(even) {
+        background: #f9fafb;
+    }
+    
+    .btn-action {
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 1rem 0;
+    }
+    
+    .summary-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1px solid #0ea5e9;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0369a1;
+    }
+    
+    .metric-label {
+        font-size: 0.875rem;
+        color: #0369a1;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 2rem;
+        padding-bottom: 1rem;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0;
+        width: 0.75rem;
+        height: 0.75rem;
+        background: #3b82f6;
+        border-radius: 50%;
+    }
+    
+    .timeline-item::after {
+        content: '';
+        position: absolute;
+        left: 0.875rem;
+        top: 0.75rem;
+        width: 2px;
+        height: calc(100% - 0.75rem);
+        background: #e5e7eb;
+    }
+    
+    .timeline-item:last-child::after {
+        display: none;
+    }
+    
+    .watermark {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        opacity: 0.1;
+        font-size: 3rem;
+        color: #6b7280;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4" x-data="reporteDetail()">
+    <div class="row">
+        <div class="col-lg-9">
+            <div class="report-container">
+                <div class="report-header">
+                    <div class="watermark">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h2 class="mb-2">
+                                <i class="fas fa-chart-bar text-primary me-2"></i>
+                                {{ object.nombre }}
+                            </h2>
+                            <div class="d-flex align-items-center">
+                                <span class="status-badge status-{{ object.estado }}">
+                                    <i class="fas fa-{{ object.estado == 'completado'|yesno:'check-circle,clock' }} me-1"></i>
+                                    {{ object.get_estado_display }}
+                                </span>
+                                <span class="text-muted ms-3">
+                                    <i class="fas fa-clock me-1"></i>
+                                    {{ object.fecha_generacion|date:"d/m/Y H:i" }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-success btn-action" @click="downloadReport()">
+                                <i class="fas fa-download me-1"></i>
+                                Descargar
+                            </button>
+                            <button type="button" class="btn btn-info btn-action" @click="shareReport()">
+                                <i class="fas fa-share me-1"></i>
+                                Compartir
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-action" @click="regenerateReport()">
+                                <i class="fas fa-redo me-1"></i>
+                                Regenerar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        Información del Reporte
+                    </h5>
+                    
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-list-alt text-muted me-2"></i>
+                            Tipo de Reporte
+                        </span>
+                        <span class="info-value">{{ object.get_tipo_display }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-calendar text-muted me-2"></i>
+                            Período
+                        </span>
+                        <span class="info-value">
+                            {{ object.fecha_inicio|date:"d/m/Y" }} - {{ object.fecha_fin|date:"d/m/Y" }}
+                        </span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-file text-muted me-2"></i>
+                            Formato
+                        </span>
+                        <span class="info-value">
+                            <span class="badge bg-secondary">{{ object.formato|upper }}</span>
+                        </span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-user text-muted me-2"></i>
+                            Generado por
+                        </span>
+                        <span class="info-value">{{ object.usuario.get_full_name|default:object.usuario.username }}</span>
+                    </div>
+                    
+                    {% if object.descripcion %}
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-comment text-muted me-2"></i>
+                            Descripción
+                        </span>
+                        <span class="info-value">{{ object.descripcion }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Preview del contenido del reporte -->
+                <div class="report-preview">
+                    <div class="preview-header">
+                        <i class="fas fa-eye me-2"></i>
+                        Vista Previa del Contenido
+                    </div>
+                    <div class="preview-content" x-html="reportContent">
+                        <!-- El contenido se carga dinámicamente -->
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                            <p>Cargando vista previa...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráficos si están disponibles -->
+                <div class="info-card" x-show="hasCharts">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-chart-pie text-primary me-2"></i>
+                        Análisis Gráfico
+                    </h5>
+                    
+                    <div class="chart-container">
+                        <canvas id="reportChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Resumen estadístico -->
+                <div class="info-card">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-calculator text-primary me-2"></i>
+                        Resumen Estadístico
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="summary-card">
+                                <div class="metric-value" x-text="stats.total_registros">0</div>
+                                <div class="metric-label">Total Registros</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="summary-card">
+                                <div class="metric-value" x-text="formatMoney(stats.monto_total)">$0</div>
+                                <div class="metric-label">Monto Total</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="summary-card">
+                                <div class="metric-value" x-text="stats.cuentas_afectadas">0</div>
+                                <div class="metric-label">Cuentas</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="summary-card">
+                                <div class="metric-value" x-text="stats.tiempo_generacion">0s</div>
+                                <div class="metric-label">Tiempo Gen.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3">
+            <div class="info-card">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-download text-primary me-2"></i>
+                    Opciones de Descarga
+                </h5>
+                
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-danger" @click="downloadAs('pdf')">
+                        <i class="fas fa-file-pdf me-1"></i>
+                        Descargar PDF
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-success" @click="downloadAs('excel')">
+                        <i class="fas fa-file-excel me-1"></i>
+                        Descargar Excel
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-primary" @click="downloadAs('html')">
+                        <i class="fas fa-globe me-1"></i>
+                        Ver en HTML
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-warning" @click="downloadAs('csv')">
+                        <i class="fas fa-file-csv me-1"></i>
+                        Exportar CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-history text-primary me-2"></i>
+                    Historial
+                </h5>
+                
+                <div class="timeline-item">
+                    <div class="fw-bold">Generación</div>
+                    <div class="small text-muted">{{ object.fecha_generacion|date:"d/m/Y H:i" }}</div>
+                    <div class="small">Reporte creado exitosamente</div>
+                </div>
+                
+                {% if object.fecha_descarga %}
+                <div class="timeline-item">
+                    <div class="fw-bold">Última Descarga</div>
+                    <div class="small text-muted">{{ object.fecha_descarga|date:"d/m/Y H:i" }}</div>
+                    <div class="small">Archivo descargado</div>
+                </div>
+                {% endif %}
+                
+                {% if object.veces_descargado > 0 %}
+                <div class="timeline-item">
+                    <div class="fw-bold">Descargas</div>
+                    <div class="small text-muted">{{ object.veces_descargado }} veces</div>
+                    <div class="small">Total de descargas realizadas</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="info-card">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-tools text-primary me-2"></i>
+                    Acciones
+                </h5>
+                
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-secondary" @click="regenerateReport()">
+                        <i class="fas fa-redo me-1"></i>
+                        Regenerar
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-info" @click="duplicateReport()">
+                        <i class="fas fa-copy me-1"></i>
+                        Duplicar
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-warning" @click="scheduleReport()">
+                        <i class="fas fa-clock me-1"></i>
+                        Programar
+                    </button>
+                    
+                    <hr>
+                    
+                    <button type="button" class="btn btn-outline-danger" @click="deleteReport()">
+                        <i class="fas fa-trash me-1"></i>
+                        Eliminar
+                    </button>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-1"></i> Información</h6>
+                <ul class="mb-0 small">
+                    <li>Los reportes se conservan por 30 días</li>
+                    <li>Puede regenerar con datos actualizados</li>
+                    <li>Use programar para reportes recurrentes</li>
+                    <li>Compartir genera un enlace temporal</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="{% url 'contabilidad:reportes_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Volver a Reportes
+        </a>
+    </div>
+</div>
+
+<script>
+function reporteDetail() {
+    return {
+        reportContent: '',
+        hasCharts: false,
+        stats: {
+            total_registros: 0,
+            monto_total: 0,
+            cuentas_afectadas: 0,
+            tiempo_generacion: 0
+        },
+        
+        init() {
+            this.loadReportPreview();
+            this.loadStats();
+        },
+        
+        loadReportPreview() {
+            fetch(`{% url 'contabilidad:reporte_preview' object.id %}`)
+                .then(response => response.text())
+                .then(html => {
+                    this.reportContent = html;
+                })
+                .catch(error => {
+                    this.reportContent = '<div class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i><p>Error cargando vista previa</p></div>';
+                });
+        },
+        
+        loadStats() {
+            fetch(`{% url 'contabilidad:reporte_stats' object.id %}`)
+                .then(response => response.json())
+                .then(data => {
+                    this.stats = data;
+                    if (data.chart_data) {
+                        this.hasCharts = true;
+                        this.initChart(data.chart_data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading stats:', error);
+                });
+        },
+        
+        initChart(chartData) {
+            const ctx = document.getElementById('reportChart');
+            if (ctx) {
+                new Chart(ctx, {
+                    type: chartData.type || 'bar',
+                    data: chartData.data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+        },
+        
+        downloadReport() {
+            window.open(`{% url 'contabilidad:reporte_download' object.id %}`, '_blank');
+        },
+        
+        downloadAs(format) {
+            window.open(`{% url 'contabilidad:reporte_download' object.id %}?format=${format}`, '_blank');
+        },
+        
+        shareReport() {
+            // Generar enlace temporal para compartir
+            fetch(`{% url 'contabilidad:reporte_share' object.id %}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.share_url) {
+                    navigator.clipboard.writeText(data.share_url).then(() => {
+                        alert('Enlace copiado al portapapeles');
+                    });
+                }
+            });
+        },
+        
+        regenerateReport() {
+            if (confirm('¿Desea regenerar el reporte con datos actualizados?')) {
+                window.location.href = `{% url 'contabilidad:reporte_regenerate' object.id %}`;
+            }
+        },
+        
+        duplicateReport() {
+            window.location.href = `{% url 'contabilidad:reportes_create' %}?duplicate={{ object.id }}`;
+        },
+        
+        scheduleReport() {
+            window.location.href = `{% url 'contabilidad:reporte_schedule' object.id %}`;
+        },
+        
+        deleteReport() {
+            if (confirm('¿Está seguro que desea eliminar este reporte?')) {
+                fetch(`{% url 'contabilidad:reporte_delete' object.id %}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '{% url "contabilidad:reportes_list" %}';
+                    }
+                });
+            }
+        },
+        
+        formatMoney(amount) {
+            return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP'
+            }).format(amount || 0);
+        }
+    }
+}
+</script>
+{% endblock %}

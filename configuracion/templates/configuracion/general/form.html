@@ -1,0 +1,1293 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans "Configuración General" %}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons-sprite.svg" />
+<style>
+    .form-section {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-section:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .section-header {
+        color: #374151;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-field {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-input {
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 0.875rem 1rem;
+        transition: all 0.3s ease;
+        background: white;
+        width: 100%;
+    }
+    
+    .form-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        outline: none;
+        transform: translateY(-1px);
+    }
+    
+    .form-textarea {
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 0.875rem 1rem;
+        transition: all 0.3s ease;
+        background: white;
+        width: 100%;
+        resize: vertical;
+        min-height: 120px;
+    }
+    
+    .form-textarea:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        outline: none;
+        transform: translateY(-1px);
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 600;
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }
+    
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+    }
+    
+    .btn-cancel {
+        background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 600;
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+    }
+    
+    .btn-cancel:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(107, 114, 128, 0.4);
+    }
+    
+    .preview-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 2px solid #0ea5e9;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .logo-preview {
+        max-width: 200px;
+        max-height: 120px;
+        object-fit: contain;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 0.75rem;
+        background: white;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .field-help {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+    
+    .required-indicator {
+        color: #ef4444;
+        font-weight: bold;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    .file-input-wrapper {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        border: 2px dashed #9ca3af;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+    
+    .file-input-wrapper:hover {
+        border-color: #3b82f6;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    }
+    
+    .file-input {
+        position: absolute;
+        left: -9999px;
+    }
+    
+    .file-input-label {
+        color: #6b7280;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .security-level {
+        padding: 0.375rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    
+    .security-low { background: #fee2e2; color: #dc2626; }
+    .security-medium { background: #fef3c7; color: #d97706; }
+    .security-high { background: #dcfce7; color: #16a34a; }
+    
+    .alert-info {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 1px solid #3b82f6;
+        border-radius: 12px;
+        padding: 1rem;
+    }
+    
+    .tab-button {
+        padding: 0.75rem 1.5rem;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 12px 12px 0 0;
+        color: #6b7280;
+        font-weight: 500;
+        margin-right: 0.25rem;
+        transition: all 0.3s ease;
+    }
+    
+    .tab-button.active {
+        background: white;
+        color: #3b82f6;
+        border-bottom: 3px solid #3b82f6;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.1);
+    }
+    
+    .tab-content-area {
+        background: white;
+        border-radius: 0 16px 16px 16px;
+        padding: 2rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Include toast notifications -->
+{% include 'cargos/cargos/toast_notifications.html' %}
+
+<div class="max-w-7xl mx-auto space-y-6" x-data="configuracionGeneral()">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                    <i class="ti ti-building text-blue-600 mr-3"></i>
+                    {% trans "Configuración General" %}
+                </h1>
+                <p class="text-gray-600 mt-1">{% trans "Configure la información básica de la empresa y del sistema" %}</p>
+            </div>
+            
+            <div class="flex gap-2">
+                <button type="button" @click="testEmail()" class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg shadow hover:bg-green-200 transition">
+                    <i class="ti ti-mail mr-2"></i> {% trans "Probar Email" %}
+                </button>
+                <a href="{% url 'configuracion:dashboard' %}" class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition">
+                    <i class="ti ti-arrow-left mr-2"></i> {% trans "Volver" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" @submit.prevent="submitForm" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Navegación por pestañas -->
+        <div class="bg-white rounded-2xl shadow">
+            <div class="flex flex-wrap border-b border-gray-200 px-6">
+                <button type="button" @click="activeTab = 'empresa'" :class="activeTab === 'empresa' ? 'tab-button active' : 'tab-button'">
+                    <i class="ti ti-building mr-2"></i>{% trans "Empresa" %}
+                </button>
+                <button type="button" @click="activeTab = 'financiero'" :class="activeTab === 'financiero' ? 'tab-button active' : 'tab-button'">
+                    <i class="ti ti-currency-dollar mr-2"></i>{% trans "Financiero" %}
+                </button>
+                <button type="button" @click="activeTab = 'nomina'" :class="activeTab === 'nomina' ? 'tab-button active' : 'tab-button'">
+                    <i class="ti ti-users mr-2"></i>{% trans "Nómina" %}
+                </button>
+                <button type="button" @click="activeTab = 'seguridad'" :class="activeTab === 'seguridad' ? 'tab-button active' : 'tab-button'">
+                    <i class="ti ti-shield mr-2"></i>{% trans "Seguridad" %}
+                </button>
+                <button type="button" @click="activeTab = 'email'" :class="activeTab === 'email' ? 'tab-button active' : 'tab-button'">
+                    <i class="ti ti-mail mr-2"></i>{% trans "Email" %}
+                </button>
+            </div>
+
+            <div class="tab-content-area">
+                <!-- Pestaña Empresa -->
+                <div x-show="activeTab === 'empresa'" class="space-y-6">
+                    <div class="form-section">
+                        <h3 class="section-header">
+                            <i class="ti ti-info-circle text-blue-600 mr-2"></i>
+                            {% trans "Información Básica" %}
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">
+                                    {% trans "Nombre de la Empresa" %} <span class="required-indicator">*</span>
+                                </label>
+                                <input type="text" name="nombre_empresa" 
+                                       value="{{ form.nombre_empresa.value|default:'' }}"
+                                       class="form-input" 
+                                       required
+                                       placeholder="{% trans 'Ingrese el nombre de la empresa' %}">
+                                <div class="field-help">{% trans "Nombre oficial que aparecerá en documentos y reportes" %}</div>
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "NIT/RUC" %}</label>
+                                <input type="text" name="nit" 
+                                       value="{{ form.nit.value|default:'' }}"
+                                       class="form-input" 
+                                       placeholder="{% trans 'Número de identificación fiscal' %}">
+                                <div class="field-help">{% trans "Número de identificación tributaria" %}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Teléfono" %}</label>
+                                <input type="tel" name="telefono" 
+                                       value="{{ form.telefono.value|default:'' }}"
+                                       class="form-input" 
+                                       placeholder="{% trans 'Teléfono principal' %}">
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Email Corporativo" %}</label>
+                                <input type="email" name="email" 
+                                       value="{{ form.email.value|default:'' }}"
+                                       class="form-input" 
+                                       placeholder="{% trans 'contacto@empresa.com' %}">
+                            </div>
+                        </div>
+                        
+                        <div class="form-field">
+                            <label class="form-label">{% trans "Dirección" %}</label>
+                            <textarea name="direccion" class="form-textarea" 
+                                      placeholder="{% trans 'Dirección completa de la empresa' %}">{{ form.direccion.value|default:'' }}</textarea>
+                            <div class="field-help">{% trans "Dirección completa que aparecerá en documentos oficiales" %}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h3 class="section-header">
+                            <i class="ti ti-photo text-blue-600 mr-2"></i>
+                            {% trans "Imagen Corporativa" %}
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Logo de la Empresa" %}</label>
+                                <div class="file-input-wrapper">
+                                    <input type="file" name="logo" id="logo-input" class="file-input" accept="image/*" @change="previewLogo">
+                                    <label for="logo-input" class="file-input-label">
+                                        <i class="ti ti-upload text-4xl mb-2"></i>
+                                        <span>{% trans "Seleccionar Logo" %}</span>
+                                        <small class="text-gray-500">{% trans "PNG, JPG hasta 2MB" %}</small>
+                                    </label>
+                                </div>
+                                <div class="field-help">{% trans "Logo que aparecerá en reportes y documentos (recomendado: 300x100px)" %}</div>
+                            </div>
+                            
+                            <div class="form-field" x-show="logoPreview">
+                                <label class="form-label">{% trans "Vista Previa" %}</label>
+                                <div class="preview-card">
+                                    <img :src="logoPreview" class="logo-preview" alt="{% trans 'Vista previa del logo' %}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña Financiero -->
+                <div x-show="activeTab === 'financiero'" class="space-y-6">
+                    <div class="form-section">
+                        <h3 class="section-header">
+                            <i class="ti ti-currency-dollar text-blue-600 mr-2"></i>
+                            {% trans "Configuración Financiera" %}
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Moneda Principal" %}</label>
+                                <select name="moneda" class="form-input">
+                                    <option value="COP" {% if form.moneda.value == 'COP' %}selected{% endif %}>Peso Colombiano (COP)</option>
+                                    <option value="USD" {% if form.moneda.value == 'USD' %}selected{% endif %}>Dólar Estadounidense (USD)</option>
+                                    <option value="EUR" {% if form.moneda.value == 'EUR' %}selected{% endif %}>Euro (EUR)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Símbolo de Moneda" %}</label>
+                                <input type="text" name="simbolo_moneda" 
+                                       value="{{ form.simbolo_moneda.value|default:'$' }}"
+                                       class="form-input" 
+                                       placeholder="$">
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Decimales" %}</label>
+                                <select name="decimales" class="form-input">
+                                    <option value="0" {% if form.decimales.value == '0' %}selected{% endif %}>Sin decimales</option>
+                                    <option value="2" {% if form.decimales.value == '2' %}selected{% endif %}>2 decimales</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">{% trans "IVA por Defecto (%)" %}</label>
+                                <input type="number" name="iva_defecto" 
+                                       value="{{ form.iva_defecto.value|default:'19' }}"
+                                       class="form-input" 
+                                       min="0" max="100" step="0.01"
+                                       placeholder="19">
+                                <div class="field-help">{% trans "Porcentaje de IVA que se aplicará por defecto" %}</div>
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Retención por Defecto (%)" %}</label>
+                                <input type="number" name="retencion_defecto" 
+                                       value="{{ form.retencion_defecto.value|default:'0' }}"
+                                       class="form-input" 
+                                       min="0" max="100" step="0.01"
+                                       placeholder="0">
+                                <div class="field-help">{% trans "Porcentaje de retención que se aplicará por defecto" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña Nómina -->
+                <div x-show="activeTab === 'nomina'" class="space-y-6">
+                    <div class="form-section">
+                        <h3 class="section-header">
+                            <i class="ti ti-users text-blue-600 mr-2"></i>
+                            {% trans "Configuración de Nómina" %}
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Día de Pago" %}</label>
+                                <select name="dia_pago" class="form-input">
+                                    {% for i in "12345678901234567890123456789012"|make_list %}
+                                        <option value="{{ forloop.counter }}" {% if form.dia_pago.value == forloop.counter|stringformat:"s" %}selected{% endif %}>
+                                            {% trans "Día" %} {{ forloop.counter }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="field-help">{% trans "Día del mes en que se realiza el pago de nómina" %}</div>
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Salario Mínimo" %}</label>
+                                <input type="number" name="salario_minimo" 
+                                       value="{{ form.salario_minimo.value|default:'1160000' }}"
+                                       class="form-input" 
+                                       min="0" step="1000"
+                                       placeholder="1160000">
+                                <div class="field-help">{% trans "Salario mínimo legal vigente" %}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Auxilio de Transporte" %}</label>
+                                <input type="number" name="auxilio_transporte" 
+                                       value="{{ form.auxilio_transporte.value|default:'140606' }}"
+                                       class="form-input" 
+                                       min="0" step="1000"
+                                       placeholder="140606">
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Horas Laborales/Día" %}</label>
+                                <input type="number" name="horas_laborales" 
+                                       value="{{ form.horas_laborales.value|default:'8' }}"
+                                       class="form-input" 
+                                       min="1" max="12"
+                                       placeholder="8">
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Días Laborales/Semana" %}</label>
+                                <input type="number" name="dias_laborales" 
+                                       value="{{ form.dias_laborales.value|default:'5' }}"
+                                       class="form-input" 
+                                       min="1" max="7"
+                                       placeholder="5">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña Seguridad -->
+                <div x-show="activeTab === 'seguridad'" class="space-y-6">
+                    <div class="form-section">
+                        <h3 class="section-header">
+                            <i class="ti ti-shield text-blue-600 mr-2"></i>
+                            {% trans "Configuración de Seguridad" %}
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Tiempo de Sesión (minutos)" %}</label>
+                                <select name="tiempo_sesion" class="form-input">
+                                    <option value="30" {% if form.tiempo_sesion.value == '30' %}selected{% endif %}>30 minutos</option>
+                                    <option value="60" {% if form.tiempo_sesion.value == '60' %}selected{% endif %}>1 hora</option>
+                                    <option value="120" {% if form.tiempo_sesion.value == '120' %}selected{% endif %}>2 horas</option>
+                                    <option value="480" {% if form.tiempo_sesion.value == '480' %}selected{% endif %}>8 horas</option>
+                                </select>
+                                <div class="field-help">{% trans "Tiempo antes de que expire automáticamente la sesión" %}</div>
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Intentos de Login" %}</label>
+                                <select name="intentos_login" class="form-input">
+                                    <option value="3" {% if form.intentos_login.value == '3' %}selected{% endif %}>3 intentos</option>
+                                    <option value="5" {% if form.intentos_login.value == '5' %}selected{% endif %}>5 intentos</option>
+                                    <option value="10" {% if form.intentos_login.value == '10' %}selected{% endif %}>10 intentos</option>
+                                </select>
+                                <div class="field-help">{% trans "Número máximo de intentos fallidos antes de bloquear la cuenta" %}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-field">
+                            <label class="flex items-center space-x-3">
+                                <input type="checkbox" name="doble_factor" 
+                                       {% if form.doble_factor.value %}checked{% endif %}
+                                       class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                <span class="form-label mb-0">{% trans "Habilitar Autenticación de Doble Factor" %}</span>
+                            </label>
+                            <div class="field-help ml-6">{% trans "Requiere verificación adicional por SMS o email" %}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña Email -->
+                <div x-show="activeTab === 'email'" class="space-y-6">
+                    <div class="form-section">
+                        <h3 class="section-header">
+                            <i class="ti ti-mail text-blue-600 mr-2"></i>
+                            {% trans "Configuración de Email" %}
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Servidor SMTP" %}</label>
+                                <input type="text" name="smtp_servidor" 
+                                       value="{{ form.smtp_servidor.value|default:'' }}"
+                                       class="form-input" 
+                                       placeholder="smtp.gmail.com">
+                                <div class="field-help">{% trans "Servidor de correo saliente" %}</div>
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Puerto SMTP" %}</label>
+                                <input type="number" name="smtp_puerto" 
+                                       value="{{ form.smtp_puerto.value|default:'587' }}"
+                                       class="form-input" 
+                                       placeholder="587">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Usuario SMTP" %}</label>
+                                <input type="email" name="smtp_usuario" 
+                                       value="{{ form.smtp_usuario.value|default:'' }}"
+                                       class="form-input" 
+                                       placeholder="correo@empresa.com">
+                            </div>
+                            
+                            <div class="form-field">
+                                <label class="form-label">{% trans "Contraseña SMTP" %}</label>
+                                <input type="password" name="smtp_password" 
+                                       value="{{ form.smtp_password.value|default:'' }}"
+                                       class="form-input" 
+                                       placeholder="••••••••">
+                                <div class="field-help">{% trans "Contraseña o token de aplicación" %}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-field">
+                            <label class="flex items-center space-x-3">
+                                <input type="checkbox" name="smtp_tls" 
+                                       {% if form.smtp_tls.value %}checked{% endif %}
+                                       class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                <span class="form-label mb-0">{% trans "Usar TLS" %}</span>
+                            </label>
+                            <div class="field-help ml-6">{% trans "Habilitar cifrado TLS para conexiones seguras" %}</div>
+                        </div>
+                        
+                        <div class="alert-info" x-show="emailTestResult">
+                            <div class="flex items-center">
+                                <i class="ti ti-info-circle mr-2"></i>
+                                <span x-text="emailTestResult"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botones de acción -->
+        <div class="bg-white rounded-2xl shadow p-6">
+            <div class="flex justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    <i class="ti ti-info-circle mr-1"></i>
+                    {% trans "Los cambios se aplicarán inmediatamente al guardar" %}
+                </div>
+                
+                <div class="flex gap-3">
+                    <a href="{% url 'configuracion:dashboard' %}" class="btn-cancel">
+                        <i class="ti ti-x mr-2"></i>{% trans "Cancelar" %}
+                    </a>
+                    <button type="submit" class="btn-save" :disabled="loading">
+                        <i class="ti ti-device-floppy mr-2" x-show="!loading"></i>
+                        <i class="ti ti-loader animate-spin mr-2" x-show="loading"></i>
+                        <span x-show="!loading">{% trans "Guardar Configuración" %}</span>
+                        <span x-show="loading">{% trans "Guardando..." %}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function configuracionGeneral() {
+    return {
+        activeTab: 'empresa',
+        loading: false,
+        logoPreview: null,
+        emailTestResult: '',
+        
+        init() {
+            // Set logo preview if exists
+            {% if form.logo.value %}
+                this.logoPreview = '{{ form.logo.value.url }}';
+            {% endif %}
+        },
+        
+        previewLogo(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.logoPreview = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        },
+        
+        async submitForm(event) {
+            this.loading = true;
+            
+            try {
+                const formData = new FormData(event.target);
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                });
+                
+                if (response.ok) {
+                    window.dispatchEvent(new CustomEvent('show-toast', {
+                        detail: {
+                            type: 'success',
+                            title: '{% trans "Configuración Guardada" %}',
+                            message: '{% trans "La configuración se ha guardado correctamente" %}'
+                        }
+                    }));
+                    
+                    // Redirect to dashboard after a brief delay
+                    setTimeout(() => {
+                        window.location.href = "{% url 'configuracion:dashboard' %}";
+                    }, 1500);
+                } else {
+                    throw new Error('Error al guardar');
+                }
+            } catch (error) {
+                window.dispatchEvent(new CustomEvent('show-toast', {
+                    detail: {
+                        type: 'error',
+                        title: '{% trans "Error" %}',
+                        message: '{% trans "No se pudo guardar la configuración" %}'
+                    }
+                }));
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async testEmail() {
+            this.emailTestResult = '{% trans "Enviando email de prueba..." %}';
+            
+            try {
+                const response = await fetch("{% url 'configuracion:test_email' %}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.emailTestResult = '✅ {% trans "Email enviado correctamente" %}';
+                    window.dispatchEvent(new CustomEvent('show-toast', {
+                        detail: {
+                            type: 'success',
+                            title: '{% trans "Email de Prueba" %}',
+                            message: '{% trans "Email enviado correctamente" %}'
+                        }
+                    }));
+                } else {
+                    this.emailTestResult = '❌ {% trans "Error:" %} ' + result.error;
+                    window.dispatchEvent(new CustomEvent('show-toast', {
+                        detail: {
+                            type: 'error',
+                            title: '{% trans "Error de Email" %}',
+                            message: result.error
+                        }
+                    }));
+                }
+            } catch (error) {
+                this.emailTestResult = '❌ {% trans "Error de conexión" %}';
+                window.dispatchEvent(new CustomEvent('show-toast', {
+                    detail: {
+                        type: 'error',
+                        title: '{% trans "Error" %}',
+                        message: '{% trans "No se pudo enviar el email de prueba" %}'
+                    }
+                }));
+            }
+        }
+    }
+}
+</script>
+{% endblock %}
+                                    
+                                    <div class="form-group">
+                                        <label for="{{ form.nit.id_for_label }}" class="form-label">
+                                            <i class="fas fa-id-card text-primary me-1"></i>
+                                            {{ form.nit.label }}
+                                        </label>
+                                        {{ form.nit }}
+                                        {% if form.nit.help_text %}
+                                        <div class="help-text">{{ form.nit.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.nit.errors %}
+                                        <div class="text-danger">{{ form.nit.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="{{ form.direccion.id_for_label }}" class="form-label">
+                                            <i class="fas fa-map-marker-alt text-primary me-1"></i>
+                                            {{ form.direccion.label }}
+                                        </label>
+                                        {{ form.direccion }}
+                                        {% if form.direccion.help_text %}
+                                        <div class="help-text">{{ form.direccion.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.direccion.errors %}
+                                        <div class="text-danger">{{ form.direccion.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="{{ form.telefono.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-phone text-primary me-1"></i>
+                                                    {{ form.telefono.label }}
+                                                </label>
+                                                {{ form.telefono }}
+                                                {% if form.telefono.errors %}
+                                                <div class="text-danger">{{ form.telefono.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="{{ form.email.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-envelope text-primary me-1"></i>
+                                                    {{ form.email.label }}
+                                                </label>
+                                                {{ form.email }}
+                                                {% if form.email.errors %}
+                                                <div class="text-danger">{{ form.email.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="{{ form.sitio_web.id_for_label }}" class="form-label">
+                                            <i class="fas fa-globe text-primary me-1"></i>
+                                            {{ form.sitio_web.label }}
+                                        </label>
+                                        {{ form.sitio_web }}
+                                        {% if form.sitio_web.errors %}
+                                        <div class="text-danger">{{ form.sitio_web.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="{{ form.logo.id_for_label }}" class="form-label">
+                                            <i class="fas fa-image text-primary me-1"></i>
+                                            {{ form.logo.label }}
+                                        </label>
+                                        {{ form.logo }}
+                                        {% if form.logo.errors %}
+                                        <div class="text-danger">{{ form.logo.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if object.logo %}
+                                    <div class="mt-3">
+                                        <label class="form-label">Vista Previa Actual:</label>
+                                        <br>
+                                        <img src="{{ object.logo.url }}" alt="Logo actual" class="logo-preview">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pestaña Financiero -->
+                        <div class="tab-pane fade" id="financiero" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.moneda.id_for_label }}" class="form-label">
+                                            <i class="fas fa-coins text-primary me-1"></i>
+                                            {{ form.moneda.label }}
+                                        </label>
+                                        {{ form.moneda }}
+                                        {% if form.moneda.help_text %}
+                                        <div class="help-text">{{ form.moneda.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.moneda.errors %}
+                                        <div class="text-danger">{{ form.moneda.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="{{ form.simbolo_moneda.id_for_label }}" class="form-label">
+                                            <i class="fas fa-dollar-sign text-primary me-1"></i>
+                                            {{ form.simbolo_moneda.label }}
+                                        </label>
+                                        {{ form.simbolo_moneda }}
+                                        {% if form.simbolo_moneda.errors %}
+                                        <div class="text-danger">{{ form.simbolo_moneda.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="{{ form.zona_horaria.id_for_label }}" class="form-label">
+                                            <i class="fas fa-clock text-primary me-1"></i>
+                                            {{ form.zona_horaria.label }}
+                                        </label>
+                                        {{ form.zona_horaria }}
+                                        {% if form.zona_horaria.help_text %}
+                                        <div class="help-text">{{ form.zona_horaria.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.zona_horaria.errors %}
+                                        <div class="text-danger">{{ form.zona_horaria.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="{{ form.formato_fecha.id_for_label }}" class="form-label">
+                                            <i class="fas fa-calendar text-primary me-1"></i>
+                                            {{ form.formato_fecha.label }}
+                                        </label>
+                                        {{ form.formato_fecha }}
+                                        {% if form.formato_fecha.errors %}
+                                        <div class="text-danger">{{ form.formato_fecha.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.cuenta_efectivo_defecto.id_for_label }}" class="form-label">
+                                            <i class="fas fa-wallet text-primary me-1"></i>
+                                            {{ form.cuenta_efectivo_defecto.label }}
+                                        </label>
+                                        {{ form.cuenta_efectivo_defecto }}
+                                        {% if form.cuenta_efectivo_defecto.help_text %}
+                                        <div class="help-text">{{ form.cuenta_efectivo_defecto.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.cuenta_efectivo_defecto.errors %}
+                                        <div class="text-danger">{{ form.cuenta_efectivo_defecto.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="{{ form.cuenta_nomina_defecto.id_for_label }}" class="form-label">
+                                            <i class="fas fa-users text-primary me-1"></i>
+                                            {{ form.cuenta_nomina_defecto.label }}
+                                        </label>
+                                        {{ form.cuenta_nomina_defecto }}
+                                        {% if form.cuenta_nomina_defecto.help_text %}
+                                        <div class="help-text">{{ form.cuenta_nomina_defecto.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.cuenta_nomina_defecto.errors %}
+                                        <div class="text-danger">{{ form.cuenta_nomina_defecto.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pestaña Nómina -->
+                        <div class="tab-pane fade" id="nomina" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.periodo_nomina.id_for_label }}" class="form-label">
+                                            <i class="fas fa-calendar-alt text-primary me-1"></i>
+                                            {{ form.periodo_nomina.label }}
+                                        </label>
+                                        {{ form.periodo_nomina }}
+                                        {% if form.periodo_nomina.errors %}
+                                        <div class="text-danger">{{ form.periodo_nomina.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.dia_pago_nomina.id_for_label }}" class="form-label">
+                                            <i class="fas fa-calendar-day text-primary me-1"></i>
+                                            {{ form.dia_pago_nomina.label }}
+                                        </label>
+                                        {{ form.dia_pago_nomina }}
+                                        {% if form.dia_pago_nomina.help_text %}
+                                        <div class="help-text">{{ form.dia_pago_nomina.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.dia_pago_nomina.errors %}
+                                        <div class="text-danger">{{ form.dia_pago_nomina.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pestaña Seguridad -->
+                        <div class="tab-pane fade" id="seguridad" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.sesion_timeout_minutos.id_for_label }}" class="form-label">
+                                            <i class="fas fa-clock text-primary me-1"></i>
+                                            {{ form.sesion_timeout_minutos.label }}
+                                        </label>
+                                        {{ form.sesion_timeout_minutos }}
+                                        {% if form.sesion_timeout_minutos.help_text %}
+                                        <div class="help-text">{{ form.sesion_timeout_minutos.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.sesion_timeout_minutos.errors %}
+                                        <div class="text-danger">{{ form.sesion_timeout_minutos.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="{{ form.max_intentos_login.id_for_label }}" class="form-label">
+                                            <i class="fas fa-shield-alt text-primary me-1"></i>
+                                            {{ form.max_intentos_login.label }}
+                                        </label>
+                                        {{ form.max_intentos_login }}
+                                        {% if form.max_intentos_login.help_text %}
+                                        <div class="help-text">{{ form.max_intentos_login.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.max_intentos_login.errors %}
+                                        <div class="text-danger">{{ form.max_intentos_login.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <div class="form-check">
+                                            {{ form.requiere_cambio_password }}
+                                            <label for="{{ form.requiere_cambio_password.id_for_label }}" class="form-check-label">
+                                                {{ form.requiere_cambio_password.label }}
+                                            </label>
+                                        </div>
+                                        {% if form.requiere_cambio_password.help_text %}
+                                        <div class="help-text">{{ form.requiere_cambio_password.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.requiere_cambio_password.errors %}
+                                        <div class="text-danger">{{ form.requiere_cambio_password.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="form-group" x-show="$el.querySelector('#id_requiere_cambio_password').checked">
+                                        <label for="{{ form.dias_cambio_password.id_for_label }}" class="form-label">
+                                            <i class="fas fa-calendar-times text-primary me-1"></i>
+                                            {{ form.dias_cambio_password.label }}
+                                        </label>
+                                        {{ form.dias_cambio_password }}
+                                        {% if form.dias_cambio_password.help_text %}
+                                        <div class="help-text">{{ form.dias_cambio_password.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.dias_cambio_password.errors %}
+                                        <div class="text-danger">{{ form.dias_cambio_password.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="security-indicator">
+                                <i class="fas fa-shield-alt text-success"></i>
+                                <span class="ms-2">Nivel de seguridad:</span>
+                                <span class="security-level security-high" x-text="getSecurityLevel()"></span>
+                            </div>
+                        </div>
+
+                        <!-- Pestaña Email -->
+                        <div class="tab-pane fade" id="email" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.servidor_email.id_for_label }}" class="form-label">
+                                            <i class="fas fa-server text-primary me-1"></i>
+                                            {{ form.servidor_email.label }}
+                                        </label>
+                                        {{ form.servidor_email }}
+                                        {% if form.servidor_email.help_text %}
+                                        <div class="help-text">{{ form.servidor_email.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.servidor_email.errors %}
+                                        <div class="text-danger">{{ form.servidor_email.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="{{ form.puerto_email.id_for_label }}" class="form-label">
+                                            <i class="fas fa-plug text-primary me-1"></i>
+                                            {{ form.puerto_email.label }}
+                                        </label>
+                                        {{ form.puerto_email }}
+                                        {% if form.puerto_email.errors %}
+                                        <div class="text-danger">{{ form.puerto_email.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.email_usuario.id_for_label }}" class="form-label">
+                                            <i class="fas fa-user text-primary me-1"></i>
+                                            {{ form.email_usuario.label }}
+                                        </label>
+                                        {{ form.email_usuario }}
+                                        {% if form.email_usuario.errors %}
+                                        <div class="text-danger">{{ form.email_usuario.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <div class="form-check">
+                                            {{ form.usar_tls }}
+                                            <label for="{{ form.usar_tls.id_for_label }}" class="form-check-label">
+                                                {{ form.usar_tls.label }}
+                                            </label>
+                                        </div>
+                                        {% if form.usar_tls.help_text %}
+                                        <div class="help-text">{{ form.usar_tls.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.usar_tls.errors %}
+                                        <div class="text-danger">{{ form.usar_tls.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="email-test-section">
+                                <h6><i class="fas fa-vial me-1"></i> Probar Configuración de Email</h6>
+                                <p class="small mb-3">Envíe un email de prueba para verificar la configuración.</p>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <input type="email" class="form-control" placeholder="email@ejemplo.com" x-model="emailPrueba">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-warning" @click="testEmail()" :disabled="enviandoEmail">
+                                            <span x-show="enviandoEmail">
+                                                <i class="fas fa-spinner fa-spin me-1"></i>
+                                                Enviando...
+                                            </span>
+                                            <span x-show="!enviandoEmail">
+                                                <i class="fas fa-paper-plane me-1"></i>
+                                                Enviar Prueba
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'configuracion:dashboard' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Volver
+                        </a>
+                        
+                        <button type="submit" class="btn btn-primary" :disabled="guardando">
+                            <span x-show="guardando">
+                                <i class="fas fa-spinner fa-spin me-1"></i>
+                                Guardando...
+                            </span>
+                            <span x-show="!guardando">
+                                <i class="fas fa-save me-1"></i>
+                                Guardar Configuración
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-3">
+            <div class="preview-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-eye text-primary me-2"></i>
+                    Vista Previa
+                </h5>
+                
+                <div class="text-center mb-3">
+                    {% if object.logo %}
+                    <img src="{{ object.logo.url }}" alt="Logo" style="max-height: 60px;" class="mb-2">
+                    {% else %}
+                    <div class="bg-light p-3 rounded mb-2">
+                        <i class="fas fa-building fa-2x text-muted"></i>
+                    </div>
+                    {% endif %}
+                    <h6 x-text="getNombreEmpresa()">{{ object.nombre_empresa }}</h6>
+                    <p class="small text-muted mb-0" x-text="getNit()">{{ object.nit }}</p>
+                </div>
+                
+                <hr>
+                
+                <div class="small">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Moneda:</span>
+                        <span x-text="getMoneda()">{{ object.moneda }} ({{ object.simbolo_moneda }})</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Zona horaria:</span>
+                        <span x-text="getZonaHoraria()">{{ object.zona_horaria }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Período nómina:</span>
+                        <span x-text="getPeriodoNomina()">{{ object.get_periodo_nomina_display }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-1"></i> Información</h6>
+                <ul class="mb-0 small">
+                    <li>Los cambios se aplicarán inmediatamente</li>
+                    <li>Se registrará un log de todos los cambios</li>
+                    <li>Pruebe la configuración de email antes de guardar</li>
+                    <li>El logo debe ser menor a 2MB</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function configuracionGeneral() {
+    return {
+        guardando: false,
+        enviandoEmail: false,
+        emailPrueba: '',
+        
+        async submitForm(event) {
+            this.guardando = true;
+            
+            try {
+                const form = event.target;
+                const formData = new FormData(form);
+                
+                const response = await fetch(form.action || window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                    }
+                });
+                
+                if (response.ok) {
+                    window.location.href = '{% url "configuracion:dashboard" %}';
+                } else {
+                    const html = await response.text();
+                    document.body.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al guardar la configuración');
+            } finally {
+                this.guardando = false;
+            }
+        },
+        
+        async testEmail() {
+            if (!this.emailPrueba) {
+                alert('Ingrese un email para la prueba');
+                return;
+            }
+            
+            this.enviandoEmail = true;
+            
+            try {
+                const response = await fetch('{% url "configuracion:test_email" %}', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email_destino: this.emailPrueba,
+                        servidor_email: document.getElementById('id_servidor_email').value,
+                        puerto_email: document.getElementById('id_puerto_email').value,
+                        email_usuario: document.getElementById('id_email_usuario').value,
+                        usar_tls: document.getElementById('id_usar_tls').checked
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Email de prueba enviado exitosamente');
+                } else {
+                    alert('Error enviando email: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al enviar email de prueba');
+            } finally {
+                this.enviandoEmail = false;
+            }
+        },
+        
+        getNombreEmpresa() {
+            return document.getElementById('id_nombre_empresa')?.value || '{{ object.nombre_empresa }}';
+        },
+        
+        getNit() {
+            return document.getElementById('id_nit')?.value || '{{ object.nit }}';
+        },
+        
+        getMoneda() {
+            const moneda = document.getElementById('id_moneda')?.value || '{{ object.moneda }}';
+            const simbolo = document.getElementById('id_simbolo_moneda')?.value || '{{ object.simbolo_moneda }}';
+            return `${moneda} (${simbolo})`;
+        },
+        
+        getZonaHoraria() {
+            return document.getElementById('id_zona_horaria')?.value || '{{ object.zona_horaria }}';
+        },
+        
+        getPeriodoNomina() {
+            const select = document.getElementById('id_periodo_nomina');
+            return select?.options[select.selectedIndex]?.text || '{{ object.get_periodo_nomina_display }}';
+        },
+        
+        getSecurityLevel() {
+            const timeout = parseInt(document.getElementById('id_sesion_timeout_minutos')?.value || 30);
+            const intentos = parseInt(document.getElementById('id_max_intentos_login')?.value || 3);
+            const requiereCambio = document.getElementById('id_requiere_cambio_password')?.checked;
+            
+            let score = 0;
+            if (timeout <= 30) score++;
+            if (intentos <= 3) score++;
+            if (requiereCambio) score++;
+            
+            if (score >= 3) return 'Alto';
+            if (score >= 2) return 'Medio';
+            return 'Bajo';
+        },
+        
+        resetConfig() {
+            if (confirm('¿Está seguro que desea restablecer la configuración?')) {
+                window.location.reload();
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

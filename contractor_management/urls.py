@@ -4,12 +4,23 @@ from django.shortcuts import redirect
 from django.contrib.auth import views as auth_views  # <-- Agrega esto
 
 urlpatterns = [
-    path('', lambda request: redirect('dashboard:contratista_lista'), name='home'),
+    path('', lambda request: redirect('dashboard:principal'), name='home'),
     path('admin/', admin.site.urls),
     path('dashboard/', include('dashboard.urls')),
     path('payroll/', include('payroll.urls')),
     path('items/', include('items.urls')),
     path('locations/', include('locations.urls')),
+    path('tipos-cantidad/', include('tipos_cantidad.urls')),
+    path('roles/', include('roles.urls')),
+    path('prestamos/', include('prestamos.urls')),
+    path('permisos/', include('permisos.urls')),
+    path('cargos/', include('cargos.urls')),
+    path('contabilidad/', include('contabilidad.urls')),
+    path('configuracion/', include('configuracion.urls')),  # App de configuración
+    path('reportes/', include('reportes.urls')),  # App de reportes
+    path('perfil/', include('perfil.urls')),  # App de perfil de usuario
+    path('ayuda/', include('ayuda.urls')),  # App de ayuda y documentación
+    path('documentacion/', include('documentacion.urls')),  # App de documentación
     path('', include('core.urls')),
     path('i18n/', include('django.conf.urls.i18n')),  # Para idiomas
 
@@ -21,5 +32,4 @@ urlpatterns = [
 
     # --- Incluye tus rutas con namespace al final ---
     path('login/', include('login.urls', namespace='login')),
-    
 ]

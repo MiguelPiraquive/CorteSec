@@ -1,0 +1,285 @@
+{% extends 'core/base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Detalle: {{ object.codigo }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.detail-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+.info-badge {
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    color: white;
+    border-radius: 20px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.stat-item {
+    border-left: 4px solid var(--bs-primary);
+    background: rgba(0, 123, 255, 0.1);
+    border-radius: 0 10px 10px 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="fas fa-eye text-info me-2"></i>
+                Detalle: {{ object.codigo }}
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tipos_cantidad:lista' %}">Tipos de Cantidad</a></li>
+                    <li class="breadcrumb-item active">{{ object.codigo }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="btn-group" role="group">
+            <a href="{% url 'tipos_cantidad:editar' object.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit me-2"></i>
+                Editar
+            </a>
+            {% if not object.es_sistema %}
+            <button type="button" class="btn btn-danger" onclick="eliminarTipo({{ object.pk }}, '{{ object.codigo }}')">
+                <i class="fas fa-trash me-2"></i>
+                Eliminar
+            </button>
+            {% endif %}
+            <a href="{% url 'tipos_cantidad:lista' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>
+                Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información Principal -->
+        <div class="col-lg-8">
+            <div class="card detail-card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        Información General
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-muted">Código</label>
+                                <div class="p-3 bg-light rounded border">
+                                    <code class="fs-4 text-primary fw-bold">{{ object.codigo }}</code>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-muted">Símbolo</label>
+                                <div class="p-3 bg-light rounded border">
+                                    {% if object.simbolo %}
+                                        <span class="badge bg-primary fs-6">{{ object.simbolo }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Sin símbolo definido</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted">Descripción</label>
+                        <div class="p-3 bg-light rounded border">
+                            <p class="mb-0">{{ object.descripcion }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-muted">Orden</label>
+                                <div class="p-3 bg-light rounded border">
+                                    <span class="badge bg-secondary fs-6">{{ object.orden }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-muted">Estado</label>
+                                <div class="p-3 bg-light rounded border">
+                                    {% if object.activo %}
+                                        <span class="badge bg-success fs-6">
+                                            <i class="fas fa-check me-1"></i>Activo
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger fs-6">
+                                            <i class="fas fa-times me-1"></i>Inactivo
+                                        </span>
+                                    {% endif %}
+                                    {% if object.es_sistema %}
+                                        <span class="badge bg-warning text-dark fs-6 ms-2">
+                                            <i class="fas fa-cog me-1"></i>Sistema
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted">Descripción Completa</label>
+                        <div class="p-3 bg-primary bg-opacity-10 rounded border border-primary border-opacity-25">
+                            <p class="mb-0 text-primary fw-semibold">{{ object.descripcion_completa }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Panel Lateral -->
+        <div class="col-lg-4">
+            <!-- Estadísticas -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar text-success me-2"></i>
+                        Estadísticas de Uso
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Las estadísticas de uso se implementarán cuando el tipo de cantidad 
+                        se relacione con otros módulos del sistema.
+                    </div>
+                    
+                    <!-- Placeholder para futuras estadísticas -->
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="stat-item p-3 mb-2">
+                                <div class="fs-4 fw-bold text-primary">0</div>
+                                <div class="small text-muted">Items</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-item p-3 mb-2">
+                                <div class="fs-4 fw-bold text-primary">0</div>
+                                <div class="small text-muted">Usos</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Información del Sistema -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-database text-info me-2"></i>
+                        Información del Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong class="text-muted">ID del Registro:</strong>
+                        <div class="mt-1">
+                            <span class="info-badge">{{ object.id }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong class="text-muted">Fecha de Creación:</strong>
+                        <div class="mt-1">
+                            <i class="fas fa-calendar-plus text-success me-2"></i>
+                            {{ object.fecha_creacion|date:"d/m/Y" }}
+                            <br>
+                            <small class="text-muted">{{ object.fecha_creacion|date:"H:i:s" }}</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong class="text-muted">Última Modificación:</strong>
+                        <div class="mt-1">
+                            <i class="fas fa-calendar-edit text-warning me-2"></i>
+                            {{ object.fecha_modificacion|date:"d/m/Y" }}
+                            <br>
+                            <small class="text-muted">{{ object.fecha_modificacion|date:"H:i:s" }}</small>
+                        </div>
+                    </div>
+                    
+                    {% if object.es_sistema %}
+                    <div class="alert alert-warning border-0 mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Tipo del Sistema</strong>
+                        <br>
+                        <small>Este tipo de cantidad es parte del sistema y no puede ser eliminado.</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function eliminarTipo(id, codigo) {
+    Swal.fire({
+        title: '¿Está seguro?',
+        text: `¿Desea eliminar el tipo de cantidad "${codigo}"?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: `/tipos-cantidad/${id}/eliminar/`,
+                type: 'DELETE',
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({
+                            title: 'Eliminado',
+                            text: response.message,
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = '{% url "tipos_cantidad:lista" %}';
+                        });
+                    } else {
+                        Swal.fire({
+                            title: 'Error',
+                            text: response.message,
+                            icon: 'error'
+                        });
+                    }
+                },
+                error: function() {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Error al eliminar el tipo de cantidad',
+                        icon: 'error'
+                    });
+                }
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

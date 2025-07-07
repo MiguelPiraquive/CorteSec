@@ -1,0 +1,652 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans "Logs del Sistema" %}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<style>
+    .log-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .log-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .log-card.info {
+        border-left-color: #3b82f6;
+    }
+    
+    .log-card.warning {
+        border-left-color: #f59e0b;
+    }
+    
+    .log-card.error {
+        border-left-color: #ef4444;
+    }
+    
+    .log-card.success {
+        border-left-color: #10b981;
+    }
+    
+    .log-level-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .log-level-info {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+    
+    .log-level-warning {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    
+    .log-level-error {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .log-level-success {
+        background: #d1fae5;
+        color: #059669;
+    }
+    
+    .filter-button {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: 2px solid #e5e7eb;
+        background: white;
+        color: #6b7280;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .filter-button.active {
+        border-color: #3b82f6;
+        background: #3b82f6;
+        color: white;
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+    
+    .log-details {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.875rem;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .pagination-button {
+        padding: 0.5rem 1rem;
+        border: 1px solid #d1d5db;
+        background: white;
+        color: #374151;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .pagination-button:hover {
+        background: #f3f4f6;
+        border-color: #9ca3af;
+    }
+    
+    .pagination-button.active {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+    }
+    
+    .pagination-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Include toast notifications -->
+{% include 'cargos/cargos/toast_notifications.html' %}
+
+<div class="max-w-7xl mx-auto space-y-6" x-data="logsManager()">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                    <i class="ti ti-file-text text-blue-600 mr-3"></i>
+                    {% trans "Logs del Sistema" %}
+                </h1>
+                <p class="text-gray-600 mt-1">{% trans "Registros de actividad y eventos del sistema" %}</p>
+            </div>
+            
+            <div class="flex gap-2">
+                <button @click="exportLogs()" class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg shadow hover:bg-green-200 transition">
+                    <i class="ti ti-download mr-2"></i> {% trans "Exportar" %}
+                </button>
+                <button @click="clearLogs()" class="inline-flex items-center px-4 py-2 bg-red-100 text-red-700 rounded-lg shadow hover:bg-red-200 transition">
+                    <i class="ti ti-trash mr-2"></i> {% trans "Limpiar Logs" %}
+                </button>
+                <a href="{% url 'configuracion:dashboard' %}" class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition">
+                    <i class="ti ti-arrow-left mr-2"></i> {% trans "Volver" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="stats-card">
+            <div class="text-2xl font-bold">{{ total_logs }}</div>
+            <div class="text-blue-100 mt-1">{% trans "Total Logs" %}</div>
+        </div>
+        <div class="stats-card">
+            <div class="text-2xl font-bold">{{ logs_hoy }}</div>
+            <div class="text-blue-100 mt-1">{% trans "Hoy" %}</div>
+        </div>
+        <div class="stats-card">
+            <div class="text-2xl font-bold">{{ logs_errores }}</div>
+            <div class="text-blue-100 mt-1">{% trans "Errores" %}</div>
+        </div>
+        <div class="stats-card">
+            <div class="text-2xl font-bold">{{ logs_warnings }}</div>
+            <div class="text-blue-100 mt-1">{% trans "Warnings" %}</div>
+        </div>
+    </div>
+
+    <!-- Filtros y búsqueda -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Filtro por nivel -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Nivel" %}</label>
+                <div class="flex flex-wrap gap-1">
+                    <button @click="currentLevel = 'all'" 
+                            :class="currentLevel === 'all' ? 'filter-button active' : 'filter-button'">
+                        {% trans "Todos" %}
+                    </button>
+                    <button @click="currentLevel = 'info'" 
+                            :class="currentLevel === 'info' ? 'filter-button active' : 'filter-button'">
+                        {% trans "Info" %}
+                    </button>
+                    <button @click="currentLevel = 'warning'" 
+                            :class="currentLevel === 'warning' ? 'filter-button active' : 'filter-button'">
+                        {% trans "Warning" %}
+                    </button>
+                    <button @click="currentLevel = 'error'" 
+                            :class="currentLevel === 'error' ? 'filter-button active' : 'filter-button'">
+                        {% trans "Error" %}
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Filtro por módulo -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Módulo" %}</label>
+                <select x-model="selectedModule" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">{% trans "Todos los módulos" %}</option>
+                    <template x-for="modulo in availableModules" :key="modulo">
+                        <option :value="modulo" x-text="modulo"></option>
+                    </template>
+                </select>
+            </div>
+            
+            <!-- Filtro por fecha -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Fecha" %}</label>
+                <input type="date" x-model="selectedDate" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            
+            <!-- Búsqueda -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Buscar" %}</label>
+                <div class="relative">
+                    <input type="text" x-model="searchQuery" 
+                           placeholder="{% trans 'Buscar en logs...' %}" 
+                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <i class="ti ti-search absolute left-3 top-3 text-gray-400"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Acciones rápidas -->
+        <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
+            <div class="text-sm text-gray-500">
+                <span x-text="filteredLogs.length"></span> {% trans "de" %} <span x-text="logs.length"></span> {% trans "logs" %}
+            </div>
+            
+            <div class="flex gap-2">
+                <button @click="refreshLogs()" class="inline-flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
+                    <i class="ti ti-refresh mr-1"></i> {% trans "Actualizar" %}
+                </button>
+                <button @click="autoRefresh = !autoRefresh" 
+                        :class="autoRefresh ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'"
+                        class="inline-flex items-center px-3 py-1 text-sm rounded-lg hover:bg-opacity-80 transition">
+                    <i class="ti ti-clock mr-1"></i> {% trans "Auto-actualizar" %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Logs -->
+    <div class="space-y-4">
+        <template x-for="log in paginatedLogs" :key="log.id">
+            <div class="log-card" :class="log.nivel">
+                <div class="p-6">
+                    <!-- Header del log -->
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center space-x-3">
+                            <span class="log-level-badge" :class="'log-level-' + log.nivel" x-text="log.nivel.toUpperCase()"></span>
+                            <span class="text-sm text-gray-500 flex items-center">
+                                <i class="ti ti-clock mr-1"></i>
+                                <span x-text="formatDate(log.fecha_creacion)"></span>
+                            </span>
+                            <span class="text-sm text-gray-500 flex items-center">
+                                <i class="ti ti-apps mr-1"></i>
+                                <span x-text="log.modulo"></span>
+                            </span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <button @click="toggleLogDetails(log)" 
+                                    class="text-blue-600 hover:text-blue-800 transition">
+                                <i class="ti ti-eye"></i>
+                            </button>
+                            <button @click="copyLog(log)" 
+                                    class="text-gray-600 hover:text-gray-800 transition">
+                                <i class="ti ti-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Mensaje principal -->
+                    <div class="mb-3">
+                        <h4 class="text-lg font-medium text-gray-900 mb-2" x-text="log.accion"></h4>
+                        <p class="text-gray-600" x-text="log.descripcion"></p>
+                    </div>
+                    
+                    <!-- Información adicional -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div class="flex items-center text-gray-500">
+                            <i class="ti ti-user mr-2"></i>
+                            <span>{% trans "Usuario:" %} <span x-text="log.usuario || 'Sistema'"></span></span>
+                        </div>
+                        <div class="flex items-center text-gray-500">
+                            <i class="ti ti-device-laptop mr-2"></i>
+                            <span>{% trans "IP:" %} <span x-text="log.ip_address || 'N/A'"></span></span>
+                        </div>
+                        <div class="flex items-center text-gray-500">
+                            <i class="ti ti-hash mr-2"></i>
+                            <span>{% trans "ID:" %} <span x-text="log.id"></span></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Detalles expandibles -->
+                    <div x-show="log.showDetails" 
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 max-h-0"
+                         x-transition:enter-end="opacity-100 max-h-96"
+                         x-transition:leave="transition ease-in duration-200"
+                         x-transition:leave-start="opacity-100 max-h-96"
+                         x-transition:leave-end="opacity-0 max-h-0"
+                         class="log-details overflow-hidden">
+                        <pre x-text="JSON.stringify(log.datos_adicionales, null, 2)"></pre>
+                    </div>
+                </div>
+            </div>
+        </template>
+        
+        <!-- Sin resultados -->
+        <div x-show="filteredLogs.length === 0" class="text-center py-12">
+            <i class="ti ti-file-text text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">{% trans "No se encontraron logs" %}</h3>
+            <p class="text-gray-500">{% trans "No hay logs que coincidan con los filtros aplicados" %}</p>
+        </div>
+    </div>
+
+    <!-- Paginación -->
+    <div x-show="totalPages > 1" class="bg-white rounded-2xl shadow p-6">
+        <div class="flex items-center justify-between">
+            <div class="text-sm text-gray-500">
+                {% trans "Página" %} <span x-text="currentPage"></span> {% trans "de" %} <span x-text="totalPages"></span>
+            </div>
+            
+            <div class="flex space-x-2">
+                <button @click="goToPage(currentPage - 1)" 
+                        :disabled="currentPage <= 1"
+                        class="pagination-button">
+                    <i class="ti ti-chevron-left"></i>
+                </button>
+                
+                <template x-for="page in visiblePages" :key="page">
+                    <button @click="goToPage(page)" 
+                            :class="page === currentPage ? 'pagination-button active' : 'pagination-button'"
+                            x-text="page">
+                    </button>
+                </template>
+                
+                <button @click="goToPage(currentPage + 1)" 
+                        :disabled="currentPage >= totalPages"
+                        class="pagination-button">
+                    <i class="ti ti-chevron-right"></i>
+                </button>
+            </div>
+            
+            <div class="text-sm text-gray-500">
+                <select x-model="logsPerPage" @change="currentPage = 1" 
+                        class="px-2 py-1 border border-gray-300 rounded">
+                    <option value="10">10 por página</option>
+                    <option value="25">25 por página</option>
+                    <option value="50">50 por página</option>
+                    <option value="100">100 por página</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación para limpiar logs -->
+    <div x-show="showClearModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         @click.away="showClearModal = false">
+        
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4"
+             @click.stop>
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="ti ti-alert-triangle text-red-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">{% trans "Confirmar Limpieza" %}</h3>
+                        <p class="text-gray-600">{% trans "Esta acción no se puede deshacer" %}</p>
+                    </div>
+                </div>
+                
+                <p class="text-gray-700 mb-6">
+                    {% trans "¿Está seguro que desea eliminar todos los logs del sistema? Esta acción eliminará permanentemente todos los registros." %}
+                </p>
+                
+                <div class="flex justify-end space-x-3">
+                    <button @click="showClearModal = false" 
+                            class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+                        {% trans "Cancelar" %}
+                    </button>
+                    <button @click="confirmClearLogs()" 
+                            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                        {% trans "Eliminar Logs" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function logsManager() {
+    return {
+        logs: {{ logs|safe }},
+        currentLevel: 'all',
+        selectedModule: '',
+        selectedDate: '',
+        searchQuery: '',
+        currentPage: 1,
+        logsPerPage: 25,
+        autoRefresh: false,
+        refreshInterval: null,
+        showClearModal: false,
+        availableModules: ['configuracion', 'cargos', 'empleados', 'payroll', 'contabilidad'],
+        
+        init() {
+            this.setupAutoRefresh();
+        },
+        
+        get filteredLogs() {
+            let filtered = this.logs;
+            
+            // Filtro por nivel
+            if (this.currentLevel !== 'all') {
+                filtered = filtered.filter(log => log.nivel === this.currentLevel);
+            }
+            
+            // Filtro por módulo
+            if (this.selectedModule) {
+                filtered = filtered.filter(log => log.modulo === this.selectedModule);
+            }
+            
+            // Filtro por fecha
+            if (this.selectedDate) {
+                filtered = filtered.filter(log => {
+                    const logDate = new Date(log.fecha_creacion).toISOString().split('T')[0];
+                    return logDate === this.selectedDate;
+                });
+            }
+            
+            // Filtro por búsqueda
+            if (this.searchQuery) {
+                const query = this.searchQuery.toLowerCase();
+                filtered = filtered.filter(log => 
+                    log.accion.toLowerCase().includes(query) ||
+                    log.descripcion.toLowerCase().includes(query) ||
+                    (log.usuario && log.usuario.toLowerCase().includes(query))
+                );
+            }
+            
+            return filtered.sort((a, b) => new Date(b.fecha_creacion) - new Date(a.fecha_creacion));
+        },
+        
+        get totalPages() {
+            return Math.ceil(this.filteredLogs.length / this.logsPerPage);
+        },
+        
+        get paginatedLogs() {
+            const startIndex = (this.currentPage - 1) * this.logsPerPage;
+            const endIndex = startIndex + this.logsPerPage;
+            return this.filteredLogs.slice(startIndex, endIndex);
+        },
+        
+        get visiblePages() {
+            const pages = [];
+            const maxVisible = 5;
+            let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
+            let end = Math.min(this.totalPages, start + maxVisible - 1);
+            
+            if (end - start + 1 < maxVisible) {
+                start = Math.max(1, end - maxVisible + 1);
+            }
+            
+            for (let i = start; i <= end; i++) {
+                pages.push(i);
+            }
+            
+            return pages;
+        },
+        
+        goToPage(page) {
+            if (page >= 1 && page <= this.totalPages) {
+                this.currentPage = page;
+            }
+        },
+        
+        toggleLogDetails(log) {
+            log.showDetails = !log.showDetails;
+        },
+        
+        formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        },
+        
+        async refreshLogs() {
+            try {
+                const response = await fetch('/configuracion/logs/api/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.logs = data.logs;
+                    
+                    window.dispatchEvent(new CustomEvent('show-toast', {
+                        detail: {
+                            type: 'success',
+                            title: '{% trans "Logs Actualizados" %}',
+                            message: '{% trans "Los logs se han actualizado correctamente" %}'
+                        }
+                    }));
+                }
+            } catch (error) {
+                window.dispatchEvent(new CustomEvent('show-toast', {
+                    detail: {
+                        type: 'error',
+                        title: '{% trans "Error" %}',
+                        message: '{% trans "No se pudieron actualizar los logs" %}'
+                    }
+                }));
+            }
+        },
+        
+        setupAutoRefresh() {
+            this.$watch('autoRefresh', (value) => {
+                if (value) {
+                    this.refreshInterval = setInterval(() => {
+                        this.refreshLogs();
+                    }, 30000); // Refresh every 30 seconds
+                } else if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
+                    this.refreshInterval = null;
+                }
+            });
+        },
+        
+        copyLog(log) {
+            const logText = `[${log.nivel.toUpperCase()}] ${log.fecha_creacion}\n${log.accion}\n${log.descripcion}`;
+            navigator.clipboard.writeText(logText).then(() => {
+                window.dispatchEvent(new CustomEvent('show-toast', {
+                    detail: {
+                        type: 'success',
+                        title: '{% trans "Copiado" %}',
+                        message: '{% trans "Log copiado al portapapeles" %}'
+                    }
+                }));
+            });
+        },
+        
+        clearLogs() {
+            this.showClearModal = true;
+        },
+        
+        async confirmClearLogs() {
+            try {
+                const response = await fetch('/configuracion/logs/clear/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    this.logs = [];
+                    this.showClearModal = false;
+                    
+                    window.dispatchEvent(new CustomEvent('show-toast', {
+                        detail: {
+                            type: 'success',
+                            title: '{% trans "Logs Eliminados" %}',
+                            message: '{% trans "Todos los logs han sido eliminados" %}'
+                        }
+                    }));
+                } else {
+                    throw new Error('Error al eliminar logs');
+                }
+            } catch (error) {
+                window.dispatchEvent(new CustomEvent('show-toast', {
+                    detail: {
+                        type: 'error',
+                        title: '{% trans "Error" %}',
+                        message: '{% trans "No se pudieron eliminar los logs" %}'
+                    }
+                }));
+            }
+        },
+        
+        async exportLogs() {
+            try {
+                const response = await fetch('/configuracion/logs/export/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        level: this.currentLevel,
+                        module: this.selectedModule,
+                        date: this.selectedDate,
+                        search: this.searchQuery
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `logs_${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    window.dispatchEvent(new CustomEvent('show-toast', {
+                        detail: {
+                            type: 'success',
+                            title: '{% trans "Exportación Completada" %}',
+                            message: '{% trans "Los logs se han exportado correctamente" %}'
+                        }
+                    }));
+                } else {
+                    throw new Error('Error al exportar');
+                }
+            } catch (error) {
+                window.dispatchEvent(new CustomEvent('show-toast', {
+                    detail: {
+                        type: 'error',
+                        title: '{% trans "Error" %}',
+                        message: '{% trans "No se pudieron exportar los logs" %}'
+                    }
+                }));
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Plan de Cuentas" %}{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <h2 class="text-2xl font-bold text-blue-700">{% trans "Plan de Cuentas" %}</h2>
+        <div class="flex gap-3">
+            <a href="#" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition">
+                <i class="ti ti-download mr-2"></i> {% trans "Exportar" %}
+            </a>
+            <a href="{% url 'contabilidad:plan_cuentas_create' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                <i class="ti ti-plus mr-2"></i> {% trans "Nueva Cuenta" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i class="ti ti-report-money text-2xl text-blue-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-blue-600">{% trans "Total Cuentas" %}</p>
+                    <p class="text-2xl font-bold text-blue-700">{{ cuentas.count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-green-100 rounded-lg">
+                    <i class="ti ti-check text-2xl text-green-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-green-600">{% trans "Cuentas Activas" %}</p>
+                    <p class="text-2xl font-bold text-green-700">{{ cuentas_activas|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-purple-100 rounded-lg">
+                    <i class="ti ti-chart-bar text-2xl text-purple-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-purple-600">{% trans "Cuentas Principales" %}</p>
+                    <p class="text-2xl font-bold text-purple-700">{{ cuentas_principales|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-orange-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-orange-100 rounded-lg">
+                    <i class="ti ti-calculator text-2xl text-orange-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-orange-600">{% trans "Subcuentas" %}</p>
+                    <p class="text-2xl font-bold text-orange-700">{{ subcuentas|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-blue-100">
+            <thead class="bg-blue-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Código" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Nombre" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Tipo" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Estado" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Naturaleza" %}</th>
+                    <th class="px-4 py-2 text-center text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Acciones" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-blue-50">
+                {% for cuenta in cuentas %}
+                <tr class="hover:bg-blue-50 transition">
+                    <td class="px-4 py-3">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10">
+                                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <i class="ti ti-report-money text-blue-600"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">{{ cuenta.codigo }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-sm font-medium text-gray-900">{{ cuenta.nombre }}</div>
+                        {% if cuenta.descripcion %}
+                            <div class="text-sm text-gray-500">{{ cuenta.descripcion|truncatewords:8 }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if cuenta.tipo %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {{ cuenta.get_tipo_display }}
+                            </span>
+                        {% else %}
+                            <span class="text-gray-400">{% trans "No definido" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if cuenta.activa %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <i class="ti ti-check mr-1"></i> {% trans "Activa" %}
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <i class="ti ti-x mr-1"></i> {% trans "Inactiva" %}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if cuenta.naturaleza %}
+                            {% if cuenta.naturaleza == 'deudora' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    <i class="ti ti-plus mr-1"></i> {% trans "Deudora" %}
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    <i class="ti ti-minus mr-1"></i> {% trans "Acreedora" %}
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-gray-400">{% trans "No definida" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex justify-center gap-2">
+                            <a href="{% url 'contabilidad:plan_cuentas_detail' cuenta.pk %}" 
+                               class="inline-flex items-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-xs" 
+                               title="{% trans 'Ver Detalles' %}">
+                                <i class="ti ti-eye"></i>
+                            </a>
+                            <a href="{% url 'contabilidad:plan_cuentas_update' cuenta.pk %}" 
+                               class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs" 
+                               title="{% trans 'Editar' %}">
+                                <i class="ti ti-pencil"></i>
+                            </a>
+                            <a href="{% url 'contabilidad:plan_cuentas_delete' cuenta.pk %}" 
+                               class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs" 
+                               title="{% trans 'Eliminar' %}">
+                                <i class="ti ti-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-8">
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                <i class="ti ti-report-money text-2xl text-gray-400"></i>
+                            </div>
+                            <p class="text-gray-500 text-lg font-medium">{% trans "No hay cuentas registradas" %}</p>
+                            <p class="text-gray-400 text-sm mt-1">{% trans "Comienza creando tu primera cuenta contable" %}</p>
+                            <a href="{% url 'contabilidad:plan_cuentas_create' %}" 
+                               class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                                <i class="ti ti-plus mr-2"></i> {% trans "Crear Primera Cuenta" %}
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if is_paginated %}
+    <div class="mt-6 flex items-center justify-between">
+        <div class="flex-1 flex justify-between sm:hidden">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    {% trans "Anterior" %}
+                </a>
+            {% endif %}
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    {% trans "Siguiente" %}
+                </a>
+            {% endif %}
+        </div>
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700">
+                    {% trans "Mostrando" %}
+                    <span class="font-medium">{{ page_obj.start_index }}</span>
+                    {% trans "a" %}
+                    <span class="font-medium">{{ page_obj.end_index }}</span>
+                    {% trans "de" %}
+                    <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                    {% trans "resultados" %}
+                </p>
+            </div>
+            <div>
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="ti ti-chevron-left"></i>
+                        </a>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <span class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">
+                                {{ num }}
+                            </span>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <a href="?page={{ num }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                {{ num }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="ti ti-chevron-right"></i>
+                        </a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

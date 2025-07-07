@@ -1,0 +1,149 @@
+<div class="table-responsive">
+    <table class="table table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th>Símbolo</th>
+                <th>Orden</th>
+                <th>Estado</th>
+                <th>Fecha Creación</th>
+                <th width="140">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tipo in tipos %}
+            <tr>
+                <td>
+                    <code class="text-primary fw-bold">{{ tipo.codigo }}</code>
+                </td>
+                <td>{{ tipo.descripcion }}</td>
+                <td>
+                    {% if tipo.simbolo %}
+                        <span class="badge bg-light text-dark">{{ tipo.simbolo }}</span>
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge bg-secondary">{{ tipo.orden }}</span>
+                </td>
+                <td>
+                    {% if tipo.activo %}
+                        <span class="badge bg-success badge-status">
+                            <i class="fas fa-check me-1"></i>Activo
+                        </span>
+                    {% else %}
+                        <span class="badge bg-danger badge-status">
+                            <i class="fas fa-times me-1"></i>Inactivo
+                        </span>
+                    {% endif %}
+                    {% if tipo.es_sistema %}
+                        <span class="badge bg-warning text-dark ms-1" title="Tipo del sistema">
+                            <i class="fas fa-cog"></i>
+                        </span>
+                    {% endif %}
+                </td>
+                <td>
+                    <small class="text-muted">{{ tipo.fecha_creacion|date:"d/m/Y H:i" }}</small>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="{% url 'tipos_cantidad:detalle' tipo.pk %}" 
+                           class="btn btn-outline-info" 
+                           title="Ver detalle">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'tipos_cantidad:editar' tipo.pk %}" 
+                           class="btn btn-outline-primary" 
+                           title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% if not tipo.es_sistema %}
+                        <button type="button" 
+                                class="btn btn-outline-danger" 
+                                onclick="eliminarTipo({{ tipo.pk }}, '{{ tipo.codigo }}')" 
+                                title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        {% endif %}
+                        <button type="button" 
+                                class="btn btn-outline-secondary" 
+                                onclick="toggleEstado({{ tipo.pk }})" 
+                                title="Cambiar Estado">
+                            <i class="fas fa-toggle-{% if tipo.activo %}on{% else %}off{% endif %}"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center py-5">
+                    <div class="text-muted">
+                        <i class="fas fa-search fa-3x mb-3 d-block opacity-50"></i>
+                        <h5>No se encontraron tipos de cantidad</h5>
+                        <p class="mb-0">Intenta ajustar los filtros de búsqueda</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación -->
+{% if tipos.has_other_pages %}
+<div class="card-footer bg-light">
+    <nav aria-label="Paginación de tipos de cantidad">
+        <ul class="pagination justify-content-center mb-0">
+            {% if tipos.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{{ request.GET.urlencode|slice:'1:' }}">
+                        <i class="fas fa-angle-double-left"></i>
+                        <span class="sr-only">Primera página</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ tipos.previous_page_number }}{{ request.GET.urlencode|slice:'1:' }}">
+                        <i class="fas fa-angle-left"></i>
+                        <span class="sr-only">Página anterior</span>
+                    </a>
+                </li>
+            {% endif %}
+            
+            {% for num in tipos.paginator.page_range %}
+                {% if tipos.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > tipos.number|add:'-3' and num < tipos.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{{ request.GET.urlencode|slice:'1:' }}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if tipos.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ tipos.next_page_number }}{{ request.GET.urlencode|slice:'1:' }}">
+                        <i class="fas fa-angle-right"></i>
+                        <span class="sr-only">Página siguiente</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ tipos.paginator.num_pages }}{{ request.GET.urlencode|slice:'1:' }}">
+                        <i class="fas fa-angle-double-right"></i>
+                        <span class="sr-only">Última página</span>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    
+    <div class="text-center text-muted mt-2">
+        <small>
+            Mostrando {{ tipos.start_index }}-{{ tipos.end_index }} de {{ tipos.paginator.count }} registros
+        </small>
+    </div>
+</div>
+{% endif %}

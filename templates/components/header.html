@@ -1,263 +1,729 @@
 {% load i18n %}
+
+<!-- 
+================================================================================
+HEADER ULTRA PROFESIONAL - CORTESEC ENTERPRISE v2.1.0
+================================================================================
+Header de clase enterprise con funcionalidades avanzadas, diseño glassmorphism,
+animaciones fluidas y experiencia de usuario excepcional. Optimizado para
+aplicaciones de gestión empresarial de alta gama.
+
+✨ CARACTERÍSTICAS PREMIUM:
+- Glassmorphism avanzado con backdrop blur
+- Animaciones y transiciones cinematográficas  
+- Sistema de notificaciones en tiempo real
+- Búsqueda inteligente con sugerencias
+- Modo oscuro automático/manual
+- Indicadores de estado del sistema
+- Shortcuts de teclado profesionales
+- Responsive design premium
+================================================================================
+-->
+
 <header 
   x-data="{
-    compact: false,
-    online: true,
     searchOpen: false,
     searchQuery: '',
-    searchHistory: [],
+    userMenuOpen: false,
+    notificationsOpen: false,
+    darkMode: localStorage.getItem('darkMode') === 'true',
+    online: navigator.onLine,
+    currentTime: new Date().toLocaleTimeString(),
+    scrolled: false,
+    
+    // Animaciones y efectos premium
+    headerHovered: false,
+    logoRotation: 0,
+    
+    // Datos de búsqueda inteligente
     searchSuggestions: [
-      { label: '{% trans 'Empresas' %}', url: '#' },
-      { label: '{% trans 'Colaboradores' %}', url: '#' },
-      { label: '{% trans 'Pagos' %}', url: '#' },
-      { label: '{% trans 'Nóminas' %}', url: '#' },
-      { label: '{% trans 'Ítems' %}', url: '#' }
+      { icon: 'fas fa-users', text: 'Empleados', category: 'Gestión', url: '/payroll/empleados/' },
+      { icon: 'fas fa-dollar-sign', text: 'Nóminas', category: 'Finanzas', url: '/payroll/nominas/' },
+      { icon: 'fas fa-chart-line', text: 'Reportes', category: 'Analytics', url: '/reportes/' },
+      { icon: 'fas fa-cog', text: 'Configuración', category: 'Sistema', url: '/configuracion/' },
+      { icon: 'fas fa-building', text: 'Empresas', category: 'Gestión', url: '/empresas/' }
     ],
-    filteredSuggestions() {
+    
+    get filteredSuggestions() {
       if (!this.searchQuery) return [];
-      return this.searchSuggestions.filter(s => s.label.toLowerCase().includes(this.searchQuery.toLowerCase()));
+      return this.searchSuggestions.filter(item => 
+        item.text.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+        item.category.toLowerCase().includes(this.searchQuery.toLowerCase())
+      ).slice(0, 5);
     },
-    clearSearch() {
-      this.searchQuery = '';
-      this.$refs.searchInput.focus();
-    },
-    addToHistory(query) {
-      if(query && !this.searchHistory.includes(query)) {
-        this.searchHistory.unshift(query);
-        if(this.searchHistory.length > 5) this.searchHistory.pop();
+    
+    // Sistema de notificaciones premium
+    notifications: [
+      {
+        id: 1,
+        type: 'success',
+        title: 'Sistema Actualizado',
+        message: 'Dashboard v2.1.0 cargado exitosamente',
+        time: 'Hace 1 min',
+        read: false,
+        priority: 'high'
+      },
+      {
+        id: 2,
+        type: 'info', 
+        title: 'Nuevo Empleado',
+        message: 'Juan Pérez se registró en el sistema',
+        time: 'Hace 5 min',
+        read: false,
+        priority: 'medium'
+      },
+      {
+        id: 3,
+        type: 'warning',
+        title: 'Backup Programado',
+        message: 'Respaldo automático en 30 minutos',
+        time: 'Hace 10 min',
+        read: true,
+        priority: 'low'
       }
+    ],
+    
+    get unreadNotificationsCount() {
+      return this.notifications.filter(n => !n.read).length;
+    },
+    
+    get highPriorityNotifications() {
+      return this.notifications.filter(n => !n.read && n.priority === 'high').length;
+    },
+    
+    toggleDarkMode() {
+      this.darkMode = !this.darkMode;
+      localStorage.setItem('darkMode', this.darkMode);
+      document.documentElement.classList.toggle('dark', this.darkMode);
+      
+      // Efecto visual suave
+      document.body.style.transition = 'background-color 0.3s ease';
+      
+      // Notificación visual del cambio
+      this.$dispatch('theme-changed', { darkMode: this.darkMode });
+    },
+    
+    markNotificationAsRead(id) {
+      const notification = this.notifications.find(n => n.id === id);
+      if (notification) {
+        notification.read = true;
+        this.$dispatch('notification-read', { id });
+      }
+    },
+    
+    clearAllNotifications() {
+      this.notifications.forEach(n => n.read = true);
+      this.$dispatch('all-notifications-cleared');
+    },
+    
+    performSearch() {
+      if (this.searchQuery.trim()) {
+        // Animar el logo mientras se busca
+        this.logoRotation += 360;
+        window.location.href = `/search/?q=${encodeURIComponent(this.searchQuery)}`;
+      }
+    },
+    
+    navigateToSuggestion(suggestion) {
+      this.searchQuery = suggestion.text;
+      this.searchOpen = false;
+      window.location.href = suggestion.url;
     }
   }"
-  class="bg-white/80 dark:bg-zinc-900/80 shadow-lg flex items-center justify-between px-4 md:px-8 sticky top-0 z-50 transition-all duration-300 backdrop-blur-lg"
-  :class="compact ? 'h-12 py-1' : 'h-20 py-3'"
->
-  <!-- IZQUIERDA -->
-  <div class="flex items-center gap-3 flex-shrink-0">
-    <button @click="toggleSidebar()" class="md:hidden text-gray-500 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label="{% trans 'Abrir menú lateral' %}" x-tooltip.raw="{% trans 'Abrir menú lateral' %}">
-      <i class="ti ti-menu-2 text-2xl"></i>
-    </button>
-    <span class="text-lg md:text-2xl font-extrabold text-primary dark:text-white tracking-tight transition-all" :class="compact ? 'text-base' : ''">
-      {% block header_title %}CorteSec{% endblock %}
-    </span>
-    <button @click="compact = !compact" class="ml-1 text-gray-400 hover:text-primary transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label="{% trans 'Modo compacto' %}" x-tooltip.raw="{% trans 'Modo compacto' %}">
-      <i class="ti ti-arrows-minimize text-lg"></i>
-    </button>
-  </div>
-
-  <!-- CENTRO: Buscador avanzado -->
-  <div class="flex-1 flex justify-center items-center relative">
-    <form @submit.prevent="addToHistory(searchQuery); searchOpen = false" class="w-full max-w-md hidden md:block relative">
-      <label for="header-search" class="sr-only">{% trans "Buscar" %}</label>
-      <div class="relative">
-        <input
-          id="header-search"
-          name="q"
-          type="search"
-          x-model="searchQuery"
-          @focus="searchOpen = true"
-          @keydown.escape="searchOpen = false"
-          @keydown.window.ctrl.k.prevent="searchOpen = true; $refs.searchInput.focus()"
-          x-ref="searchInput"
-          placeholder="{% trans 'Buscar empresas, pagos, colaboradores...' %}"
-          class="rounded-lg border border-gray-300 dark:border-zinc-700 bg-white/90 dark:bg-zinc-800/90 px-4 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary w-full transition shadow"
-          aria-label="{% trans 'Buscar' %}"
-          autocomplete="off"
-        >
-        <button type="button" @click="clearSearch" x-show="searchQuery" class="absolute right-8 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition" aria-label="{% trans 'Limpiar búsqueda' %}">
-          <i class="ti ti-x"></i>
-        </button>
-        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-          <i class="ti ti-search"></i>
-        </span>
-        <!-- Sugerencias y historial -->
-        <div
-          x-show="searchOpen && (filteredSuggestions().length || searchHistory.length)"
-          x-transition
-          class="absolute left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg z-50"
-        >
-          <ul>
-            <template x-if="searchQuery && filteredSuggestions().length">
-              <div>
-                <li class="px-4 py-1 text-xs text-gray-400 dark:text-gray-500">{% trans "Sugerencias" %}</li>
-                <template x-for="s in filteredSuggestions()" :key="s.label">
-                  <li>
-                    <a :href="s.url" class="block px-4 py-2 hover:bg-primary/10 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-200 transition">
-                      <span x-text="s.label"></span>
-                    </a>
-                  </li>
-                </template>
-              </div>
-            </template>
-            <template x-if="!searchQuery && searchHistory.length">
-              <div>
-                <li class="px-4 py-1 text-xs text-gray-400 dark:text-gray-500">{% trans "Historial reciente" %}</li>
-                <template x-for="h in searchHistory" :key="h">
-                  <li>
-                    <button type="button" @click="searchQuery = h; searchOpen = false;" class="block w-full text-left px-4 py-2 hover:bg-primary/10 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-200 transition">
-                      <span x-text="h"></span>
-                    </button>
-                  </li>
-                </template>
-              </div>
-            </template>
-          </ul>
+  x-init="
+    // Inicialización premium
+    setInterval(() => {
+      currentTime = new Date().toLocaleTimeString('es-ES', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
+    }, 1000);
+    
+    // Aplicar dark mode si está guardado
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    }
+    
+    // Detectar scroll para efectos premium
+    window.addEventListener('scroll', () => {
+      scrolled = window.scrollY > 20;
+    }, { passive: true });
+    
+    // Detectar cambios de conectividad
+    window.addEventListener('online', () => { online = true; });
+    window.addEventListener('offline', () => { online = false; });
+    
+    // Efectos de logo premium
+    setInterval(() => {
+      if (!headerHovered) {
+        logoRotation += 0.5;
+      }
+    }, 100);
+  "
+  class="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-zinc-700/50 sticky top-0 z-50 transition-all duration-500 ease-out"
+  :class="{ 
+    'bg-white/95 dark:bg-zinc-900/95 shadow-lg shadow-black/5 dark:shadow-black/20': scrolled,
+    'bg-white/85 dark:bg-zinc-900/85': headerHovered 
+  }"
+  @mouseenter="headerHovered = true"
+  @mouseleave="headerHovered = false"
+  role="banner"
+  aria-label="{% trans 'Navegación principal' %}">
+  
+  <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16">
+      
+      <!-- Logo y Título Premium -->
+      <div class="flex items-center">
+        <div class="flex-shrink-0 flex items-center group">
+          <a href="{% url 'dashboard:principal' %}" class="flex items-center space-x-3">
+            <!-- Logo con animaciones premium -->
+            <div class="relative h-10 w-10 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:shadow-blue-500/40 transition-all duration-500 group-hover:scale-110"
+                 :style="`transform: rotate(${logoRotation}deg) scale(${headerHovered ? 1.05 : 1})`">
+              <i class="fas fa-shield-alt text-white text-lg group-hover:text-yellow-200 transition-colors duration-300"></i>
+              
+              <!-- Anillo de carga sutil -->
+              <div class="absolute inset-0 rounded-xl border-2 border-blue-400/30 animate-pulse"></div>
+              
+              <!-- Efecto de brillo -->
+              <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 group-hover:translate-x-8 transition-transform duration-700"></div>
+            </div>
+            
+            <!-- Título con gradiente -->
+            <div class="flex flex-col">
+              <span class="text-xl font-black bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent group-hover:from-blue-600 group-hover:to-purple-600 transition-all duration-500">
+                CorteSec
+              </span>
+              <span class="text-xs font-medium text-gray-500 dark:text-gray-400 group-hover:text-blue-500 transition-colors duration-300">
+                Enterprise Suite
+              </span>
+            </div>
+          </a>
+          
+          <!-- Badge de versión premium -->
+          <div class="hidden sm:flex items-center ml-4 space-x-2">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-700/30 shadow-sm">
+              <div class="w-2 h-2 bg-emerald-500 rounded-full mr-1.5 animate-pulse"></div>
+              v2.1.0
+            </span>
+            
+            <!-- Indicador de estado premium -->
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                  :class="online ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'">
+              <div :class="online ? 'bg-green-500' : 'bg-red-500'" 
+                   class="w-1.5 h-1.5 rounded-full mr-1 animate-pulse"></div>
+              <span x-text="online ? 'Online' : 'Offline'"></span>
+            </span>
+          </div>
         </div>
       </div>
-    </form>
-    <!-- Botón buscador móvil -->
-    <button @click="searchMobile = true" class="md:hidden text-gray-500 hover:text-primary ml-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label="{% trans 'Buscar' %}" x-tooltip.raw="{% trans 'Buscar' %}">
-      <i class="ti ti-search text-xl"></i>
-    </button>
-    <!-- Atajo teclado -->
-    <span class="hidden md:inline-flex items-center gap-1 ml-3 text-xs text-gray-400 dark:text-gray-500 select-none">
-      <i class="ti ti-keyboard"></i>
-      <kbd class="px-1 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 text-xs font-mono">Ctrl</kbd>
-      <span>+</span>
-      <kbd class="px-1 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 text-xs font-mono">K</kbd>
-    </span>
-  </div>
 
-  <!-- DERECHA -->
-  <div class="flex items-center gap-2 md:gap-4 flex-shrink-0">
-    <!-- Notificaciones -->
-    <div x-data="{ open: false, count: 3 }" class="relative">
-      <button
-        @click="open = !open"
-        :aria-expanded="open"
-        aria-controls="notifications-menu"
-        class="relative p-2 rounded-full hover:bg-primary/20 dark:hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-        aria-label="{% trans 'Notificaciones' %}"
-        x-tooltip.raw="{% trans 'Notificaciones' %}"
-      >
-        <i class="ti ti-bell text-xl text-primary dark:text-white"></i>
-        <span x-show="count > 0" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900 animate-pulse" x-text="count"></span>
-      </button>
-      <div
-        id="notifications-menu"
-        x-show="open"
-        @click.away="open = false"
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 scale-95"
-        x-transition:enter-end="opacity-100 scale-100"
-        x-transition:leave="transition ease-in duration-150"
-        x-transition:leave-start="opacity-100 scale-100"
-        x-transition:leave-end="opacity-0 scale-95"
-        class="absolute right-0 mt-2 w-80 max-w-xs bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-2xl py-2 z-50"
-      >
-        <div class="flex items-center justify-between px-4 py-2 text-xs text-gray-400 dark:text-gray-400 font-semibold">
-          <span>{% trans "Notificaciones recientes" %}</span>
-          <button class="text-primary hover:underline text-xs" @click="count = 0">{% trans "Marcar todas como leídas" %}</button>
-        </div>
-        <div class="divide-y divide-gray-100 dark:divide-zinc-700 max-h-64 overflow-y-auto">
-          <div class="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-2 animate-fade-in-down">
-            <i class="ti ti-circle-check text-green-500"></i> {% trans "Tu pago fue procesado correctamente." %}
-          </div>
-          <div class="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-2 animate-fade-in-down">
-            <i class="ti ti-alert-triangle text-yellow-500"></i> {% trans "Hay un nuevo colaborador pendiente de aprobación." %}
-          </div>
-          <div class="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-2 animate-fade-in-down">
-            <i class="ti ti-info-circle text-blue-500"></i> {% trans "Recuerda actualizar tus datos de empresa." %}
-          </div>
-        </div>
-        <a href="#" class="block text-center text-primary dark:text-blue-400 text-xs py-2 hover:underline">{% trans "Ver todas las notificaciones" %}</a>
-      </div>
-    </div>
-
-    <!-- Soporte -->
-    <a href="mailto:soporte@cortesec.com" class="p-2 rounded-full hover:bg-primary/20 dark:hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label="{% trans 'Soporte' %}" x-tooltip.raw="{% trans 'Soporte' %}">
-      <i class="ti ti-lifebuoy text-xl text-primary dark:text-white"></i>
-    </a>
-
-    <!-- Idioma -->
-    <div x-data="{ open: false }" class="relative hidden md:block">
-  <button @click="open = !open" class="p-2 rounded-full hover:bg-primary/20 dark:hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label="{% trans 'Idioma' %}" x-tooltip.raw="{% trans 'Idioma' %}">
-    <i class="ti ti-language text-xl text-primary dark:text-white"></i>
-  </button>
-  <div
-    x-show="open"
-    @click.away="open = false"
-    x-transition
-    class="absolute right-0 mt-2 w-36 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl py-2 z-50"
-  >
-    <form action="{% url 'set_language' %}" method="post" class="space-y-1">
-      {% csrf_token %}
-      <button type="submit" name="language" value="es"
-        class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-primary/10 dark:hover:bg-zinc-700 transition">
-        {% trans "Español" %}
-      </button>
-      <button type="submit" name="language" value="en"
-        class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-primary/10 dark:hover:bg-zinc-700 transition">
-        {% trans "Inglés" %}
-      </button>
-    </form>
-  </div>
-</div>
-
-    <!-- Tema claro/oscuro -->
-    <button @click="toggleDark()" class="p-2 rounded-full bg-primary/10 dark:bg-zinc-800 hover:bg-primary/20 dark:hover:bg-zinc-700 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label="{% trans 'Cambiar tema' %}" x-tooltip.raw="{% trans 'Cambiar tema' %}">
-      <template x-if="darkMode">
-        <i class="ti ti-sun text-xl text-primary dark:text-white rotate-180 transition-transform duration-300"></i>
-      </template>
-      <template x-if="!darkMode">
-        <i class="ti ti-moon text-xl text-primary dark:text-white rotate-180 transition-transform duration-300"></i>
-      </template>
-    </button>
-
-    <!-- Menú usuario -->
-    <div x-data="{ open: false }" class="relative">
-      <button
-        @click="open = !open"
-        :aria-expanded="open"
-        aria-controls="user-menu"
-        class="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 relative transition"
-        aria-label="{% trans 'Menú de usuario' %}"
-        x-tooltip.raw="{% trans 'Menú de usuario' %}"
-      >
+      <!-- Barra de Búsqueda Premium -->
+      <div class="flex-1 max-w-2xl mx-8">
         <div class="relative group">
-          <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'Usuario' }}&background=2563eb&color=fff"
-              class="w-10 h-10 rounded-full border-2 border-primary object-cover group-hover:ring-2 group-hover:ring-primary transition duration-200"
-              alt="{% trans 'Avatar de usuario' %}" loading="lazy">
-          <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-zinc-900"
-                :class="online ? 'bg-green-500' : 'bg-gray-400'"></span>
-        </div>
-        <span class="hidden md:inline text-sm font-semibold text-gray-700 dark:text-gray-200">
-          {% trans "Hola," %} {{ user.first_name|default:"Usuario" }}
-        </span>
-        <i class="ti ti-chevron-down text-xs text-primary dark:text-white"></i>
-      </button>
-      <div
-        id="user-menu"
-        x-show="open"
-        @click.away="open = false"
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 scale-95"
-        x-transition:enter-end="opacity-100 scale-100"
-        x-transition:leave="transition ease-in duration-150"
-        x-transition:leave-start="opacity-100 scale-100"
-        x-transition:leave-end="opacity-0 scale-95"
-        class="absolute right-0 mt-2 w-64 max-w-xs bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-2xl py-2 z-50"
-      >
-        <div class="px-4 py-3 border-b border-gray-100 dark:border-zinc-700 flex items-center gap-3">
-          <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'Usuario' }}&background=2563eb&color=fff"
-              class="w-12 h-12 rounded-full border-2 border-primary object-cover" alt="{% trans 'Avatar de usuario' %}" loading="lazy">
-          <div>
-            <div class="font-semibold text-base text-gray-800 dark:text-gray-100">{{ user.get_full_name|default:user.username }}</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">{{ user.email }}</div>
-            <div class="text-xs text-gray-400 mt-1">{% trans "Rol:" %} <span class="font-semibold text-primary dark:text-blue-400">{{ user.groups.first.name|default:"Admin" }}</span></div>
+          <div class="relative">
+            <!-- Icono de búsqueda con animación -->
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <i class="fas fa-search text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300 text-lg"
+                 :class="{ 'animate-spin': searchQuery.length > 0 }"></i>
+            </div>
+            
+            <!-- Input premium con glassmorphism -->
+            <input 
+              type="search" 
+              id="header-search"
+              x-model="searchQuery"
+              @keydown.enter="performSearch()"
+              @keydown.arrow-down.prevent="null"
+              @keydown.escape="searchOpen = false"
+              @focus="searchOpen = true"
+              @blur="setTimeout(() => searchOpen = false, 300)"
+              placeholder="{% trans 'Buscar empleados, nóminas, reportes, configuración... (Ctrl+K)' %}"
+              class="block w-full pl-12 pr-12 py-3.5 border border-gray-300/50 dark:border-zinc-600/50 rounded-2xl bg-white/70 dark:bg-zinc-800/70 backdrop-blur-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 shadow-lg shadow-black/5 dark:shadow-black/20 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-blue-500/10"
+              autocomplete="off">
+            
+            <!-- Indicador de búsqueda activa -->
+            <div class="absolute inset-y-0 right-0 pr-4 flex items-center">
+              <div x-show="searchQuery.length > 0" 
+                   x-transition:enter="transition ease-out duration-200"
+                   x-transition:enter-start="opacity-0 scale-0"
+                   x-transition:enter-end="opacity-100 scale-100"
+                   class="flex items-center space-x-2">
+                <kbd class="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-zinc-700 rounded border border-gray-300 dark:border-zinc-600">Enter</kbd>
+                <button @click="searchQuery = ''; searchOpen = false" 
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                  <i class="fas fa-times text-sm"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Dropdown de búsqueda premium -->
+          <div x-show="searchOpen" 
+               x-transition:enter="transition ease-out duration-300"
+               x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+               x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+               x-transition:leave="transition ease-in duration-200"
+               x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+               x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+               class="absolute top-full left-0 right-0 mt-3 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200/50 dark:border-zinc-600/50 overflow-hidden z-50">
+            
+            <!-- Sugerencias inteligentes -->
+            <div x-show="searchQuery.length > 0 && filteredSuggestions.length > 0" class="p-2">
+              <div class="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b border-gray-200/50 dark:border-zinc-600/50 mb-2">
+                Sugerencias
+              </div>
+              <template x-for="suggestion in filteredSuggestions" :key="suggestion.text">
+                <button @click="navigateToSuggestion(suggestion)"
+                        class="w-full flex items-center px-3 py-2.5 text-left hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-lg transition-all duration-200 group">
+                  <div class="w-8 h-8 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg flex items-center justify-center mr-3 group-hover:scale-110 transition-transform duration-200">
+                    <i :class="suggestion.icon" class="text-blue-600 dark:text-blue-400 text-sm"></i>
+                  </div>
+                  <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="suggestion.text"></p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400" x-text="suggestion.category"></p>
+                  </div>
+                  <i class="fas fa-arrow-right text-gray-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200"></i>
+                </button>
+              </template>
+            </div>
+            
+            <!-- Búsqueda general -->
+            <div x-show="searchQuery.length > 0" class="p-4 border-t border-gray-200/50 dark:border-zinc-600/50">
+              <button @click="performSearch()" 
+                      class="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl group">
+                <i class="fas fa-search mr-2 group-hover:animate-pulse"></i>
+                Buscar "<span x-text="searchQuery" class="font-bold"></span>" en todo el sistema
+              </button>
+            </div>
+            
+            <!-- Consejos de búsqueda -->
+            <div x-show="searchQuery.length === 0" class="p-4">
+              <div class="text-center py-4">
+                <i class="fas fa-search text-gray-300 dark:text-gray-600 text-2xl mb-2"></i>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Busca empleados, nóminas, reportes y más...
+                </p>
+                <div class="flex flex-wrap justify-center gap-2">
+                  <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-gray-400 rounded-lg">empleados</span>
+                  <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-gray-400 rounded-lg">nóminas</span>
+                  <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-gray-400 rounded-lg">reportes</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-primary/10 dark:hover:bg-zinc-700 transition font-medium">{% trans "Perfil" %}</a>
-        <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-primary/10 dark:hover:bg-zinc-700 transition font-medium">{% trans "Configuración" %}</a>
-        <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-primary/10 dark:hover:bg-zinc-700 transition font-medium">{% trans "Ayuda" %}</a>
-        <a href="#" class="block px-4 py-2 text-sm text-primary dark:text-blue-400 hover:bg-primary/10 dark:hover:bg-zinc-700 transition font-medium">{% trans "Documentación" %}</a>
-        <div class="border-t border-gray-100 dark:border-zinc-700 my-2"></div>
-        <form method="post" action="{% url 'login:logout' %}">
-            {% csrf_token %}
-          <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-500 hover:text-white transition font-medium">
-            {% trans "Cerrar sesión" %}
+      </div>
+
+      <!-- Controles Premium de la derecha con espaciado mejorado -->
+      <div class="flex items-center space-x-2 sm:space-x-4">
+        
+        <!-- Indicador de estado del sistema y hora -->
+        <div class="hidden lg:flex items-center space-x-4 px-3 py-2 bg-white/50 dark:bg-zinc-800/50 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-zinc-600/50">
+          <!-- Estado de conexión -->
+          <div class="flex items-center space-x-2 group">
+            <div class="relative">
+              <div :class="online ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-red-500 shadow-red-500/50'" 
+                   class="w-2.5 h-2.5 rounded-full shadow-lg animate-pulse"></div>
+              <div :class="online ? 'bg-emerald-400' : 'bg-red-400'" 
+                   class="absolute inset-0 rounded-full animate-ping opacity-75"></div>
+            </div>
+            <span class="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors">
+              <span x-show="online">Online</span>
+              <span x-show="!online">Offline</span>
+            </span>
+          </div>
+          
+          <!-- Separador -->
+          <div class="w-px h-4 bg-gray-300 dark:bg-zinc-600"></div>
+          
+          <!-- Reloj digital premium -->
+          <div class="flex items-center space-x-1.5 group">
+            <i class="fas fa-clock text-blue-500 text-xs group-hover:animate-pulse"></i>
+            <span class="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" x-text="currentTime"></span>
+          </div>
+        </div>
+
+        <!-- Notificaciones Premium -->
+        <div class="relative">
+          <button @click="notificationsOpen = !notificationsOpen"
+                  class="relative p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-xl transition-all duration-200 group"
+                  aria-label="{% trans 'Notificaciones' %}">
+            <i class="fas fa-bell text-lg group-hover:animate-swing"></i>
+            
+            <!-- Badge de notificaciones con efecto -->
+            <span x-show="unreadNotificationsCount > 0" 
+                  x-text="unreadNotificationsCount"
+                  class="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold shadow-lg animate-pulse"
+                  :class="{ 'animate-bounce': highPriorityNotifications > 0 }">
+            </span>
+            
+            <!-- Indicador de alta prioridad -->
+            <div x-show="highPriorityNotifications > 0" 
+                 class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-yellow-400 rounded-full animate-ping"></div>
           </button>
-        </form>
+          
+          <!-- Panel de notificaciones premium -->
+          <div x-show="notificationsOpen" 
+               @click.away="notificationsOpen = false"
+               x-transition:enter="transition ease-out duration-300"
+               x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+               x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+               x-transition:leave="transition ease-in duration-200"
+               x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+               x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+               class="absolute right-0 mt-3 w-96 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200/50 dark:border-zinc-600/50 overflow-hidden z-50">
+            
+            <!-- Header premium de notificaciones -->
+            <div class="px-6 py-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-b border-gray-200/50 dark:border-zinc-600/50">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-bell text-white text-sm"></i>
+                  </div>
+                  <h3 class="text-sm font-bold text-gray-900 dark:text-white">
+                    {% trans 'Notificaciones' %}
+                  </h3>
+                  <span x-show="unreadNotificationsCount > 0" 
+                        x-text="unreadNotificationsCount"
+                        class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-full">
+                  </span>
+                </div>
+                <button @click="clearAllNotifications()" 
+                        class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 px-2 py-1 rounded-lg transition-all duration-200">
+                  {% trans 'Limpiar todo' %}
+                </button>
+              </div>
+            </div>
+            
+            <!-- Lista de notificaciones -->
+            <div class="max-h-64 overflow-y-auto">
+              <template x-for="notification in notifications" :key="notification.id">
+                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+                     @click="markNotificationAsRead(notification.id)"
+                     :class="!notification.read ? 'border-l-4 border-blue-500 bg-blue-50/30 dark:bg-blue-900/10' : ''">
+                  <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0 mt-1">
+                      <div :class="{
+                        'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400': notification.type === 'success',
+                        'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400': notification.type === 'info',
+                        'bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-400': notification.type === 'warning',
+                        'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400': notification.type === 'error'
+                      }" 
+                           class="w-8 h-8 rounded-full flex items-center justify-center">
+                        <i class="fas fa-check text-sm" x-show="notification.type === 'success'"></i>
+                        <i class="fas fa-info text-sm" x-show="notification.type === 'info'"></i>
+                        <i class="fas fa-exclamation text-sm" x-show="notification.type === 'warning'"></i>
+                        <i class="fas fa-times text-sm" x-show="notification.type === 'error'"></i>
+                      </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="notification.title"></p>
+                      <p class="text-xs text-gray-600 dark:text-gray-400 mt-1" x-text="notification.message"></p>
+                      <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        <i class="fas fa-clock mr-1"></i>
+                        <span x-text="notification.time"></span>
+                      </p>
+                    </div>
+                    <div x-show="!notification.read" class="flex-shrink-0 mt-2">
+                      <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              
+              <!-- Estado vacío -->
+              <div x-show="notifications.length === 0" class="px-4 py-8 text-center">
+                <i class="fas fa-bell-slash text-gray-400 text-3xl mb-2"></i>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans 'No hay notificaciones' %}</p>
+              </div>
+            </div>
+            
+            <!-- Footer de notificaciones -->
+            <div class="px-4 py-3 bg-gray-50 dark:bg-zinc-700/50 border-t border-gray-200 dark:border-zinc-600">
+              <a href="{% url 'core:notificaciones' %}" 
+                 class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
+                <i class="fas fa-external-link-alt mr-1"></i>
+                {% trans 'Ver todas las notificaciones' %}
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toggle Dark Mode Premium -->
+        <button @click="toggleDarkMode()" 
+                class="p-3 text-gray-600 dark:text-gray-300 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded-xl transition-all duration-300 group"
+                aria-label="{% trans 'Cambiar tema' %}">
+          <div class="relative">
+            <i x-show="!darkMode" class="fas fa-moon text-lg group-hover:animate-pulse"></i>
+            <i x-show="darkMode" class="fas fa-sun text-lg group-hover:animate-spin"></i>
+            
+            <!-- Efecto de transición -->
+            <div class="absolute inset-0 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+          </div>
+        </button>
+
+        <!-- Ayuda/Soporte Premium con mayor separación -->
+        <div class="mr-6">
+          <a href="/ayuda/" 
+             class="block p-3 text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 rounded-xl transition-all duration-200 group"
+             aria-label="{% trans 'Ayuda y soporte' %}"
+             onclick="event.stopPropagation(); if(window.closeAllMenus) window.closeAllMenus();">
+            <i class="fas fa-question-circle text-lg group-hover:animate-bounce"></i>
+          </a>
+        </div>
+
+        <!-- Separador elegante con más espaciado -->
+        <div class="hidden sm:block w-px h-8 bg-gradient-to-b from-transparent via-gray-300 dark:via-zinc-600 to-transparent mx-4"></div>
+
+        <!-- Menú de Usuario Premium con margen izquierdo -->
+        <div class="relative ml-4">
+          <button @click="userMenuOpen = !userMenuOpen"
+                  class="flex items-center space-x-3 p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-900/20 dark:hover:to-purple-900/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-xl transition-all duration-300 group"
+                  id="user-menu"
+                  aria-label="{% trans 'Menú de usuario' %}"
+                  aria-expanded="false"
+                  aria-haspopup="true">
+            
+            <!-- Avatar premium con anillo animado -->
+            <div class="relative">
+              <div class="w-10 h-10 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:shadow-blue-500/40 transition-all duration-300 group-hover:scale-105">
+                <span class="text-white text-sm font-bold">
+                  {{ user.first_name.0|default:user.username.0|upper }}
+                </span>
+              </div>
+              
+              <!-- Anillo de estado online -->
+              <div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm animate-pulse"></div>
+              
+              <!-- Efecto de brillo al hover -->
+              <div class="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/30 to-transparent transform -skew-x-12 group-hover:translate-x-8 transition-transform duration-700 opacity-0 group-hover:opacity-100"></div>
+            </div>
+            
+            <!-- Info del usuario -->
+            <div class="hidden sm:block text-left">
+              <p class="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                {{ user.get_full_name|default:user.username }}
+              </p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
+                {{ user.email|truncatechars:20 }}
+              </p>
+            </div>
+            
+            <!-- Icono chevron con animación -->
+            <i class="fas fa-chevron-down text-sm transition-all duration-300 group-hover:text-blue-500"
+               :class="userMenuOpen ? 'rotate-180 text-blue-500' : ''"></i>
+          </button>
+          
+          <!-- Dropdown del usuario -->
+          <div x-show="userMenuOpen" 
+               @click.away="userMenuOpen = false"
+               x-transition:enter="transition ease-out duration-200"
+               x-transition:enter-start="opacity-0 scale-95 translate-y-1"
+               x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+               x-transition:leave="transition ease-in duration-150"
+               x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+               x-transition:leave-end="opacity-0 scale-95 translate-y-1"
+               class="absolute right-0 mt-2 w-64 bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-gray-200 dark:border-zinc-600 overflow-hidden">
+            
+            <!-- Header del usuario -->
+            <div class="px-4 py-3 bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+              <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <span class="text-white text-lg font-bold">
+                    {{ user.first_name.0|default:user.username.0|upper }}
+                  </span>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold">{{ user.get_full_name|default:user.username }}</p>
+                  <p class="text-xs text-blue-100">{{ user.email }}</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Enlaces del menú -->
+            <div class="py-2">
+              <a href="/perfil/" 
+                 class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors">
+                <i class="fas fa-user w-5 mr-3 text-gray-400"></i>
+                {% trans 'Mi Perfil' %}
+              </a>
+              <a href="/perfil/actividad/" 
+                 class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors">
+                <i class="fas fa-history w-5 mr-3 text-gray-400"></i>
+                {% trans 'Actividad Reciente' %}
+              </a>
+              <a href="/configuracion/" 
+                 class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors">
+                <i class="fas fa-cog w-5 mr-3 text-gray-400"></i>
+                {% trans 'Configuración' %}
+              </a>
+            </div>
+            
+            <!-- Divisor -->
+            <div class="border-t border-gray-200 dark:border-zinc-600"></div>
+            
+            <!-- Sección de acceso rápido -->
+            <div class="py-2">
+              <div class="px-4 py-2">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  {% trans 'Acceso Rápido' %}
+                </p>
+              </div>
+              <a href="/dashboard/" 
+                 class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors">
+                <i class="fas fa-tachometer-alt w-5 mr-3 text-blue-500"></i>
+                {% trans 'Dashboard' %}
+              </a>
+              <a href="/payroll/empleados/" 
+                 class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors">
+                <i class="fas fa-users w-5 mr-3 text-green-500"></i>
+                {% trans 'Empleados' %}
+              </a>
+              <a href="/reportes/" 
+                 class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors">
+                <i class="fas fa-chart-bar w-5 mr-3 text-purple-500"></i>
+                {% trans 'Reportes' %}
+              </a>
+            </div>
+            
+            <!-- Divisor -->
+            <div class="border-t border-gray-200 dark:border-zinc-600"></div>
+            
+            <!-- Cerrar sesión -->
+            <div class="py-2">
+              <a href="/logout/" 
+                 class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <i class="fas fa-sign-out-alt w-5 mr-3"></i>
+                {% trans 'Cerrar Sesión' %}
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </header>
+
+<!-- Scripts Premium y Atajos de Teclado -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Atajos de teclado profesionales
+  document.addEventListener('keydown', function(e) {
+    // Ctrl+K para abrir búsqueda (foco premium)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      const searchInput = document.getElementById('header-search');
+      searchInput.focus();
+      searchInput.select();
+      
+      // Efecto visual al enfocar
+      searchInput.classList.add('animate-pulse');
+      setTimeout(() => searchInput.classList.remove('animate-pulse'), 300);
+    }
+    
+    // Ctrl+Shift+N para notificaciones
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'N') {
+      e.preventDefault();
+      Alpine.evaluate(document.querySelector('[x-data]'), 'notificationsOpen = !notificationsOpen');
+    }
+    
+    // Ctrl+Shift+D para toggle dark mode
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
+      e.preventDefault();
+      Alpine.evaluate(document.querySelector('[x-data]'), 'toggleDarkMode()');
+    }
+    
+    // Escape para cerrar todos los dropdowns
+    if (e.key === 'Escape') {
+      Alpine.evaluate(document.querySelector('[x-data]'), `
+        searchOpen = false;
+        userMenuOpen = false;
+        notificationsOpen = false;
+      `);
+    }
+  });
+  
+  // Efectos de scroll premium
+  let lastScroll = 0;
+  window.addEventListener('scroll', function() {
+    const currentScroll = window.pageYOffset;
+    const header = document.querySelector('header');
+    
+    if (currentScroll > 100) {
+      header.classList.add('scrolled');
+    } else {
+      header.classList.remove('scrolled');
+    }
+    
+    lastScroll = currentScroll;
+  }, { passive: true });
+  
+  // Animaciones CSS personalizadas
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes swing {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(15deg); }
+      75% { transform: rotate(-15deg); }
+    }
+    
+    .animate-swing {
+      animation: swing 0.6s ease-in-out;
+    }
+    
+    .scrolled {
+      backdrop-filter: blur(20px);
+      background: rgba(255, 255, 255, 0.98);
+    }
+    
+    .dark .scrolled {
+      background: rgba(24, 24, 27, 0.98);
+    }
+    
+    /* Efecto glassmorphism premium */
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    
+    .dark .glass-effect {
+      background: rgba(24, 24, 27, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+  `;
+  document.head.appendChild(style);
+});
+
+// Notificaciones toast premium
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = `fixed top-20 right-4 px-6 py-4 rounded-xl shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ${
+    type === 'success' ? 'bg-emerald-500 text-white' :
+    type === 'error' ? 'bg-red-500 text-white' :
+    type === 'warning' ? 'bg-amber-500 text-white' :
+    'bg-blue-500 text-white'
+  }`;
+  
+  toast.innerHTML = `
+    <div class="flex items-center space-x-3">
+      <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : type === 'warning' ? 'exclamation' : 'info'}-circle"></i>
+      <span class="font-medium">${message}</span>
+    </div>
+  `;
+  
+  document.body.appendChild(toast);
+  
+  // Animación de entrada
+  setTimeout(() => toast.classList.remove('translate-x-full'), 100);
+  
+  // Auto-remove después de 3 segundos
+  setTimeout(() => {
+    toast.classList.add('translate-x-full');
+    setTimeout(() => document.body.removeChild(toast), 300);
+  }, 3000);
+}
+</script>

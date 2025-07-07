@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Detalle del Cargo" %} - {{ cargo.nombre }}{% endblock %}
+{% block content %}
+<div class="bg-white rounded-2xl shadow-xl p-8 max-w-4xl mx-auto mt-10">
+    <div class="text-center mb-8">
+        <h2 class="text-3xl font-bold text-blue-700 tracking-tight mb-2">
+            {{ cargo.nombre }}
+        </h2>
+        <p class="text-lg text-gray-600">{% trans "Código" %}: {{ cargo.codigo }}</p>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Información básica -->
+        <div class="space-y-4">
+            <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2 mb-4">
+                <i class="ti ti-info-circle mr-2"></i>{% trans "Información Básica" %}
+            </h3>
+            
+            <div class="space-y-3">
+                <div class="flex justify-between py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Nombre" %}:</span>
+                    <span class="text-gray-800">{{ cargo.nombre }}</span>
+                </div>
+                
+                <div class="flex justify-between py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Código" %}:</span>
+                    <span class="text-gray-800">{{ cargo.codigo }}</span>
+                </div>
+                
+                <div class="py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Descripción" %}:</span>
+                    <div class="mt-2 text-gray-800 bg-gray-50 p-3 rounded-lg">
+                        {{ cargo.descripcion|default:"Sin descripción" }}
+                    </div>
+                </div>
+                
+                <div class="py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Funciones" %}:</span>
+                    <div class="mt-2 text-gray-800 bg-gray-50 p-3 rounded-lg">
+                        {{ cargo.funciones|default:"Sin funciones definidas" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Configuración laboral -->
+        <div class="space-y-4">
+            <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2 mb-4">
+                <i class="ti ti-settings mr-2"></i>{% trans "Configuración Laboral" %}
+            </h3>
+            
+            <div class="space-y-3">
+                {% if cargo.departamento %}
+                <div class="flex justify-between py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Departamento" %}:</span>
+                    <span class="text-gray-800">{{ cargo.departamento }}</span>
+                </div>
+                {% endif %}
+                
+                {% if cargo.nivel_salarial %}
+                <div class="flex justify-between py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Nivel Salarial" %}:</span>
+                    <span class="text-gray-800">{{ cargo.nivel_salarial }}</span>
+                </div>
+                {% endif %}
+                
+                {% if cargo.salario_base %}
+                <div class="flex justify-between py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Salario Base" %}:</span>
+                    <span class="text-gray-800 font-bold text-green-600">
+                        ${{ cargo.salario_base|floatformat:0 }}
+                    </span>
+                </div>
+                {% endif %}
+                
+                {% if cargo.nivel_jerarquico %}
+                <div class="flex justify-between py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Nivel Jerárquico" %}:</span>
+                    <span class="text-gray-800">{{ cargo.nivel_jerarquico }}</span>
+                </div>
+                {% endif %}
+                
+                {% if cargo.cargo_superior %}
+                <div class="flex justify-between py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Cargo Superior" %}:</span>
+                    <span class="text-gray-800">{{ cargo.cargo_superior.nombre }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="flex justify-between py-3 border-b border-blue-100">
+                    <span class="text-blue-700 font-semibold">{% trans "Estado" %}:</span>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                        {% if cargo.activo %}
+                            bg-green-100 text-green-800
+                        {% else %}
+                            bg-red-100 text-red-800
+                        {% endif %}">
+                        {% if cargo.activo %}
+                            <i class="ti ti-check mr-1"></i>{% trans "Activo" %}
+                        {% else %}
+                            <i class="ti ti-x mr-1"></i>{% trans "Inactivo" %}
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Empleados con este cargo -->
+    {% if cargo.empleado_set.exists %}
+    <div class="mt-8">
+        <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2 mb-4">
+            <i class="ti ti-users mr-2"></i>{% trans "Empleados con este cargo" %}
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for empleado in cargo.empleado_set.all %}
+            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div class="flex items-center space-x-3">
+                    {% if empleado.foto %}
+                        <img src="{{ empleado.foto.url }}" alt="{{ empleado.nombres }}" 
+                             class="h-10 w-10 rounded-full object-cover border-2 border-blue-300">
+                    {% else %}
+                        <div class="h-10 w-10 rounded-full bg-blue-200 flex items-center justify-center">
+                            <i class="ti ti-user text-blue-600"></i>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <p class="font-semibold text-blue-800">{{ empleado.nombres }} {{ empleado.apellidos }}</p>
+                        <p class="text-sm text-gray-600">{{ empleado.documento }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Botones de acción -->
+    <div class="flex justify-center gap-4 mt-8 pt-6 border-t border-gray-200">
+        <a href="{% url 'cargos:cargos_edit' cargo.pk %}" 
+           class="px-8 py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white rounded-xl shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition font-bold text-lg transform hover:scale-105">
+            <i class="ti ti-pencil mr-2"></i>{% trans "Editar" %}
+        </a>
+        <a href="{% url 'cargos:cargos_list' %}" 
+           class="px-8 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold text-lg shadow transform hover:scale-105">
+            <i class="ti ti-arrow-left mr-2"></i>{% trans "Volver a la lista" %}
+        </a>
+    </div>
+</div>
+{% endblock %}

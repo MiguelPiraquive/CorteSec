@@ -23,15 +23,32 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-    # Apps del proyecto
+    # Third party apps
     'django_select2',
-    'dashboard',
-    'payroll',
-    'items',
-    'locations',
     'widget_tweaks',
+    # Apps del proyecto - Core
     'core',
     'login',
+    'dashboard',
+    # Apps del proyecto - Gestión empresarial
+    'perfil',
+    'payroll',  # Nómina (incluye empleados)
+    'prestamos',
+    'cargos',
+    'roles',
+    'permisos',
+    # Apps del proyecto - Recursos y configuración
+    'items',
+    'tipos_cantidad',
+    'locations',
+    'configuracion',
+    # Apps del proyecto - Contabilidad
+    'contabilidad',
+    # Apps del proyecto - Reportes
+    'reportes',
+    # Apps del proyecto - Soporte y documentación
+    'ayuda',
+    'documentacion',
 ]
 
 MIDDLEWARE = [
@@ -41,6 +58,8 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.permissions.SecurityAuditMiddleware',  # Auditoría de seguridad
+    'core.middleware.permissions.PermissionMiddleware',     # Control de permisos
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.locale.LocaleMiddleware',
@@ -74,9 +93,14 @@ TEMPLATES = [
 WSGI_APPLICATION = 'contractor_management.wsgi.application'
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL')
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'contractor_management',
+        'USER': 'postgres',
+        'PASSWORD': '12345',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
 }
 
 
@@ -124,10 +148,10 @@ PASSWORD_RESET_TIMEOUT = 60 * 60  # 1 hora
 # --- Seguridad extra ---
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 X_FRAME_OPTIONS = 'DENY'
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = False
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
@@ -135,22 +159,76 @@ SECURE_HSTS_PRELOAD = True
 # --- Internacionalización ---
 LANGUAGE_CODE = 'es'
 
-# --- Logging básico para errores ---
+# --- Configuración de Logging avanzado ---
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        'security': {
+            'format': '[SECURITY] {asctime} {levelname} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
             'filename': BASE_DIR / 'django-error.log',
+            'formatter': 'verbose',
+        },
+        'security_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'security.log',
+            'maxBytes': 1024*1024*10,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'security',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
         },
     },
     'loggers': {
         'django': {
-            'handlers': ['file'],
+            'handlers': ['file', 'console'],
             'level': 'ERROR',
             'propagate': True,
         },
+        'security': {
+            'handlers': ['security_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'contractor_management': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
     },
+}
+
+# --- Configuración de Seguridad ---
+SECURITY_AUDIT_ENABLED = True
+
+# Configuración de cache para permisos (Redis recomendado en producción)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 5 minutos
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 3,
+        }
+    }
 }

@@ -1,0 +1,477 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Historial de Cargos" %}{% endblock %}
+
+{% block content %}
+<!-- Include Toast Notifications -->
+{% include 'cargos/cargos/toast_notifications.html' %}
+
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                    <i class="ti ti-history text-blue-600 mr-3"></i>
+                    {% trans "Historial de Cargos" %}
+                </h1>
+                <p class="text-gray-600 mt-1">{% trans "Registro de todos los cambios y asignaciones de cargos" %}</p>
+            </div>
+            
+            <div class="flex gap-2">
+                <button onclick="toggleFilters()" class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition">
+                    <i class="ti ti-filter mr-2"></i> {% trans "Filtros" %}
+                </button>
+                <button onclick="exportHistorial()" class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg shadow hover:bg-green-200 transition">
+                    <i class="ti ti-download mr-2"></i> {% trans "Exportar" %}
+                </button>
+                <a href="{% url 'cargos:list' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                    <i class="ti ti-arrow-left mr-2"></i> {% trans "Volver a Cargos" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl p-6 shadow">
+            <div class="flex items-center">
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i class="ti ti-file-text text-2xl text-blue-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-blue-600">{% trans "Total Registros" %}</p>
+                    <p class="text-2xl font-bold text-blue-700">{{ stats.total_registros|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 shadow">
+            <div class="flex items-center">
+                <div class="p-3 bg-green-100 rounded-lg">
+                    <i class="ti ti-check text-2xl text-green-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-green-600">{% trans "Asignaciones Activas" %}</p>
+                    <p class="text-2xl font-bold text-green-700">{{ stats.asignaciones_activas|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 shadow">
+            <div class="flex items-center">
+                <div class="p-3 bg-purple-100 rounded-lg">
+                    <i class="ti ti-users text-2xl text-purple-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-purple-600">{% trans "Empleados Involucrados" %}</p>
+                    <p class="text-2xl font-bold text-purple-700">{{ stats.empleados_involucrados|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 shadow">
+            <div class="flex items-center">
+                <div class="p-3 bg-orange-100 rounded-lg">
+                    <i class="ti ti-id-badge text-2xl text-orange-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-orange-600">{% trans "Cargos Afectados" %}</p>
+                    <p class="text-2xl font-bold text-orange-700">{{ stats.cargos_afectados|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div id="filtros-section" class="bg-gray-50 border border-gray-200 rounded-lg p-4 hidden">
+        <form method="get" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Búsqueda por empleado -->
+                <div>
+                    <label for="search_empleado" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-user mr-1"></i>{% trans "Empleado" %}
+                    </label>
+                    <input type="text" 
+                           id="search_empleado" 
+                           name="search_empleado" 
+                           value="{{ search_empleado }}"
+                           placeholder="{% trans 'Nombre o documento...' %}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <!-- Cargo -->
+                <div>
+                    <label for="cargo" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-id-badge mr-1"></i>{% trans "Cargo" %}
+                    </label>
+                    <select id="cargo" 
+                            name="cargo"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">{% trans "Todos los cargos" %}</option>
+                        {% for cargo in cargos_disponibles %}
+                            <option value="{{ cargo.id }}" {% if cargo_id == cargo.id|stringformat:"s" %}selected{% endif %}>
+                                {{ cargo.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Estado -->
+                <div>
+                    <label for="activo" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-toggle-left mr-1"></i>{% trans "Estado" %}
+                    </label>
+                    <select id="activo" 
+                            name="activo"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">{% trans "Todos" %}</option>
+                        <option value="true" {% if activo == 'true' %}selected{% endif %}>{% trans "Activos" %}</option>
+                        <option value="false" {% if activo == 'false' %}selected{% endif %}>{% trans "Finalizados" %}</option>
+                    </select>
+                </div>
+                
+                <!-- Tipo de cambio -->
+                <div>
+                    <label for="tipo_cambio" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-exchange mr-1"></i>{% trans "Tipo de Cambio" %}
+                    </label>
+                    <select id="tipo_cambio" 
+                            name="tipo_cambio"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">{% trans "Todos" %}</option>
+                        <option value="promocion" {% if tipo_cambio == 'promocion' %}selected{% endif %}>{% trans "Promoción" %}</option>
+                        <option value="traslado" {% if tipo_cambio == 'traslado' %}selected{% endif %}>{% trans "Traslado" %}</option>
+                        <option value="nuevo" {% if tipo_cambio == 'nuevo' %}selected{% endif %}>{% trans "Nueva Asignación" %}</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Segunda fila de filtros -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Fecha desde -->
+                <div>
+                    <label for="fecha_desde" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-calendar mr-1"></i>{% trans "Desde" %}
+                    </label>
+                    <input type="date" 
+                           id="fecha_desde" 
+                           name="fecha_desde" 
+                           value="{{ fecha_desde }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <!-- Fecha hasta -->
+                <div>
+                    <label for="fecha_hasta" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-calendar mr-1"></i>{% trans "Hasta" %}
+                    </label>
+                    <input type="date" 
+                           id="fecha_hasta" 
+                           name="fecha_hasta" 
+                           value="{{ fecha_hasta }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <!-- Ordenamiento -->
+                <div>
+                    <label for="order_by" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-sort-ascending mr-1"></i>{% trans "Ordenar por" %}
+                    </label>
+                    <select id="order_by" 
+                            name="order_by"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="-fecha_inicio" {% if order_by == '-fecha_inicio' %}selected{% endif %}>{% trans "Más Recientes" %}</option>
+                        <option value="fecha_inicio" {% if order_by == 'fecha_inicio' %}selected{% endif %}>{% trans "Más Antiguos" %}</option>
+                        <option value="empleado__nombres" {% if order_by == 'empleado__nombres' %}selected{% endif %}>{% trans "Por Empleado" %}</option>
+                        <option value="cargo_nuevo__nombre" {% if order_by == 'cargo_nuevo__nombre' %}selected{% endif %}>{% trans "Por Cargo" %}</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Botones de filtro -->
+            <div class="flex items-center justify-between">
+                <div class="flex gap-2">
+                    <button type="submit" 
+                            class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+                        <i class="ti ti-search mr-2"></i>{% trans "Buscar" %}
+                    </button>
+                    <a href="{% url 'cargos:historial_list' %}" 
+                       class="inline-flex items-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors">
+                        <i class="ti ti-x mr-2"></i>{% trans "Limpiar" %}
+                    </a>
+                </div>
+                
+                <div class="text-sm text-gray-600">
+                    {% trans "Mostrando" %} {{ page_obj.start_index|default:0 }}-{{ page_obj.end_index|default:0 }} {% trans "de" %} {{ page_obj.paginator.count|default:0 }} {% trans "registros" %}
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Resultados de búsqueda -->
+    {% if search_empleado or cargo or activo or tipo_cambio or fecha_desde or fecha_hasta %}
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="ti ti-info-circle text-blue-600 mr-2"></i>
+                <span class="text-blue-800 text-sm font-medium">
+                    {% trans "Filtros aplicados:" %}
+                    {% if search_empleado %}{% trans "Empleado" %}: "{{ search_empleado }}" {% endif %}
+                    {% if cargo %}{% trans "Cargo aplicado" %} {% endif %}
+                    {% if activo %}{% trans "Estado" %}: {% if activo == 'true' %}{% trans "Activos" %}{% else %}{% trans "Finalizados" %}{% endif %} {% endif %}
+                    {% if tipo_cambio %}{% trans "Tipo" %}: {{ tipo_cambio }} {% endif %}
+                    {% if fecha_desde %}{% trans "Desde" %}: {{ fecha_desde }} {% endif %}
+                    {% if fecha_hasta %}{% trans "Hasta" %}: {{ fecha_hasta }} {% endif %}
+                </span>
+            </div>
+            <a href="{% url 'cargos:historial_list' %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                {% trans "Limpiar filtros" %}
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lista de Historial -->
+    <div class="bg-white rounded-2xl shadow overflow-hidden">
+        {% if page_obj.object_list %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-blue-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                                {% trans "Empleado" %}
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                                {% trans "Cambio de Cargo" %}
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                                {% trans "Fechas" %}
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                                {% trans "Salario" %}
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                                {% trans "Estado" %}
+                            </th>
+                            <th class="px-6 py-3 text-center text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                                {% trans "Acciones" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for historial in page_obj %}
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10">
+                                        <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                            <i class="ti ti-user text-blue-600"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            {% if historial.empleado %}
+                                                {{ historial.empleado.nombres }} {{ historial.empleado.apellidos }}
+                                            {% else %}
+                                                <span class="text-gray-400">{% trans "Empleado eliminado" %}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            {% if historial.empleado %}
+                                                {{ historial.empleado.documento|default:historial.empleado.numero_empleado|default:"Sin información" }}
+                                            {% else %}
+                                                {% trans "Sin información" %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="space-y-2">
+                                    {% if historial.cargo_anterior %}
+                                        <div class="flex items-center text-sm">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                <i class="ti ti-arrow-left mr-1"></i>{{ historial.cargo_anterior.nombre }}
+                                            </span>
+                                        </div>
+                                    {% endif %}
+                                    <div class="flex items-center text-sm">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            <i class="ti ti-arrow-right mr-1"></i>{{ historial.cargo_nuevo.nombre }}
+                                        </span>
+                                    </div>
+                                    {% if not historial.cargo_anterior %}
+                                        <div class="text-xs text-green-600 font-medium">
+                                            <i class="ti ti-plus mr-1"></i>{% trans "Nueva asignación" %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900">
+                                    <div class="flex items-center">
+                                        <i class="ti ti-calendar-plus text-green-600 mr-1"></i>
+                                        {{ historial.fecha_inicio|date:"d/m/Y" }}
+                                    </div>
+                                    {% if historial.fecha_fin %}
+                                        <div class="flex items-center mt-1">
+                                            <i class="ti ti-calendar-minus text-red-600 mr-1"></i>
+                                            {{ historial.fecha_fin|date:"d/m/Y" }}
+                                        </div>
+                                    {% else %}
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            {% trans "En curso" %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if historial.salario_asignado %}
+                                    <span class="text-sm font-semibold text-green-600">
+                                        ${{ historial.salario_asignado|floatformat:0 }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-sm text-gray-400">{% trans "No definido" %}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if historial.esta_activo %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="ti ti-check mr-1"></i>{% trans "Activo" %}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        <i class="ti ti-clock mr-1"></i>{% trans "Finalizado" %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <div class="flex justify-center gap-1">
+                                    <a href="{% url 'cargos:historial_detail' historial.pk %}" 
+                                       class="inline-flex items-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-xs" 
+                                       title="{% trans 'Ver Detalles' %}">
+                                        <i class="ti ti-eye"></i>
+                                    </a>
+                                    {% if historial.empleado %}
+                                        <a href="#" 
+                                           class="inline-flex items-center px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition text-xs" 
+                                           title="{% trans 'Ver Empleado' %}">
+                                            <i class="ti ti-user"></i>
+                                        </a>
+                                    {% endif %}
+                                    <a href="{% url 'cargos:detail' historial.cargo_nuevo.pk %}" 
+                                       class="inline-flex items-center px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition text-xs" 
+                                       title="{% trans 'Ver Cargo' %}">
+                                        <i class="ti ti-id-badge"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            {% if page_obj.has_other_pages %}
+            <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 flex justify-between sm:hidden">
+                        {% if page_obj.has_previous %}
+                            <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                {% trans "Anterior" %}
+                            </a>
+                        {% endif %}
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                {% trans "Siguiente" %}
+                            </a>
+                        {% endif %}
+                    </div>
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                {% trans "Mostrando" %}
+                                <span class="font-medium">{{ page_obj.start_index }}</span>
+                                {% trans "a" %}
+                                <span class="font-medium">{{ page_obj.end_index }}</span>
+                                {% trans "de" %}
+                                <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                                {% trans "resultados" %}
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                {% if page_obj.has_previous %}
+                                    <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="ti ti-chevron-left"></i>
+                                    </a>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <span class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">
+                                            {{ num }}
+                                        </span>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                        <a href="?page={{ num }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                            {{ num }}
+                                        </a>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                    <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="ti ti-chevron-right"></i>
+                                    </a>
+                                {% endif %}
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-12">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="ti ti-history text-2xl text-gray-400"></i>
+                </div>
+                {% if search_empleado or cargo or activo or tipo_cambio or fecha_desde or fecha_hasta %}
+                    <p class="text-gray-500 text-lg font-medium">{% trans "No se encontraron registros" %}</p>
+                    <p class="text-gray-400 text-sm mt-1">{% trans "Intenta ajustar los filtros de búsqueda" %}</p>
+                    <a href="{% url 'cargos:historial_list' %}" 
+                       class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                        <i class="ti ti-x mr-2"></i> {% trans "Limpiar filtros" %}
+                    </a>
+                {% else %}
+                    <p class="text-gray-500 text-lg font-medium">{% trans "No hay historial registrado" %}</p>
+                    <p class="text-gray-400 text-sm mt-1">{% trans "Los cambios de cargo aparecerán aquí cuando se registren" %}</p>
+                    <a href="{% url 'cargos:list' %}" 
+                       class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                        <i class="ti ti-plus mr-2"></i> {% trans "Ir a Cargos" %}
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Toggle filtros
+function toggleFilters() {
+    const filtrosSection = document.getElementById('filtros-section');
+    if (filtrosSection.classList.contains('hidden')) {
+        filtrosSection.classList.remove('hidden');
+    } else {
+        filtrosSection.classList.add('hidden');
+    }
+}
+
+// Exportar historial
+function exportHistorial() {
+    toastManager.info('Funcionalidad de exportar próximamente disponible');
+}
+</script>
+{% endblock %}

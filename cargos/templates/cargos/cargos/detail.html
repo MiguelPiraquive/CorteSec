@@ -1,0 +1,446 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ cargo.nombre }} - {% trans "Detalle del Cargo" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+    <!-- Header con acciones -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                    <i class="ti ti-id-badge text-2xl text-blue-600"></i>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ cargo.nombre }}</h1>
+                    <p class="text-lg text-gray-600">{{ cargo.codigo }}</p>
+                    {% if cargo.activo %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <i class="ti ti-check mr-1"></i>{% trans "Activo" %}
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <i class="ti ti-x mr-1"></i>{% trans "Inactivo" %}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Botones de acción -->
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'cargos:update' cargo.pk %}" 
+                   class="inline-flex items-center px-4 py-2 bg-yellow-500 text-white rounded-lg shadow hover:bg-yellow-600 transition">
+                    <i class="ti ti-pencil mr-2"></i>{% trans "Editar" %}
+                </a>
+                <a href="{% url 'cargos:delete' cargo.pk %}" 
+                   class="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-lg shadow hover:bg-red-600 transition">
+                    <i class="ti ti-trash mr-2"></i>{% trans "Eliminar" %}
+                </a>
+                {% if cargo.activo %}
+                    <button onclick="toggleCargo({{ cargo.pk }}, false)" 
+                            class="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg shadow hover:bg-orange-600 transition">
+                        <i class="ti ti-toggle-left mr-2"></i>{% trans "Desactivar" %}
+                    </button>
+                {% else %}
+                    <button onclick="toggleCargo({{ cargo.pk }}, true)" 
+                            class="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg shadow hover:bg-green-600 transition">
+                        <i class="ti ti-toggle-right mr-2"></i>{% trans "Activar" %}
+                    </button>
+                {% endif %}
+                <a href="{% url 'cargos:list' %}" 
+                   class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg shadow hover:bg-gray-600 transition">
+                    <i class="ti ti-arrow-left mr-2"></i>{% trans "Volver" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas rápidas -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl p-6 shadow">
+            <div class="flex items-center">
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i class="ti ti-hierarchy text-2xl text-blue-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-blue-600">{% trans "Nivel Jerárquico" %}</p>
+                    <p class="text-2xl font-bold text-blue-700">{{ cargo.nivel_jerarquico }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 shadow">
+            <div class="flex items-center">
+                <div class="p-3 bg-green-100 rounded-lg">
+                    <i class="ti ti-users text-2xl text-green-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-green-600">{% trans "Empleados" %}</p>
+                    <p class="text-2xl font-bold text-green-700">{{ cargo.empleados_count }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 shadow">
+            <div class="flex items-center">
+                <div class="p-3 bg-purple-100 rounded-lg">
+                    <i class="ti ti-sitemap text-2xl text-purple-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-purple-600">{% trans "Subordinados" %}</p>
+                    <p class="text-2xl font-bold text-purple-700">{{ subordinados.count }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 shadow">
+            <div class="flex items-center">
+                <div class="p-3 bg-yellow-100 rounded-lg">
+                    <i class="ti ti-currency-dollar text-2xl text-yellow-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-yellow-600">{% trans "Salario Base" %}</p>
+                    <p class="text-xl font-bold text-yellow-700">
+                        {% if cargo.salario_base %}
+                            ${{ cargo.salario_base|floatformat:0 }}
+                        {% else %}
+                            {% trans "No definido" %}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Información principal -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Información básica -->
+            <div class="bg-white rounded-2xl shadow p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i class="ti ti-info-circle text-blue-600 mr-2"></i>
+                    {% trans "Información Básica" %}
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 mb-1">{% trans "Código" %}</label>
+                        <p class="text-lg font-mono font-semibold text-gray-900 bg-gray-50 px-3 py-2 rounded-lg">{{ cargo.codigo }}</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 mb-1">{% trans "Nivel Jerárquico" %}</label>
+                        <span class="inline-flex items-center px-3 py-2 rounded-lg text-lg font-medium bg-indigo-100 text-indigo-800">
+                            {% trans "Nivel" %} {{ cargo.nivel_jerarquico }}
+                        </span>
+                    </div>
+                    
+                    {% if cargo.cargo_superior %}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 mb-1">{% trans "Cargo Superior" %}</label>
+                        <a href="{% url 'cargos:detail' cargo.cargo_superior.pk %}" 
+                           class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">
+                            <i class="ti ti-arrow-up mr-1"></i>{{ cargo.cargo_superior.nombre }}
+                        </a>
+                    </div>
+                    {% endif %}
+                    
+                    {% if cargo.nivel_salarial %}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 mb-1">{% trans "Nivel Salarial" %}</label>
+                        <p class="text-lg text-gray-900">{{ cargo.nivel_salarial }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if cargo.fecha_creacion %}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 mb-1">{% trans "Fecha de Creación" %}</label>
+                        <p class="text-lg text-gray-900">{{ cargo.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 mb-1">{% trans "Estado" %}</label>
+                        {% if cargo.activo %}
+                            <span class="inline-flex items-center px-3 py-2 rounded-lg text-lg font-medium bg-green-100 text-green-800">
+                                <i class="ti ti-check mr-2"></i>{% trans "Activo" %}
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-3 py-2 rounded-lg text-lg font-medium bg-red-100 text-red-800">
+                                <i class="ti ti-x mr-2"></i>{% trans "Inactivo" %}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Descripción y Funciones -->
+            {% if cargo.descripcion or cargo.funciones %}
+            <div class="bg-white rounded-2xl shadow p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i class="ti ti-file-text text-blue-600 mr-2"></i>
+                    {% trans "Descripción y Funciones" %}
+                </h2>
+                
+                {% if cargo.descripcion %}
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">{% trans "Descripción" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">
+                        <p class="text-gray-700 leading-relaxed">{{ cargo.descripcion }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if cargo.funciones %}
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">{% trans "Funciones" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-green-500">
+                        <div class="text-gray-700 leading-relaxed whitespace-pre-line">{{ cargo.funciones }}</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Empleados asignados -->
+            {% if cargo.empleados_count > 0 %}
+            <div class="bg-white rounded-2xl shadow p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 flex items-center">
+                        <i class="ti ti-users text-blue-600 mr-2"></i>
+                        {% trans "Empleados Asignados" %} ({{ cargo.empleados_count }})
+                    </h2>
+                    <a href="#" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        {% trans "Ver todos" %}
+                    </a>
+                </div>
+                
+                <div class="space-y-3 max-h-64 overflow-y-auto">
+                    {% for empleado in cargo.empleados.all|slice:":10" %}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <i class="ti ti-user text-blue-600"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium text-gray-900">{{ empleado.nombres }} {{ empleado.apellidos }}</p>
+                                <p class="text-sm text-gray-500">{{ empleado.documento }}</p>
+                            </div>
+                        </div>
+                        <a href="#" class="text-blue-600 hover:text-blue-800">
+                            <i class="ti ti-external-link"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if cargo.empleados_count > 10 %}
+                    <div class="text-center pt-3">
+                        <p class="text-sm text-gray-500">
+                            {% trans "Y" %} {{ cargo.empleados_count|add:"-10" }} {% trans "empleados más..." %}
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar derecho -->
+        <div class="space-y-6">
+            <!-- Jerarquía -->
+            <div class="bg-white rounded-2xl shadow p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i class="ti ti-sitemap text-blue-600 mr-2"></i>
+                    {% trans "Jerarquía" %}
+                </h2>
+                
+                <!-- Cargo superior -->
+                {% if cargo.cargo_superior %}
+                <div class="mb-4">
+                    <p class="text-sm font-medium text-gray-500 mb-2">{% trans "Cargo Superior" %}</p>
+                    <a href="{% url 'cargos:detail' cargo.cargo_superior.pk %}" 
+                       class="block p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition border border-blue-200">
+                        <div class="flex items-center space-x-2">
+                            <i class="ti ti-arrow-up text-blue-600"></i>
+                            <span class="font-medium text-blue-800">{{ cargo.cargo_superior.nombre }}</span>
+                        </div>
+                        <p class="text-xs text-blue-600 mt-1">{% trans "Nivel" %} {{ cargo.cargo_superior.nivel_jerarquico }}</p>
+                    </a>
+                </div>
+                {% endif %}
+                
+                <!-- Cargo actual -->
+                <div class="mb-4">
+                    <p class="text-sm font-medium text-gray-500 mb-2">{% trans "Cargo Actual" %}</p>
+                    <div class="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <div class="flex items-center space-x-2">
+                            <i class="ti ti-id-badge text-indigo-600"></i>
+                            <span class="font-medium text-indigo-800">{{ cargo.nombre }}</span>
+                        </div>
+                        <p class="text-xs text-indigo-600 mt-1">{% trans "Nivel" %} {{ cargo.nivel_jerarquico }}</p>
+                    </div>
+                </div>
+                
+                <!-- Cargos subordinados -->
+                {% if subordinados.count > 0 %}
+                <div>
+                    <p class="text-sm font-medium text-gray-500 mb-2">
+                        {% trans "Cargos Subordinados" %} ({{ subordinados.count }})
+                    </p>
+                    <div class="space-y-2 max-h-32 overflow-y-auto">
+                        {% for subordinado in subordinados %}
+                        <a href="{% url 'cargos:detail' subordinado.pk %}" 
+                           class="block p-3 bg-green-50 rounded-lg hover:bg-green-100 transition border border-green-200">
+                            <div class="flex items-center space-x-2">
+                                <i class="ti ti-arrow-down text-green-600"></i>
+                                <span class="font-medium text-green-800">{{ subordinado.nombre }}</span>
+                            </div>
+                            <p class="text-xs text-green-600 mt-1">{% trans "Nivel" %} {{ subordinado.nivel_jerarquico }}</p>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Acciones rápidas -->
+            <div class="bg-white rounded-2xl shadow p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i class="ti ti-bolt text-blue-600 mr-2"></i>
+                    {% trans "Acciones Rápidas" %}
+                </h2>
+                
+                <div class="space-y-3">
+                    <a href="{% url 'cargos:create' %}" 
+                       class="flex items-center p-3 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                        <i class="ti ti-plus mr-3"></i>
+                        {% trans "Crear Nuevo Cargo" %}
+                    </a>
+                    
+                    <a href="{% url 'cargos:historial_list' %}" 
+                       class="flex items-center p-3 text-purple-600 hover:bg-purple-50 rounded-lg transition">
+                        <i class="ti ti-history mr-3"></i>
+                        {% trans "Ver Historial" %}
+                    </a>
+                    
+                    <a href="#" onclick="duplicateCargo({{ cargo.pk }})" 
+                       class="flex items-center p-3 text-green-600 hover:bg-green-50 rounded-lg transition">
+                        <i class="ti ti-copy mr-3"></i>
+                        {% trans "Duplicar Cargo" %}
+                    </a>
+                    
+                    <a href="#" onclick="exportCargo({{ cargo.pk }})" 
+                       class="flex items-center p-3 text-orange-600 hover:bg-orange-50 rounded-lg transition">
+                        <i class="ti ti-download mr-3"></i>
+                        {% trans "Exportar Información" %}
+                    </a>
+                </div>
+            </div>
+
+            <!-- Historial reciente -->
+            {% if historial.count > 0 %}
+            <div class="bg-white rounded-2xl shadow p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 flex items-center">
+                        <i class="ti ti-clock text-blue-600 mr-2"></i>
+                        {% trans "Historial Reciente" %}
+                    </h2>
+                    <a href="{% url 'cargos:historial_list' %}?cargo={{ cargo.pk }}" 
+                       class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        {% trans "Ver todo" %}
+                    </a>
+                </div>
+                
+                <div class="space-y-3 max-h-48 overflow-y-auto">
+                    {% for registro in historial|slice:":5" %}
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <p class="text-sm font-medium text-gray-900">
+                                {% if registro.empleado %}
+                                    {{ registro.empleado.nombres }} {{ registro.empleado.apellidos }}
+                                {% else %}
+                                    {% trans "Empleado eliminado" %}
+                                {% endif %}
+                            </p>
+                            <span class="text-xs text-gray-500">
+                                {{ registro.fecha_inicio|date:"d/m/Y" }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-600 mt-1">
+                            {% if registro.cargo_anterior %}
+                                {{ registro.cargo_anterior.nombre }} → {{ registro.cargo_nuevo.nombre }}
+                            {% else %}
+                                {% trans "Asignado a" %} {{ registro.cargo_nuevo.nombre }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Include Toast Notifications -->
+{% include 'cargos/cargos/toast_notifications.html' %}
+
+<script>
+// Toggle estado de cargo
+function toggleCargo(cargoId, activate) {
+    const action = activate ? 'activar' : 'desactivar';
+    const message = activate ? 
+        '¿Está seguro de que desea activar este cargo?' : 
+        '¿Está seguro de que desea desactivar este cargo?';
+    
+    if (confirm(message)) {
+        fetch(`/cargos/${cargoId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 'activate': activate })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                toastManager.success(`Cargo ${action} exitosamente`);
+                location.reload();
+            } else {
+                toastManager.error(`Error al ${action} el cargo`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            toastManager.error(`Error al ${action} el cargo`);
+        });
+    }
+}
+
+// Duplicar cargo
+function duplicateCargo(cargoId) {
+    toastManager.info('Funcionalidad de duplicar próximamente disponible');
+}
+
+// Exportar cargo
+function exportCargo(cargoId) {
+    toastManager.info('Funcionalidad de exportar próximamente disponible');
+}
+
+// Obtener CSRF token
+function getCsrfToken() {
+    const name = 'csrfmiddlewaretoken';
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [cookieName, cookieValue] = cookie.trim().split('=');
+        if (cookieName === name) {
+            return decodeURIComponent(cookieValue);
+        }
+    }
+    const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    return csrfInput ? csrfInput.value : '';
+}
+</script>
+{% endblock %}

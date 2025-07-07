@@ -1,0 +1,124 @@
+"""
+Diagnóstico Alpine.js - Dashboard Test
+======================================
+
+Verifica si Alpine.js está funcionando correctamente en el dashboard.
+Este test simple confirma que las variables y métodos están disponibles.
+"""
+
+<!DOCTYPE html>
+<html lang="es" x-data="{
+    testVar: 'Alpine.js funciona!',
+    loading: false,
+    showFilters: false,
+    formatNumber: (num) => num ? num.toLocaleString('es-ES') : '0',
+    formatCurrency: (amount) => amount ? new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0
+    }).format(amount) : '$0',
+    metricas: {
+        empleados: { total: 150, activos: 142 },
+        nominas: { total_mes: 45000000 }
+    },
+    toggleTest() {
+        this.showFilters = !this.showFilters;
+        this.loading = !this.loading;
+    }
+}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Alpine.js Dashboard</title>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">🔧 Test Alpine.js Dashboard</h1>
+        
+        <!-- Test Panel -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">🧪 Pruebas de Funcionalidad</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Variables Test -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-medium text-blue-600">📊 Variables</h3>
+                    
+                    <div class="bg-gray-50 p-4 rounded">
+                        <p><strong>testVar:</strong> <span x-text="testVar" class="text-green-600"></span></p>
+                        <p><strong>loading:</strong> <span x-text="loading" class="text-blue-600"></span></p>
+                        <p><strong>showFilters:</strong> <span x-text="showFilters" class="text-purple-600"></span></p>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded">
+                        <p><strong>Total Empleados:</strong> <span x-text="formatNumber(metricas.empleados.total)" class="text-emerald-600"></span></p>
+                        <p><strong>Total Nóminas:</strong> <span x-text="formatCurrency(metricas.nominas.total_mes)" class="text-yellow-600"></span></p>
+                    </div>
+                </div>
+                
+                <!-- Methods Test -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-medium text-purple-600">⚙️ Métodos</h3>
+                    
+                    <button @click="toggleTest()" 
+                            class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors">
+                        🔄 Toggle Test
+                    </button>
+                    
+                    <div class="bg-gray-50 p-4 rounded">
+                        <p class="text-sm text-gray-600">Haz clic en el botón para cambiar los valores de loading y showFilters</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Conditional Rendering Test -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">🎯 Renderizado Condicional</h2>
+            
+            <div x-show="loading" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+                ⏳ Loading está activado...
+            </div>
+            
+            <div x-show="showFilters" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                🔍 Filtros están visibles...
+            </div>
+            
+            <div x-show="!loading && !showFilters" class="bg-gray-100 border border-gray-400 text-gray-700 px-4 py-3 rounded">
+                ✅ Estado normal - sin loading ni filtros
+            </div>
+        </div>
+        
+        <!-- Loop Test -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">🔄 Test de Loops</h2>
+            
+            <div x-data="{ 
+                items: [
+                    { name: 'Empleados', count: 150, color: 'blue' },
+                    { name: 'Nóminas', count: 25, color: 'green' },
+                    { name: 'Préstamos', count: 8, color: 'yellow' },
+                    { name: 'Proyectos', count: 12, color: 'purple' }
+                ]
+            }">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <template x-for="item in items" :key="item.name">
+                        <div class="text-center p-4 rounded" :class="`bg-${item.color}-100 border border-${item.color}-300`">
+                            <div class="text-2xl font-bold" :class="`text-${item.color}-600`" x-text="formatNumber(item.count)"></div>
+                            <div class="text-sm" :class="`text-${item.color}-700`" x-text="item.name"></div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="mt-8 text-center text-gray-500">
+            <p>✅ Si puedes ver todos los valores y la interactividad funciona, Alpine.js está trabajando correctamente.</p>
+            <p class="text-sm mt-2">🎯 Problema resuelto: No más errores "not defined" en el dashboard.</p>
+        </div>
+    </div>
+</body>
+</html>

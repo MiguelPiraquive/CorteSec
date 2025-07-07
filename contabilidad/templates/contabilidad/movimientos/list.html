@@ -1,0 +1,550 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Gestión de Movimientos Contables{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .hover-row:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .balance-indicator {
+        position: relative;
+    }
+    .balance-indicator::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, #22c55e, #ef4444);
+    }
+    .debito-amount {
+        color: #dc2626;
+        font-weight: 600;
+    }
+    .credito-amount {
+        color: #16a34a;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-6" x-data="movimientosManager()">
+    <!-- Header Section -->
+    <div class="mb-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+            <div class="mb-4 lg:mb-0">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                    <i class="fas fa-exchange-alt text-blue-600 mr-3"></i>
+                    Movimientos Contables
+                </h1>
+                <p class="text-gray-600">Registro detallado de todos los movimientos contables del sistema</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button @click="exportData()" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg">
+                    <i class="fas fa-download mr-2"></i>Exportar
+                </button>
+                <button @click="generateReport()" 
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg">
+                    <i class="fas fa-chart-line mr-2"></i>Reportes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500 fade-in">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-list-ul text-blue-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Total Movimientos</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="stats.total">{{ stats.total|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500 fade-in">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-arrow-up text-red-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Total Débitos</p>
+                    <p class="text-2xl font-bold text-gray-900 debito-amount" x-text="formatCurrency(stats.total_debitos)">{{ stats.total_debitos|default:0|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500 fade-in">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-arrow-down text-green-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Total Créditos</p>
+                    <p class="text-2xl font-bold text-gray-900 credito-amount" x-text="formatCurrency(stats.total_creditos)">{{ stats.total_creditos|default:0|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500 fade-in">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-balance-scale text-purple-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Balance</p>
+                    <p class="text-2xl font-bold" 
+                       :class="Math.abs(stats.total_debitos - stats.total_creditos) < 0.01 ? 'text-green-600' : 'text-red-600'"
+                       x-text="formatCurrency(Math.abs(stats.total_debitos - stats.total_creditos))">
+                        {{ stats.balance|default:0|floatformat:2 }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
+                <input type="text" x-model="filters.search" @input="debounceSearch()" 
+                       placeholder="Cuenta, descripción..." 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Cuenta</label>
+                <select x-model="filters.cuenta" @change="applyFilters()" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Todas las cuentas</option>
+                    <template x-for="cuenta in cuentas" :key="cuenta.id">
+                        <option :value="cuenta.id" x-text="`${cuenta.codigo} - ${cuenta.nombre}`"></option>
+                    </template>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo Comprobante</label>
+                <select x-model="filters.tipo_comprobante" @change="applyFilters()" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Todos los tipos</option>
+                    <option value="DIARIO">Diario</option>
+                    <option value="INGRESO">Ingreso</option>
+                    <option value="EGRESO">Egreso</option>
+                    <option value="AJUSTE">Ajuste</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
+                <input type="date" x-model="filters.fecha_desde" @change="applyFilters()" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta</label>
+                <input type="date" x-model="filters.fecha_hasta" @change="applyFilters()" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900">Lista de Movimientos</h3>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-500" x-text="`${movimientos.length} movimientos`"></span>
+                    <div x-show="loading" class="loading-spinner"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th @click="sort('comprobante__fecha')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <div class="flex items-center">
+                                Fecha
+                                <i class="fas fa-sort ml-1" :class="getSortIcon('comprobante__fecha')"></i>
+                            </div>
+                        </th>
+                        <th @click="sort('comprobante__numero')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <div class="flex items-center">
+                                Comprobante
+                                <i class="fas fa-sort ml-1" :class="getSortIcon('comprobante__numero')"></i>
+                            </div>
+                        </th>
+                        <th @click="sort('cuenta__codigo')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <div class="flex items-center">
+                                Cuenta
+                                <i class="fas fa-sort ml-1" :class="getSortIcon('cuenta__codigo')"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                        <th @click="sort('debito')" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <div class="flex items-center justify-end">
+                                Débito
+                                <i class="fas fa-sort ml-1" :class="getSortIcon('debito')"></i>
+                            </div>
+                        </th>
+                        <th @click="sort('credito')" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <div class="flex items-center justify-end">
+                                Crédito
+                                <i class="fas fa-sort ml-1" :class="getSortIcon('credito')"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="movimiento in paginatedData" :key="movimiento.id">
+                        <tr class="hover-row transition-all duration-200">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900" x-text="formatDate(movimiento.comprobante.fecha)"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex flex-col">
+                                    <span class="text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" 
+                                          @click="viewComprobante(movimiento.comprobante.id)"
+                                          x-text="movimiento.comprobante.numero"></span>
+                                    <span class="text-xs text-gray-500" x-text="movimiento.comprobante.tipo_display"></span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex flex-col">
+                                    <span class="text-sm font-medium text-gray-900" x-text="movimiento.cuenta.codigo"></span>
+                                    <span class="text-xs text-gray-500" x-text="movimiento.cuenta.nombre"></span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900" x-text="movimiento.descripcion"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <div class="text-sm font-medium" 
+                                     :class="movimiento.debito > 0 ? 'debito-amount' : 'text-gray-400'"
+                                     x-text="movimiento.debito > 0 ? formatCurrency(movimiento.debito) : '-'"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <div class="text-sm font-medium" 
+                                     :class="movimiento.credito > 0 ? 'credito-amount' : 'text-gray-400'"
+                                     x-text="movimiento.credito > 0 ? formatCurrency(movimiento.credito) : '-'"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div class="flex space-x-2">
+                                    <button @click="viewComprobante(movimiento.comprobante.id)" 
+                                            class="text-blue-600 hover:text-blue-900 transition-colors"
+                                            title="Ver comprobante">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button @click="viewCuenta(movimiento.cuenta.id)" 
+                                            class="text-green-600 hover:text-green-900 transition-colors"
+                                            title="Ver cuenta">
+                                        <i class="fas fa-folder-open"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="bg-white px-6 py-3 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <p class="text-sm text-gray-700">
+                        Mostrando <span x-text="startIndex + 1"></span> a <span x-text="endIndex"></span> de <span x-text="filteredData.length"></span> resultados
+                    </p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button @click="prevPage()" :disabled="currentPage === 1" 
+                            class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Anterior
+                    </button>
+                    <template x-for="page in visiblePages" :key="page">
+                        <button @click="goToPage(page)" 
+                                class="px-3 py-1 border rounded-md text-sm font-medium transition-colors"
+                                :class="page === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'"
+                                x-text="page"></button>
+                    </template>
+                    <button @click="nextPage()" :disabled="currentPage === totalPages" 
+                            class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Siguiente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Balance Summary -->
+    <div class="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4 balance-indicator">
+            <i class="fas fa-balance-scale text-blue-600 mr-2"></i>
+            Resumen de Balance
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="text-center">
+                <div class="text-2xl font-bold debito-amount" x-text="formatCurrency(currentDebitos)"></div>
+                <div class="text-sm text-gray-600">Débitos del Período</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold credito-amount" x-text="formatCurrency(currentCreditos)"></div>
+                <div class="text-sm text-gray-600">Créditos del Período</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold" 
+                     :class="Math.abs(currentDebitos - currentCreditos) < 0.01 ? 'text-green-600' : 'text-red-600'"
+                     x-text="formatCurrency(Math.abs(currentDebitos - currentCreditos))"></div>
+                <div class="text-sm text-gray-600">Diferencia</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function movimientosManager() {
+    return {
+        movimientos: [],
+        cuentas: [],
+        filteredData: [],
+        paginatedData: [],
+        loading: false,
+        currentPage: 1,
+        itemsPerPage: 15,
+        totalPages: 1,
+        sortField: 'comprobante__fecha',
+        sortDirection: 'desc',
+        filters: {
+            search: '',
+            cuenta: '',
+            tipo_comprobante: '',
+            fecha_desde: '',
+            fecha_hasta: ''
+        },
+        stats: {
+            total: 0,
+            total_debitos: 0,
+            total_creditos: 0,
+            balance: 0
+        },
+        searchTimeout: null,
+
+        async init() {
+            await this.loadCuentas();
+            await this.loadMovimientos();
+            this.loadStats();
+        },
+
+        async loadCuentas() {
+            try {
+                const response = await fetch('{% url "contabilidad:cuentas_api" %}');
+                this.cuentas = await response.json();
+            } catch (error) {
+                console.error('Error loading cuentas:', error);
+            }
+        },
+
+        async loadMovimientos() {
+            this.loading = true;
+            try {
+                const response = await fetch('{% url "contabilidad:movimientos_api" %}');
+                this.movimientos = await response.json();
+                this.applyFilters();
+            } catch (error) {
+                console.error('Error loading movimientos:', error);
+                this.showNotification('Error al cargar los movimientos', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async loadStats() {
+            try {
+                const response = await fetch('{% url "contabilidad:movimientos_stats" %}');
+                this.stats = await response.json();
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        },
+
+        applyFilters() {
+            this.filteredData = this.movimientos.filter(item => {
+                const matchesSearch = !this.filters.search || 
+                    item.cuenta.codigo.toLowerCase().includes(this.filters.search.toLowerCase()) ||
+                    item.cuenta.nombre.toLowerCase().includes(this.filters.search.toLowerCase()) ||
+                    item.descripcion.toLowerCase().includes(this.filters.search.toLowerCase()) ||
+                    item.comprobante.numero.toLowerCase().includes(this.filters.search.toLowerCase());
+                
+                const matchesCuenta = !this.filters.cuenta || item.cuenta.id == this.filters.cuenta;
+                const matchesTipo = !this.filters.tipo_comprobante || item.comprobante.tipo === this.filters.tipo_comprobante;
+                const matchesFechaDesde = !this.filters.fecha_desde || item.comprobante.fecha >= this.filters.fecha_desde;
+                const matchesFechaHasta = !this.filters.fecha_hasta || item.comprobante.fecha <= this.filters.fecha_hasta;
+
+                return matchesSearch && matchesCuenta && matchesTipo && matchesFechaDesde && matchesFechaHasta;
+            });
+
+            this.sortData();
+            this.updatePagination();
+            this.updateCurrentTotals();
+        },
+
+        updateCurrentTotals() {
+            this.currentDebitos = this.filteredData.reduce((sum, mov) => sum + parseFloat(mov.debito || 0), 0);
+            this.currentCreditos = this.filteredData.reduce((sum, mov) => sum + parseFloat(mov.credito || 0), 0);
+        },
+
+        debounceSearch() {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(() => {
+                this.applyFilters();
+            }, 300);
+        },
+
+        sortData() {
+            this.filteredData.sort((a, b) => {
+                let aVal = this.getNestedValue(a, this.sortField);
+                let bVal = this.getNestedValue(b, this.sortField);
+                
+                if (this.sortField.includes('fecha')) {
+                    aVal = new Date(aVal);
+                    bVal = new Date(bVal);
+                }
+                
+                if (aVal < bVal) return this.sortDirection === 'asc' ? -1 : 1;
+                if (aVal > bVal) return this.sortDirection === 'asc' ? 1 : -1;
+                return 0;
+            });
+        },
+
+        getNestedValue(obj, path) {
+            return path.split('.').reduce((current, prop) => current?.[prop], obj);
+        },
+
+        sort(field) {
+            if (this.sortField === field) {
+                this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sortField = field;
+                this.sortDirection = 'asc';
+            }
+            this.applyFilters();
+        },
+
+        getSortIcon(field) {
+            if (this.sortField !== field) return 'text-gray-400';
+            return this.sortDirection === 'asc' ? 'fa-sort-up text-blue-500' : 'fa-sort-down text-blue-500';
+        },
+
+        updatePagination() {
+            this.totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
+            this.currentPage = Math.min(this.currentPage, this.totalPages || 1);
+            
+            const start = (this.currentPage - 1) * this.itemsPerPage;
+            const end = start + this.itemsPerPage;
+            this.paginatedData = this.filteredData.slice(start, end);
+        },
+
+        get startIndex() {
+            return (this.currentPage - 1) * this.itemsPerPage;
+        },
+
+        get endIndex() {
+            return Math.min(this.startIndex + this.itemsPerPage, this.filteredData.length);
+        },
+
+        get visiblePages() {
+            const pages = [];
+            const start = Math.max(1, this.currentPage - 2);
+            const end = Math.min(this.totalPages, this.currentPage + 2);
+            
+            for (let i = start; i <= end; i++) {
+                pages.push(i);
+            }
+            return pages;
+        },
+
+        goToPage(page) {
+            this.currentPage = page;
+            this.updatePagination();
+        },
+
+        nextPage() {
+            if (this.currentPage < this.totalPages) {
+                this.currentPage++;
+                this.updatePagination();
+            }
+        },
+
+        prevPage() {
+            if (this.currentPage > 1) {
+                this.currentPage--;
+                this.updatePagination();
+            }
+        },
+
+        viewComprobante(id) {
+            window.open(`{% url "contabilidad:comprobante_detail" 0 %}`.replace('0', id), '_blank');
+        },
+
+        viewCuenta(id) {
+            window.open(`{% url "contabilidad:cuenta_detail" 0 %}`.replace('0', id), '_blank');
+        },
+
+        async exportData() {
+            try {
+                const response = await fetch('{% url "contabilidad:movimientos_export" %}?' + new URLSearchParams(this.filters));
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `movimientos_${new Date().toISOString().split('T')[0]}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                this.showNotification('Datos exportados exitosamente', 'success');
+            } catch (error) {
+                this.showNotification('Error al exportar los datos', 'error');
+            }
+        },
+
+        async generateReport() {
+            window.open('{% url "reportes:movimientos_report" %}', '_blank');
+        },
+
+        formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('es-ES');
+        },
+
+        formatCurrency(amount) {
+            return new Intl.NumberFormat('es-ES', {
+                style: 'currency',
+                currency: 'EUR'
+            }).format(amount || 0);
+        },
+
+        showNotification(message, type = 'info') {
+            console.log(`${type}: ${message}`);
+        }
+    }
+}
+</script>
+{% endblock %}

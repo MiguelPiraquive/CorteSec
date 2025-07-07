@@ -1,0 +1,411 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if object %}Editar Movimiento{% else %}Nuevo Movimiento{% endif %} - Contabilidad
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .form-header {
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-control {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 0.75rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    .form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        outline: none;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+    
+    .btn-secondary {
+        background: #6b7280;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        color: white;
+        transition: all 0.2s;
+    }
+    
+    .preview-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .balance-indicator {
+        font-size: 1.2rem;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        text-align: center;
+    }
+    
+    .balance-debit {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .balance-credit {
+        background: #dcfce7;
+        color: #16a34a;
+    }
+    
+    .loading-spinner {
+        border: 3px solid #f3f4f6;
+        border-top: 3px solid #3b82f6;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4" x-data="movimientoForm()">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="form-container">
+                <div class="form-header">
+                    <h2 class="mb-0">
+                        <i class="fas fa-exchange-alt text-primary me-2"></i>
+                        {% if object %}Editar Movimiento{% else %}Nuevo Movimiento{% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">Complete los datos del movimiento contable</p>
+                </div>
+
+                <form method="post" @submit.prevent="submitForm">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_fecha" class="form-label">
+                                    <i class="fas fa-calendar text-primary me-1"></i>
+                                    Fecha *
+                                </label>
+                                <input type="date" 
+                                       class="form-control" 
+                                       name="fecha" 
+                                       id="id_fecha"
+                                       x-model="formData.fecha"
+                                       required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_comprobante" class="form-label">
+                                    <i class="fas fa-file-alt text-primary me-1"></i>
+                                    Comprobante
+                                </label>
+                                <select class="form-control" 
+                                        name="comprobante" 
+                                        id="id_comprobante"
+                                        x-model="formData.comprobante">
+                                    <option value="">Seleccione un comprobante</option>
+                                    {% for comprobante in comprobantes %}
+                                    <option value="{{ comprobante.id }}" 
+                                            {% if object and object.comprobante.id == comprobante.id %}selected{% endif %}>
+                                        {{ comprobante.numero }} - {{ comprobante.concepto }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_cuenta" class="form-label">
+                                    <i class="fas fa-list text-primary me-1"></i>
+                                    Cuenta *
+                                </label>
+                                <select class="form-control" 
+                                        name="cuenta" 
+                                        id="id_cuenta"
+                                        x-model="formData.cuenta"
+                                        @change="updateAccountInfo"
+                                        required>
+                                    <option value="">Seleccione una cuenta</option>
+                                    {% for cuenta in cuentas %}
+                                    <option value="{{ cuenta.id }}" 
+                                            data-tipo="{{ cuenta.tipo }}"
+                                            {% if object and object.cuenta.id == cuenta.id %}selected{% endif %}>
+                                        {{ cuenta.codigo }} - {{ cuenta.nombre }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_tipo" class="form-label">
+                                    <i class="fas fa-tag text-primary me-1"></i>
+                                    Tipo *
+                                </label>
+                                <select class="form-control" 
+                                        name="tipo" 
+                                        id="id_tipo"
+                                        x-model="formData.tipo"
+                                        @change="calculateBalance"
+                                        required>
+                                    <option value="">Seleccione tipo</option>
+                                    <option value="debito" {% if object and object.tipo == 'debito' %}selected{% endif %}>
+                                        Débito
+                                    </option>
+                                    <option value="credito" {% if object and object.tipo == 'credito' %}selected{% endif %}>
+                                        Crédito
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_monto" class="form-label">
+                                    <i class="fas fa-dollar-sign text-primary me-1"></i>
+                                    Monto *
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       name="monto" 
+                                       id="id_monto"
+                                       x-model="formData.monto"
+                                       @input="calculateBalance"
+                                       step="0.01"
+                                       min="0"
+                                       placeholder="0.00"
+                                       required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-balance-scale text-primary me-1"></i>
+                                    Impacto en Balance
+                                </label>
+                                <div class="balance-indicator" 
+                                     :class="getBalanceClass()"
+                                     x-text="getBalanceText()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_descripcion" class="form-label">
+                            <i class="fas fa-comment text-primary me-1"></i>
+                            Descripción *
+                        </label>
+                        <textarea class="form-control" 
+                                  name="descripcion" 
+                                  id="id_descripcion"
+                                  x-model="formData.descripcion"
+                                  rows="3"
+                                  placeholder="Descripción del movimiento contable"
+                                  required>{% if object %}{{ object.descripcion }}{% endif %}</textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'contabilidad:movimientos_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Cancelar
+                        </a>
+                        
+                        <button type="submit" class="btn btn-primary" :disabled="submitting">
+                            <span x-show="submitting" class="loading-spinner d-inline-block"></span>
+                            <i class="fas fa-save me-1"></i>
+                            {% if object %}Actualizar{% else %}Crear{% endif %} Movimiento
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="preview-card">
+                <h5 class="card-title">
+                    <i class="fas fa-eye text-primary me-2"></i>
+                    Vista Previa
+                </h5>
+                
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Fecha:</span>
+                        <span x-text="formData.fecha || 'No definida'"></span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Cuenta:</span>
+                        <span x-text="getAccountName() || 'No seleccionada'"></span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Tipo:</span>
+                        <span x-text="formData.tipo || 'No definido'"></span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Monto:</span>
+                        <strong x-text="formatMoney(formData.monto)"></strong>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Descripción:</span>
+                        <span x-text="formData.descripcion || 'Sin descripción'" class="text-end"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-1"></i> Información</h6>
+                <ul class="mb-0 small">
+                    <li>Los campos marcados con * son obligatorios</li>
+                    <li>El tipo de movimiento afecta el balance de la cuenta</li>
+                    <li>Débito aumenta activos y gastos</li>
+                    <li>Crédito aumenta pasivos, patrimonio e ingresos</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function movimientoForm() {
+    return {
+        formData: {
+            fecha: '{% if object %}{{ object.fecha|date:"Y-m-d" }}{% else %}{{ today|date:"Y-m-d" }}{% endif %}',
+            comprobante: '{% if object %}{{ object.comprobante.id }}{% endif %}',
+            cuenta: '{% if object %}{{ object.cuenta.id }}{% endif %}',
+            tipo: '{% if object %}{{ object.tipo }}{% endif %}',
+            monto: {% if object %}{{ object.monto }}{% else %}0{% endif %},
+            descripcion: '{% if object %}{{ object.descripcion|escapejs }}{% endif %}'
+        },
+        submitting: false,
+        
+        submitForm() {
+            this.submitting = true;
+            
+            const form = document.querySelector('form');
+            const formData = new FormData(form);
+            
+            fetch(form.action || window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = '{% url "contabilidad:movimientos_list" %}';
+                } else {
+                    response.text().then(html => {
+                        document.body.innerHTML = html;
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al procesar el formulario');
+            })
+            .finally(() => {
+                this.submitting = false;
+            });
+        },
+        
+        updateAccountInfo() {
+            const select = document.getElementById('id_cuenta');
+            const option = select.options[select.selectedIndex];
+            if (option && option.dataset.tipo) {
+                // Auto-suggest type based on account type
+                const accountType = option.dataset.tipo;
+                // Logic to suggest debit/credit based on account type
+            }
+        },
+        
+        calculateBalance() {
+            // Update balance preview
+        },
+        
+        getAccountName() {
+            const select = document.getElementById('id_cuenta');
+            if (select && select.selectedIndex > 0) {
+                return select.options[select.selectedIndex].text;
+            }
+            return '';
+        },
+        
+        getBalanceClass() {
+            if (!this.formData.tipo || !this.formData.monto) return '';
+            return this.formData.tipo === 'debito' ? 'balance-debit' : 'balance-credit';
+        },
+        
+        getBalanceText() {
+            if (!this.formData.tipo || !this.formData.monto) return 'Sin impacto';
+            const type = this.formData.tipo === 'debito' ? 'Débito' : 'Crédito';
+            return `${type}: ${this.formatMoney(this.formData.monto)}`;
+        },
+        
+        formatMoney(amount) {
+            if (!amount) return '$0.00';
+            return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP'
+            }).format(amount);
+        }
+    }
+}
+</script>
+{% endblock %}

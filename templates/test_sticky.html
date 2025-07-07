@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}Prueba Header Sticky - CorteSec{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-lg p-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            🎯 Prueba del Header Sticky
+        </h1>
+        <p class="text-gray-600 dark:text-gray-300 text-lg">
+            Esta página tiene contenido suficiente para probar el header sticky.
+            <strong>Haz scroll hacia abajo</strong> y verifica que el header permanezca visible.
+        </p>
+    </div>
+
+    <!-- Contenido para generar scroll -->
+    {% for i in "0123456789"|make_list %}
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-zinc-800 dark:to-zinc-700 rounded-xl p-8 shadow-sm">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+            📋 Sección {{ forloop.counter }}
+        </h2>
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+                <p class="text-gray-600 dark:text-gray-300">
+                    Esta es la sección número {{ forloop.counter }} de contenido de prueba.
+                    El objetivo es generar suficiente contenido vertical para que puedas
+                    hacer scroll y probar que el header se queda pegado arriba.
+                </p>
+                <div class="bg-white dark:bg-zinc-900 rounded-lg p-4 border border-gray-200 dark:border-zinc-600">
+                    <h3 class="font-semibold text-gray-900 dark:text-white mb-2">
+                        ✨ Funcionalidades del Header Sticky:
+                    </h3>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li>• Permanece visible al hacer scroll</li>
+                        <li>• Cambia la sombra dinámicamente</li>
+                        <li>• Efecto glassmorphism</li>
+                        <li>• Transiciones suaves</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div class="bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-6">
+                    <h4 class="font-semibold text-green-800 dark:text-green-300 mb-3">
+                        🚀 Estado del Sistema
+                    </h4>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-green-700 dark:text-green-400">Header Sticky:</span>
+                            <span class="font-semibold text-green-800 dark:text-green-300">✅ Activo</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-green-700 dark:text-green-400">Glassmorphism:</span>
+                            <span class="font-semibold text-green-800 dark:text-green-300">✅ Activo</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-green-700 dark:text-green-400">Responsive:</span>
+                            <span class="font-semibold text-green-800 dark:text-green-300">✅ Activo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contenido adicional para más altura -->
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for j in "ABC"|make_list %}
+            <div class="bg-white dark:bg-zinc-900 rounded-lg p-4 border border-gray-200 dark:border-zinc-600">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                        {{ j }}
+                    </div>
+                    <div>
+                        <h5 class="font-semibold text-gray-900 dark:text-white">
+                            Item {{ j }}{{ forloop.counter }}
+                        </h5>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Subsección {{ j }}
+                        </p>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    Contenido de ejemplo para la tarjeta {{ j }} de la sección {{ forloop.counter }}.
+                    Este contenido ayuda a generar más altura en la página.
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Mensaje final -->
+    <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-8 text-white text-center">
+        <h2 class="text-2xl font-bold mb-4">🎉 ¡Llegaste al final!</h2>
+        <p class="text-lg opacity-90">
+            Si el header se mantuvo visible durante todo el scroll, 
+            <strong>¡la funcionalidad sticky está funcionando perfectamente!</strong>
+        </p>
+        <div class="mt-6">
+            <button 
+                onclick="window.scrollTo({top: 0, behavior: 'smooth'})"
+                class="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg px-6 py-3 font-semibold transition-all duration-300 hover:scale-105"
+            >
+                ⬆️ Volver arriba
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Script para mostrar el estado del scroll -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let scrollIndicator = document.createElement('div');
+    scrollIndicator.id = 'scroll-indicator';
+    scrollIndicator.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm font-semibold';
+    scrollIndicator.textContent = 'Scroll: 0px';
+    document.body.appendChild(scrollIndicator);
+    
+    const scrollableContainer = document.querySelector('.flex-1.overflow-y-auto');
+    if (scrollableContainer) {
+        scrollableContainer.addEventListener('scroll', function() {
+            const scrollTop = this.scrollTop;
+            scrollIndicator.textContent = `Scroll: ${Math.round(scrollTop)}px`;
+            
+            // Cambiar color según el scroll
+            if (scrollTop > 100) {
+                scrollIndicator.className = scrollIndicator.className.replace('bg-blue-500', 'bg-green-500');
+            } else {
+                scrollIndicator.className = scrollIndicator.className.replace('bg-green-500', 'bg-blue-500');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

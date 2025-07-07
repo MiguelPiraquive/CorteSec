@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}Detalle del Historial de Cargo{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .detail-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .section-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px 10px 0 0;
+        padding: 15px 20px;
+        margin: -20px -20px 20px -20px;
+    }
+    
+    .info-item {
+        border-bottom: 1px solid #e9ecef;
+        padding: 12px 0;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .info-value {
+        color: #212529;
+    }
+    
+    .badge-active {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 20px;
+    }
+    
+    .badge-inactive {
+        background: linear-gradient(45deg, #6c757d, #495057);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 20px;
+    }
+    
+    .salary-highlight {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 25px;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        border: none;
+        border-radius: 25px;
+        padding: 10px 25px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,123,255,0.4);
+    }
+    
+    .btn-outline-secondary {
+        border-radius: 25px;
+        padding: 10px 25px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-secondary:hover {
+        transform: translateY(-2px);
+    }
+    
+    .cargo-badge {
+        background: linear-gradient(45deg, #17a2b8, #138496);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .duration-badge {
+        background: linear-gradient(45deg, #ffc107, #e0a800);
+        color: #212529;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0 text-gray-800">
+                        <i class="fas fa-history me-2"></i>Detalle del Historial de Cargo
+                    </h1>
+                    <p class="text-muted">Información detallada del cambio de cargo</p>
+                </div>
+                <div>
+                    <a href="{% url 'cargos:historial_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Volver al Historial
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información del Empleado -->
+        <div class="col-md-6">
+            <div class="card detail-card h-100">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user me-2"></i>Información del Empleado
+                        </h5>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Nombre:</div>
+                            <div class="col-8 info-value">{{ historial.empleado.nombre_completo }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Número:</div>
+                            <div class="col-8 info-value">{{ historial.empleado.numero_empleado }}</div>
+                        </div>
+                    </div>
+                    
+                    {% if historial.empleado.email %}
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Email:</div>
+                            <div class="col-8 info-value">{{ historial.empleado.email }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if historial.empleado.telefono %}
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Teléfono:</div>
+                            <div class="col-8 info-value">{{ historial.empleado.telefono }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Información del Cambio -->
+        <div class="col-md-6">
+            <div class="card detail-card h-100">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-exchange-alt me-2"></i>Información del Cambio
+                        </h5>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Cargo Anterior:</div>
+                            <div class="col-8 info-value">
+                                {% if historial.cargo_anterior %}
+                                    <span class="badge bg-light text-dark">{{ historial.cargo_anterior.nombre }}</span>
+                                {% else %}
+                                    <span class="text-muted">Primer cargo</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Cargo Nuevo:</div>
+                            <div class="col-8 info-value">
+                                <span class="cargo-badge">{{ historial.cargo_nuevo.nombre }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Estado:</div>
+                            <div class="col-8 info-value">
+                                {% if historial.esta_activo %}
+                                    <span class="badge-active">
+                                        <i class="fas fa-check me-1"></i>Activo
+                                    </span>
+                                {% else %}
+                                    <span class="badge-inactive">
+                                        <i class="fas fa-clock me-1"></i>Finalizado
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Duración:</div>
+                            <div class="col-8 info-value">
+                                <span class="duration-badge">{{ historial.duracion_en_cargo.days }} días</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <!-- Fechas y Salario -->
+        <div class="col-md-6">
+            <div class="card detail-card h-100">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar me-2"></i>Fechas y Período
+                        </h5>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Fecha Inicio:</div>
+                            <div class="col-8 info-value">
+                                <strong>{{ historial.fecha_inicio|date:"d/m/Y" }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Fecha Fin:</div>
+                            <div class="col-8 info-value">
+                                {% if historial.fecha_fin %}
+                                    <strong>{{ historial.fecha_fin|date:"d/m/Y" }}</strong>
+                                {% else %}
+                                    <span class="text-muted">En curso</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Fecha Registro:</div>
+                            <div class="col-8 info-value">{{ historial.fecha_registro|date:"d/m/Y H:i" }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Salario Asignado:</div>
+                            <div class="col-8 info-value">
+                                <span class="salary-highlight">${{ historial.salario_asignado|floatformat:2 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detalles Adicionales -->
+        <div class="col-md-6">
+            <div class="card detail-card h-100">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>Detalles Adicionales
+                        </h5>
+                    </div>
+                    
+                    {% if historial.motivo_cambio %}
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="info-label mb-2">Motivo del Cambio:</div>
+                                <div class="info-value">
+                                    <div class="alert alert-info">
+                                        {{ historial.motivo_cambio|linebreaks }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if historial.observaciones %}
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="info-label mb-2">Observaciones:</div>
+                                <div class="info-value">
+                                    <div class="alert alert-secondary">
+                                        {{ historial.observaciones|linebreaks }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="info-item">
+                        <div class="row">
+                            <div class="col-4 info-label">Registrado por:</div>
+                            <div class="col-8 info-value">{{ historial.creado_por.get_full_name|default:historial.creado_por.username }}</div>
+                        </div>
+                    </div>
+                    
+                    {% if not historial.motivo_cambio and not historial.observaciones %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-info-circle fa-2x text-muted mb-3"></i>
+                        <p class="text-muted">No hay información adicional registrada para este cambio.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del Cargo -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card detail-card">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-briefcase me-2"></i>Información del Cargo: {{ historial.cargo_nuevo.nombre }}
+                        </h5>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-item">
+                                <div class="row">
+                                    <div class="col-4 info-label">Código:</div>
+                                    <div class="col-8 info-value">{{ historial.cargo_nuevo.codigo }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="info-item">
+                                <div class="row">
+                                    <div class="col-4 info-label">Nivel Jerárquico:</div>
+                                    <div class="col-8 info-value">{{ historial.cargo_nuevo.nivel_jerarquico }}</div>
+                                </div>
+                            </div>
+                            
+                            {% if historial.cargo_nuevo.cargo_superior %}
+                            <div class="info-item">
+                                <div class="row">
+                                    <div class="col-4 info-label">Cargo Superior:</div>
+                                    <div class="col-8 info-value">{{ historial.cargo_nuevo.cargo_superior.nombre }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="info-item">
+                                <div class="row">
+                                    <div class="col-4 info-label">Salario Mínimo:</div>
+                                    <div class="col-8 info-value">${{ historial.cargo_nuevo.salario_base_minimo|floatformat:2 }}</div>
+                                </div>
+                            </div>
+                            
+                            {% if historial.cargo_nuevo.salario_base_maximo %}
+                            <div class="info-item">
+                                <div class="row">
+                                    <div class="col-4 info-label">Salario Máximo:</div>
+                                    <div class="col-8 info-value">${{ historial.cargo_nuevo.salario_base_maximo|floatformat:2 }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="info-item">
+                                <div class="row">
+                                    <div class="col-4 info-label">Estado del Cargo:</div>
+                                    <div class="col-8 info-value">
+                                        {% if historial.cargo_nuevo.activo %}
+                                            <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactivo</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if historial.cargo_nuevo.descripcion %}
+                    <div class="info-item mt-3">
+                        <div class="info-label mb-2">Descripción del Cargo:</div>
+                        <div class="info-value">
+                            <div class="alert alert-light">
+                                {{ historial.cargo_nuevo.descripcion|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones de Acción -->
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <a href="{% url 'cargos:historial_list' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i>Volver al Historial
+            </a>
+            {% if historial.cargo_nuevo %}
+                <a href="{% url 'cargos:detail' historial.cargo_nuevo.pk %}" class="btn btn-primary">
+                    <i class="fas fa-eye me-1"></i>Ver Cargo
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

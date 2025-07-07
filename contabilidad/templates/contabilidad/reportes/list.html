@@ -1,0 +1,622 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Reportes Contables{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .report-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .report-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+    .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .chart-container {
+        position: relative;
+        height: 400px;
+    }
+    .gradient-bg-1 {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .gradient-bg-2 {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .gradient-bg-3 {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .gradient-bg-4 {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    .gradient-bg-5 {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    .gradient-bg-6 {
+        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-6" x-data="reportesContables()">
+    <!-- Header Section -->
+    <div class="mb-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+            <div class="mb-4 lg:mb-0">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                    <i class="fas fa-chart-bar text-blue-600 mr-3"></i>
+                    Reportes Contables
+                </h1>
+                <p class="text-gray-600">Análisis y reportes financieros avanzados para la toma de decisiones</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button @click="openScheduleModal()" 
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg">
+                    <i class="fas fa-clock mr-2"></i>Programar Reportes
+                </button>
+                <button @click="openCustomReportModal()" 
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg">
+                    <i class="fas fa-plus mr-2"></i>Reporte Personalizado
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500 fade-in">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-file-alt text-blue-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Reportes Generados</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="stats.reportes_generados">{{ stats.reportes_generados|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500 fade-in">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-download text-green-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Descargas del Mes</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="stats.descargas_mes">{{ stats.descargas_mes|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-500 fade-in">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-clock text-yellow-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Programados</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="stats.reportes_programados">{{ stats.reportes_programados|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500 fade-in">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-users text-purple-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Usuarios Activos</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="stats.usuarios_activos">{{ stats.usuarios_activos|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reportes Principales -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">
+            <i class="fas fa-chart-line text-blue-600 mr-2"></i>
+            Reportes Principales
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Estado de Resultados -->
+            <div @click="generateReport('estado_resultados')" 
+                 class="report-card gradient-bg-1 rounded-xl shadow-lg p-6 text-white fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-chart-pie text-3xl opacity-80 mr-4"></i>
+                        <div>
+                            <h3 class="text-lg font-semibold">Estado de Resultados</h3>
+                            <p class="text-sm opacity-80">Ingresos, gastos y utilidades</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-xl opacity-60"></i>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm opacity-80">Última actualización</span>
+                    <span class="text-sm font-medium">{{ last_update.estado_resultados|default:"N/A" }}</span>
+                </div>
+            </div>
+
+            <!-- Balance General -->
+            <div @click="generateReport('balance_general')" 
+                 class="report-card gradient-bg-2 rounded-xl shadow-lg p-6 text-white fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-balance-scale text-3xl opacity-80 mr-4"></i>
+                        <div>
+                            <h3 class="text-lg font-semibold">Balance General</h3>
+                            <p class="text-sm opacity-80">Activos, pasivos y patrimonio</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-xl opacity-60"></i>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm opacity-80">Última actualización</span>
+                    <span class="text-sm font-medium">{{ last_update.balance_general|default:"N/A" }}</span>
+                </div>
+            </div>
+
+            <!-- Flujo de Efectivo -->
+            <div @click="generateReport('flujo_efectivo')" 
+                 class="report-card gradient-bg-3 rounded-xl shadow-lg p-6 text-white fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-water text-3xl opacity-80 mr-4"></i>
+                        <div>
+                            <h3 class="text-lg font-semibold">Flujo de Efectivo</h3>
+                            <p class="text-sm opacity-80">Movimientos de caja</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-xl opacity-60"></i>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm opacity-80">Última actualización</span>
+                    <span class="text-sm font-medium">{{ last_update.flujo_efectivo|default:"N/A" }}</span>
+                </div>
+            </div>
+
+            <!-- Libro Mayor -->
+            <div @click="generateReport('libro_mayor')" 
+                 class="report-card gradient-bg-4 rounded-xl shadow-lg p-6 text-white fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-book text-3xl opacity-80 mr-4"></i>
+                        <div>
+                            <h3 class="text-lg font-semibold">Libro Mayor</h3>
+                            <p class="text-sm opacity-80">Movimientos por cuenta</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-xl opacity-60"></i>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm opacity-80">Última actualización</span>
+                    <span class="text-sm font-medium">{{ last_update.libro_mayor|default:"N/A" }}</span>
+                </div>
+            </div>
+
+            <!-- Balance de Comprobación -->
+            <div @click="generateReport('balance_comprobacion')" 
+                 class="report-card gradient-bg-5 rounded-xl shadow-lg p-6 text-white fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-double text-3xl opacity-80 mr-4"></i>
+                        <div>
+                            <h3 class="text-lg font-semibold">Balance de Comprobación</h3>
+                            <p class="text-sm opacity-80">Verificación de saldos</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-xl opacity-60"></i>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm opacity-80">Última actualización</span>
+                    <span class="text-sm font-medium">{{ last_update.balance_comprobacion|default:"N/A" }}</span>
+                </div>
+            </div>
+
+            <!-- Análisis Financiero -->
+            <div @click="generateReport('analisis_financiero')" 
+                 class="report-card gradient-bg-6 rounded-xl shadow-lg p-6 text-gray-800 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-analytics text-3xl opacity-80 mr-4"></i>
+                        <div>
+                            <h3 class="text-lg font-semibold">Análisis Financiero</h3>
+                            <p class="text-sm opacity-80">Indicadores y ratios</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-xl opacity-60"></i>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm opacity-80">Última actualización</span>
+                    <span class="text-sm font-medium">{{ last_update.analisis_financiero|default:"N/A" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos de Resumen -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Evolución Mensual -->
+        <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">
+                <i class="fas fa-chart-line text-blue-600 mr-2"></i>
+                Evolución Financiera Mensual
+            </h3>
+            <div class="chart-container">
+                <canvas id="monthlyEvolutionChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Distribución por Categorías -->
+        <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">
+                <i class="fas fa-chart-pie text-purple-600 mr-2"></i>
+                Distribución de Gastos por Categoría
+            </h3>
+            <div class="chart-container">
+                <canvas id="categoryDistributionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reportes Recientes -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-lg font-medium text-gray-900">
+                <i class="fas fa-history text-blue-600 mr-2"></i>
+                Reportes Recientes
+            </h3>
+            <button @click="refreshRecentReports()" 
+                    class="text-blue-600 hover:text-blue-800 transition-colors">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reporte</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Generado por</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Período</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="reporte in recentReports" :key="reporte.id">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900" x-text="reporte.nombre"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900" x-text="reporte.usuario"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900" x-text="formatDateTime(reporte.fecha_generacion)"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900" x-text="reporte.periodo"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                      :class="getStatusBadgeClass(reporte.estado)"
+                                      x-text="reporte.estado_display"></span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div class="flex space-x-2">
+                                    <button @click="downloadReport(reporte.id)" 
+                                            class="text-blue-600 hover:text-blue-900 transition-colors">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    <button @click="viewReport(reporte.id)" 
+                                            class="text-green-600 hover:text-green-900 transition-colors">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button @click="shareReport(reporte.id)" 
+                                            class="text-purple-600 hover:text-purple-900 transition-colors">
+                                        <i class="fas fa-share"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal for Custom Report -->
+    <div x-show="showCustomModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" 
+         x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div id="custom-modal-content">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Schedule Report -->
+    <div x-show="showScheduleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" 
+         x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 shadow-lg rounded-md bg-white">
+            <div id="schedule-modal-content">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div x-show="isGenerating" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 shadow-xl text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Generando Reporte</h3>
+            <p class="text-gray-600" x-text="generatingMessage">Procesando datos financieros...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function reportesContables() {
+    return {
+        stats: {
+            reportes_generados: 0,
+            descargas_mes: 0,
+            reportes_programados: 0,
+            usuarios_activos: 0
+        },
+        recentReports: [],
+        showCustomModal: false,
+        showScheduleModal: false,
+        isGenerating: false,
+        generatingMessage: 'Procesando datos financieros...',
+        monthlyChart: null,
+        categoryChart: null,
+
+        async init() {
+            await this.loadStats();
+            await this.loadRecentReports();
+            this.initCharts();
+        },
+
+        async loadStats() {
+            try {
+                const response = await fetch('{% url "contabilidad:reportes_stats" %}');
+                this.stats = await response.json();
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        },
+
+        async loadRecentReports() {
+            try {
+                const response = await fetch('{% url "contabilidad:recent_reports" %}');
+                this.recentReports = await response.json();
+            } catch (error) {
+                console.error('Error loading recent reports:', error);
+            }
+        },
+
+        initCharts() {
+            this.initMonthlyEvolutionChart();
+            this.initCategoryDistributionChart();
+        },
+
+        initMonthlyEvolutionChart() {
+            const ctx = document.getElementById('monthlyEvolutionChart').getContext('2d');
+            this.monthlyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+                    datasets: [{
+                        label: 'Ingresos',
+                        data: {{ monthly_income|default:"[]"|safe }},
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Gastos',
+                        data: {{ monthly_expenses|default:"[]"|safe }},
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return new Intl.NumberFormat('es-ES', {
+                                        style: 'currency',
+                                        currency: 'EUR',
+                                        minimumFractionDigits: 0
+                                    }).format(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        initCategoryDistributionChart() {
+            const ctx = document.getElementById('categoryDistributionChart').getContext('2d');
+            this.categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: {{ category_labels|default:"[]"|safe }},
+                    datasets: [{
+                        data: {{ category_data|default:"[]"|safe }},
+                        backgroundColor: [
+                            '#3B82F6',
+                            '#EF4444',
+                            '#10B981',
+                            '#F59E0B',
+                            '#8B5CF6',
+                            '#EC4899',
+                            '#06B6D4',
+                            '#84CC16'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        }
+                    }
+                }
+            });
+        },
+
+        async generateReport(type) {
+            this.isGenerating = true;
+            
+            const messages = {
+                'estado_resultados': 'Calculando ingresos y gastos...',
+                'balance_general': 'Procesando activos y pasivos...',
+                'flujo_efectivo': 'Analizando movimientos de caja...',
+                'libro_mayor': 'Consolidando movimientos contables...',
+                'balance_comprobacion': 'Verificando balances...',
+                'analisis_financiero': 'Calculando indicadores financieros...'
+            };
+            
+            this.generatingMessage = messages[type] || 'Generando reporte...';
+
+            try {
+                const response = await fetch(`{% url "contabilidad:generate_report" %}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({ type: type })
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${type}_${new Date().toISOString().split('T')[0]}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    this.showNotification('Reporte generado exitosamente', 'success');
+                    await this.loadRecentReports();
+                } else {
+                    this.showNotification('Error al generar el reporte', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                this.showNotification('Error al procesar la solicitud', 'error');
+            } finally {
+                this.isGenerating = false;
+            }
+        },
+
+        async openCustomReportModal() {
+            this.showCustomModal = true;
+            const response = await fetch('{% url "contabilidad:custom_report_form" %}');
+            document.getElementById('custom-modal-content').innerHTML = await response.text();
+        },
+
+        async openScheduleModal() {
+            this.showScheduleModal = true;
+            const response = await fetch('{% url "contabilidad:schedule_report_form" %}');
+            document.getElementById('schedule-modal-content').innerHTML = await response.text();
+        },
+
+        closeCustomModal() {
+            this.showCustomModal = false;
+            document.getElementById('custom-modal-content').innerHTML = '';
+        },
+
+        closeScheduleModal() {
+            this.showScheduleModal = false;
+            document.getElementById('schedule-modal-content').innerHTML = '';
+        },
+
+        async downloadReport(id) {
+            try {
+                const response = await fetch(`{% url "contabilidad:download_report" 0 %}`.replace('0', id));
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `reporte_${id}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                this.showNotification('Error al descargar el reporte', 'error');
+            }
+        },
+
+        async viewReport(id) {
+            window.open(`{% url "contabilidad:view_report" 0 %}`.replace('0', id), '_blank');
+        },
+
+        async shareReport(id) {
+            // Implementar funcionalidad de compartir
+            this.showNotification('Funcionalidad de compartir en desarrollo', 'info');
+        },
+
+        async refreshRecentReports() {
+            await this.loadRecentReports();
+            this.showNotification('Lista actualizada', 'success');
+        },
+
+        getStatusBadgeClass(estado) {
+            const classes = {
+                'GENERADO': 'bg-green-100 text-green-800',
+                'PROCESANDO': 'bg-yellow-100 text-yellow-800',
+                'ERROR': 'bg-red-100 text-red-800',
+                'PROGRAMADO': 'bg-blue-100 text-blue-800'
+            };
+            return classes[estado] || 'bg-gray-100 text-gray-800';
+        },
+
+        formatDateTime(dateString) {
+            return new Date(dateString).toLocaleString('es-ES');
+        },
+
+        showNotification(message, type = 'info') {
+            console.log(`${type}: ${message}`);
+        }
+    }
+}
+</script>
+
+{% csrf_token %}
+{% endblock %}

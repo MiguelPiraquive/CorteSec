@@ -1,0 +1,832 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Cargos" %}{% endblock %}
+
+{% block content %}
+<!-- Include Toast Notifications -->
+{% include 'cargos/cargos/toast_notifications.html' %}
+
+<div class="bg-white rounded-2xl shadow p-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <h2 class="text-2xl font-bold text-blue-700">{% trans "Cargos" %}</h2>
+        <div class="flex gap-2">
+            <a href="{% url 'cargos:create' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                <i class="ti ti-plus mr-2"></i> {% trans "Agregar Cargo" %}
+            </a>
+            <button onclick="toggleFilters()" class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition">
+                <i class="ti ti-filter mr-2"></i> {% trans "Filtros" %}
+            </button>
+            <div class="relative">
+                <button onclick="toggleExportMenu()" class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg shadow hover:bg-green-200 transition">
+                    <i class="ti ti-download mr-2"></i> {% trans "Exportar" %}
+                </button>
+                <div id="export-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden">
+                    <div class="py-1">
+                        <a href="#" onclick="exportData('excel')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="ti ti-file-type-xls mr-2"></i>{% trans "Excel" %}
+                        </a>
+                        <a href="#" onclick="exportData('csv')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="ti ti-file-type-csv mr-2"></i>{% trans "CSV" %}
+                        </a>
+                        <a href="#" onclick="exportData('pdf')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="ti ti-file-type-pdf mr-2"></i>{% trans "PDF" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div id="filtros-section" class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 hidden">
+        <form method="get" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Búsqueda -->
+                <div class="md:col-span-2">
+                    <label for="search" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-search mr-1"></i>{% trans "Búsqueda" %}
+                    </label>
+                    <input type="text" 
+                           id="search" 
+                           name="search" 
+                           value="{{ search }}"
+                           placeholder="{% trans 'Nombre, código, descripción...' %}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <!-- Estado -->
+                <div>
+                    <label for="activo" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-toggle-left mr-1"></i>{% trans "Estado" %}
+                    </label>
+                    <select id="activo" 
+                            name="activo"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">{% trans "Todos" %}</option>
+                        <option value="true" {% if activo == 'true' %}selected{% endif %}>{% trans "Activos" %}</option>
+                        <option value="false" {% if activo == 'false' %}selected{% endif %}>{% trans "Inactivos" %}</option>
+                    </select>
+                </div>
+                
+                <!-- Nivel Jerárquico -->
+                <div>
+                    <label for="nivel_jerarquico" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-hierarchy mr-1"></i>{% trans "Nivel Jerárquico" %}
+                    </label>
+                    <select id="nivel_jerarquico" 
+                            name="nivel_jerarquico"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">{% trans "Todos" %}</option>
+                        {% for nivel in niveles_disponibles %}
+                            <option value="{{ nivel }}" {% if nivel_jerarquico == nivel|stringformat:"s" %}selected{% endif %}>
+                                {% trans "Nivel" %} {{ nivel }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Segunda fila de filtros -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Cargo Superior -->
+                <div>
+                    <label for="cargo_superior" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-user-check mr-1"></i>{% trans "Cargo Superior" %}
+                    </label>
+                    <select id="cargo_superior" 
+                            name="cargo_superior"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">{% trans "Todos" %}</option>
+                        {% for cargo in cargos_superiores %}
+                            <option value="{{ cargo.id }}" {% if cargo_superior == cargo.id|stringformat:"s" %}selected{% endif %}>
+                                {{ cargo.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Fecha desde -->
+                <div>
+                    <label for="fecha_desde" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-calendar mr-1"></i>{% trans "Creado desde" %}
+                    </label>
+                    <input type="date" 
+                           id="fecha_desde" 
+                           name="fecha_desde" 
+                           value="{{ fecha_desde }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <!-- Fecha hasta -->
+                <div>
+                    <label for="fecha_hasta" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="ti ti-calendar mr-1"></i>{% trans "Creado hasta" %}
+                    </label>
+                    <input type="date" 
+                           id="fecha_hasta" 
+                           name="fecha_hasta" 
+                           value="{{ fecha_hasta }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            
+            <!-- Botones de filtro -->
+            <div class="flex items-center justify-between">
+                <div class="flex gap-2">
+                    <button type="submit" 
+                            class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+                        <i class="ti ti-search mr-2"></i>{% trans "Buscar" %}
+                    </button>
+                    <a href="{% url 'cargos:list' %}" 
+                       class="inline-flex items-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors">
+                        <i class="ti ti-x mr-2"></i>{% trans "Limpiar" %}
+                    </a>
+                </div>
+                
+                <!-- Ordenamiento -->
+                <div class="flex items-center gap-2">
+                    <label for="order_by" class="text-sm font-medium text-gray-700">{% trans "Ordenar por:" %}</label>
+                    <select id="order_by" 
+                            name="order_by"
+                            onchange="this.form.submit()"
+                            class="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="nivel_jerarquico" {% if order_by == 'nivel_jerarquico' %}selected{% endif %}>{% trans "Nivel Jerárquico" %}</option>
+                        <option value="nombre" {% if order_by == 'nombre' %}selected{% endif %}>{% trans "Nombre" %}</option>
+                        <option value="codigo" {% if order_by == 'codigo' %}selected{% endif %}>{% trans "Código" %}</option>
+                        <option value="fecha_creacion" {% if order_by == 'fecha_creacion' %}selected{% endif %}>{% trans "Fecha Creación" %}</option>
+                        <option value="-fecha_creacion" {% if order_by == '-fecha_creacion' %}selected{% endif %}>{% trans "Más Recientes" %}</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i class="ti ti-id-badge text-2xl text-blue-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-blue-600">{% trans "Total Cargos" %}</p>
+                    <p class="text-2xl font-bold text-blue-700">{{ stats.total }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-green-100 rounded-lg">
+                    <i class="ti ti-check text-2xl text-green-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-green-600">{% trans "Activos" %}</p>
+                    <p class="text-2xl font-bold text-green-700">{{ stats.activos }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-red-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-red-100 rounded-lg">
+                    <i class="ti ti-x text-2xl text-red-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-red-600">{% trans "Inactivos" %}</p>
+                    <p class="text-2xl font-bold text-red-700">{{ stats.inactivos }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-purple-100 rounded-lg">
+                    <i class="ti ti-users text-2xl text-purple-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-purple-600">{% trans "Empleados Asignados" %}</p>
+                    <p class="text-2xl font-bold text-purple-700">{{ total_empleados|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados de búsqueda -->
+    {% if search or activo or nivel_jerarquico or cargo_superior %}
+    <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="ti ti-info-circle text-blue-600 mr-2"></i>
+                <span class="text-blue-800 text-sm font-medium">
+                    {% trans "Filtros aplicados:" %}
+                    {% if search %}
+                        {% trans "Búsqueda" %}: "{{ search }}"
+                    {% endif %}
+                    {% if activo %}
+                        {% if activo == 'true' %}
+                            {% trans "Estado" %}: {% trans "Activos" %}
+                        {% else %}
+                            {% trans "Estado" %}: {% trans "Inactivos" %}
+                        {% endif %}
+                    {% endif %}
+                    {% if nivel_jerarquico %}
+                        {% trans "Nivel" %}: {{ nivel_jerarquico }}
+                    {% endif %}
+                    {% if cargo_superior %}
+                        {% trans "Cargo Superior aplicado" %}
+                    {% endif %}
+                </span>
+            </div>
+            <a href="{% url 'cargos:list' %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                {% trans "Limpiar filtros" %}
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-blue-100">
+            <thead class="bg-blue-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                        <input type="checkbox" id="select-all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" onclick="toggleAllCheckboxes()">
+                        <span class="ml-2">{% trans "Nombre del Cargo" %}</span>
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Nivel/Superior" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Empleados" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Estado" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Fecha Creación" %}</th>
+                    <th class="px-4 py-2 text-center text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Acciones" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-blue-50">
+                {% for cargo in cargos %}
+                <tr class="hover:bg-blue-50 transition" id="cargo-row-{{ cargo.pk }}">
+                    <td class="px-4 py-3">
+                        <div class="flex items-center">
+                            <input type="checkbox" class="cargo-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500" value="{{ cargo.pk }}">
+                            <div class="flex-shrink-0 h-10 w-10 ml-3">
+                                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <i class="ti ti-id-badge text-blue-600"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">{{ cargo.nombre }}</div>
+                                <div class="text-xs text-gray-500">{{ cargo.codigo }}</div>
+                                {% if cargo.descripcion %}
+                                    <div class="text-xs text-gray-400 truncate max-w-xs" title="{{ cargo.descripcion }}">{{ cargo.descripcion|truncatechars:50 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-sm">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                {% trans "Nivel" %} {{ cargo.nivel_jerarquico }}
+                            </span>
+                            {% if cargo.cargo_superior %}
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <i class="ti ti-arrow-up mr-1"></i>{{ cargo.cargo_superior.nombre }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <i class="ti ti-users mr-1"></i>{{ cargo.empleados_count }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if cargo.activo %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <i class="ti ti-check mr-1"></i>{% trans "Activo" %}
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <i class="ti ti-x mr-1"></i>{% trans "Inactivo" %}
+                            </span>
+                        {% endif %}
+                        {% if cargo.es_temporal %}
+                            <div class="mt-1">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    <i class="ti ti-clock mr-1"></i>{% trans "Temporal" %}
+                                </span>
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-500">
+                        {% if cargo.fecha_creacion %}
+                            {{ cargo.fecha_creacion|date:"d/m/Y" }}
+                            <div class="text-xs text-gray-400">{{ cargo.fecha_creacion|date:"H:i" }}</div>
+                        {% else %}
+                            <span class="text-gray-400">{% trans "No disponible" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex justify-center gap-1">
+                            <a href="{% url 'cargos:detail' cargo.pk %}" 
+                               class="inline-flex items-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-xs" 
+                               title="{% trans 'Ver Detalles' %}">
+                                <i class="ti ti-eye"></i>
+                            </a>
+                            <a href="{% url 'cargos:update' cargo.pk %}" 
+                               class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs" 
+                               title="{% trans 'Editar' %}">
+                                <i class="ti ti-pencil"></i>
+                            </a>
+                            {% if cargo.activo %}
+                                <button onclick="toggleCargo({{ cargo.pk }}, false)" 
+                                        class="inline-flex items-center px-2 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 transition text-xs" 
+                                        title="{% trans 'Desactivar' %}">
+                                    <i class="ti ti-toggle-left"></i>
+                                </button>
+                            {% else %}
+                                <button onclick="toggleCargo({{ cargo.pk }}, true)" 
+                                        class="inline-flex items-center px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition text-xs" 
+                                        title="{% trans 'Activar' %}">
+                                    <i class="ti ti-toggle-right"></i>
+                                </button>
+                            {% endif %}
+                            <a href="{% url 'cargos:delete' cargo.pk %}" 
+                               class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs" 
+                               title="{% trans 'Eliminar' %}">
+                                <i class="ti ti-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-8">
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                <i class="ti ti-id-badge text-2xl text-gray-400"></i>
+                            </div>
+                            {% if search or activo or nivel_jerarquico or cargo_superior %}
+                                <p class="text-gray-500 text-lg font-medium">{% trans "No se encontraron cargos" %}</p>
+                                <p class="text-gray-400 text-sm mt-1">{% trans "Intenta ajustar los filtros de búsqueda" %}</p>
+                                <a href="{% url 'cargos:list' %}" 
+                                   class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                                    <i class="ti ti-x mr-2"></i> {% trans "Limpiar filtros" %}
+                                </a>
+                            {% else %}
+                                <p class="text-gray-500 text-lg font-medium">{% trans "No hay cargos registrados" %}</p>
+                                <p class="text-gray-400 text-sm mt-1">{% trans "Comienza agregando tu primer cargo" %}</p>
+                                <a href="{% url 'cargos:create' %}" 
+                                   class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                                    <i class="ti ti-plus mr-2"></i> {% trans "Agregar Primer Cargo" %}
+                                </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Acciones masivas -->
+    <div id="bulk-actions" class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg hidden">
+        <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600">
+                <span id="selected-count">0</span> {% trans "elementos seleccionados" %}
+            </span>
+            <div class="flex gap-2">
+                <button onclick="bulkActivate()" class="inline-flex items-center px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition">
+                    <i class="ti ti-check mr-1"></i>{% trans "Activar" %}
+                </button>
+                <button onclick="bulkDeactivate()" class="inline-flex items-center px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition">
+                    <i class="ti ti-x mr-1"></i>{% trans "Desactivar" %}
+                </button>
+                <button onclick="bulkDelete()" class="inline-flex items-center px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition">
+                    <i class="ti ti-trash mr-1"></i>{% trans "Eliminar" %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paginación -->
+    {% if is_paginated %}
+    <div class="mt-6 flex items-center justify-between">
+        <div class="flex-1 flex justify-between sm:hidden">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    {% trans "Anterior" %}
+                </a>
+            {% endif %}
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    {% trans "Siguiente" %}
+                </a>
+            {% endif %}
+        </div>
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700">
+                    {% trans "Mostrando" %}
+                    <span class="font-medium">{{ page_obj.start_index }}</span>
+                    {% trans "a" %}
+                    <span class="font-medium">{{ page_obj.end_index }}</span>
+                    {% trans "de" %}
+                    <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                    {% trans "resultados" %}
+                </p>
+            </div>
+            <div>
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="ti ti-chevron-left"></i>
+                        </a>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <span class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">
+                                {{ num }}
+                            </span>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <a href="?page={{ num }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                {{ num }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="ti ti-chevron-right"></i>
+                        </a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// JavaScript para funcionalidades avanzadas
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar funcionalidades
+    updateSelectedCount();
+    
+    // Auto-submit del formulario cuando cambia el ordenamiento
+    const orderSelect = document.getElementById('order_by');
+    if (orderSelect) {
+        orderSelect.addEventListener('change', function() {
+            this.form.submit();
+        });
+    }
+    
+    // Detectar cambios en checkboxes para mostrar/ocultar acciones masivas
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('cargo-checkbox')) {
+            updateSelectedCount();
+        }
+    });
+});
+
+// Toggle filtros
+function toggleFilters() {
+    const filtrosSection = document.getElementById('filtros-section');
+    if (filtrosSection.classList.contains('hidden')) {
+        filtrosSection.classList.remove('hidden');
+    } else {
+        filtrosSection.classList.add('hidden');
+    }
+}
+
+// Seleccionar/deseleccionar todos los checkboxes
+function toggleAllCheckboxes() {
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.cargo-checkbox');
+    
+    checkboxes.forEach(function(checkbox) {
+        checkbox.checked = selectAll.checked;
+    });
+    
+    updateSelectedCount();
+}
+
+// Actualizar contador de elementos seleccionados
+function updateSelectedCount() {
+    const checkedBoxes = document.querySelectorAll('.cargo-checkbox:checked');
+    const count = checkedBoxes.length;
+    const bulkActions = document.getElementById('bulk-actions');
+    const selectedCount = document.getElementById('selected-count');
+    
+    if (selectedCount) {
+        selectedCount.textContent = count;
+    }
+    
+    if (bulkActions) {
+        if (count > 0) {
+            bulkActions.classList.remove('hidden');
+        } else {
+            bulkActions.classList.add('hidden');
+        }
+    }
+}
+
+// Toggle estado de un cargo individual
+function toggleCargo(cargoId, activate) {
+    const action = activate ? 'activar' : 'desactivar';
+    const message = activate ? 
+        '¿Está seguro de que desea activar este cargo?' : 
+        '¿Está seguro de que desea desactivar este cargo?';
+    
+    if (confirm(message)) {
+        fetch(`/cargos/${cargoId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 'activate': activate })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                toastManager.success(`Cargo ${action} exitosamente`);
+                location.reload(); // Recargar la página para actualizar el estado
+            } else {
+                toastManager.error(`Error al ${action} el cargo`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            toastManager.error(`Error al ${action} el cargo`);
+        });
+    }
+}
+
+// Acciones masivas
+function getSelectedCargos() {
+    const checkedBoxes = document.querySelectorAll('.cargo-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkActivate() {
+    const cargoIds = getSelectedCargos();
+    if (cargoIds.length === 0) return;
+    
+    if (confirm(`¿Está seguro de que desea activar ${cargoIds.length} cargos?`)) {
+        bulkAction(cargoIds, 'activate');
+    }
+}
+
+function bulkDeactivate() {
+    const cargoIds = getSelectedCargos();
+    if (cargoIds.length === 0) return;
+    
+    if (confirm(`¿Está seguro de que desea desactivar ${cargoIds.length} cargos?`)) {
+        bulkAction(cargoIds, 'deactivate');
+    }
+}
+
+function bulkDelete() {
+    const cargoIds = getSelectedCargos();
+    if (cargoIds.length === 0) return;
+    
+    if (confirm(`¿Está seguro de que desea eliminar ${cargoIds.length} cargos? Esta acción no se puede deshacer.`)) {
+        bulkAction(cargoIds, 'delete');
+    }
+}
+
+function bulkAction(cargoIds, action) {
+    fetch(`/cargos/bulk-action/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            'cargo_ids': cargoIds,
+            'action': action
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            toastManager.success(data.message);
+            location.reload();
+        } else {
+            toastManager.error(data.message || `Error al ejecutar la acción ${action}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        toastManager.error(`Error al ejecutar la acción ${action}`);
+    });
+}
+
+// Obtener CSRF token
+function getCsrfToken() {
+    const name = 'csrfmiddlewaretoken';
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [cookieName, cookieValue] = cookie.trim().split('=');
+        if (cookieName === name) {
+            return decodeURIComponent(cookieValue);
+        }
+    }
+    // Fallback: buscar en input hidden
+    const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    return csrfInput ? csrfInput.value : '';
+}
+
+// Búsqueda en tiempo real (debounced)
+let searchTimeout;
+function setupLiveSearch() {
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                // Mostrar indicador de carga
+                const loadingIndicator = document.createElement('div');
+                loadingIndicator.innerHTML = '<i class="ti ti-loader animate-spin mr-2"></i>Buscando...';
+                loadingIndicator.className = 'text-blue-600 text-sm mt-1';
+                loadingIndicator.id = 'search-loading';
+                
+                // Eliminar indicador anterior si existe
+                const existingIndicator = document.getElementById('search-loading');
+                if (existingIndicator) {
+                    existingIndicator.remove();
+                }
+                
+                searchInput.parentNode.appendChild(loadingIndicator);
+                
+                // Enviar formulario después del delay
+                setTimeout(() => {
+                    this.form.submit();
+                }, 100);
+            }, 500); // Esperar 500ms después de que el usuario deje de escribir
+        });
+    }
+}
+
+// Atajos de teclado
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + F para enfocar búsqueda
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            const searchInput = document.getElementById('search');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+            }
+        }
+        
+        // Ctrl/Cmd + N para nuevo cargo
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            const createButton = document.querySelector('a[href*="crear"]');
+            if (createButton) {
+                createButton.click();
+            }
+        }
+        
+        // Escape para cerrar filtros
+        if (e.key === 'Escape') {
+            const filtrosSection = document.getElementById('filtros-section');
+            if (filtrosSection && !filtrosSection.classList.contains('hidden')) {
+                toggleFilters();
+            }
+        }
+    });
+}
+
+// Recordar preferencias del usuario
+function setupUserPreferences() {
+    // Recordar estado de filtros
+    const filtrosSection = document.getElementById('filtros-section');
+    const filtersOpen = localStorage.getItem('cargos_filters_open') === 'true';
+    
+    if (filtersOpen && filtrosSection) {
+        filtrosSection.classList.remove('hidden');
+    }
+}
+
+// Guardar estado de filtros
+function toggleFilters() {
+    const filtrosSection = document.getElementById('filtros-section');
+    if (filtrosSection.classList.contains('hidden')) {
+        filtrosSection.classList.remove('hidden');
+        localStorage.setItem('cargos_filters_open', 'true');
+    } else {
+        filtrosSection.classList.add('hidden');
+        localStorage.setItem('cargos_filters_open', 'false');
+    }
+}
+
+// Toggle menú de exportación
+function toggleExportMenu() {
+    const exportMenu = document.getElementById('export-menu');
+    exportMenu.classList.toggle('hidden');
+}
+
+// Cerrar menú de exportación al hacer clic fuera
+document.addEventListener('click', function(e) {
+    const exportMenu = document.getElementById('export-menu');
+    const exportButton = e.target.closest('button[onclick="toggleExportMenu()"]');
+    
+    if (!exportButton && !exportMenu.contains(e.target)) {
+        exportMenu.classList.add('hidden');
+    }
+});
+
+// Exportar datos
+function exportData(format) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', format);
+    
+    // Crear un enlace temporal para descargar
+    const link = document.createElement('a');
+    link.href = `${window.location.pathname}?${params.toString()}`;
+    link.download = `cargos.${format}`;
+    
+    // Mostrar mensaje de descarga
+    toastManager.info(`Preparando descarga en formato ${format.toUpperCase()}...`);
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Cerrar menú
+    document.getElementById('export-menu').classList.add('hidden');
+}
+
+// Vista rápida de cargo (modal)
+function showQuickView(cargoId) {
+    fetch(`/cargos/${cargoId}/`)
+        .then(response => response.text())
+        .then(html => {
+            // Crear modal dinámico
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg max-w-2xl w-full max-h-90vh overflow-y-auto">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Vista Rápida del Cargo</h3>
+                            <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700">
+                                <i class="ti ti-x text-xl"></i>
+                            </button>
+                        </div>
+                        <div id="quick-view-content">
+                            <div class="flex items-center justify-center py-8">
+                                <i class="ti ti-loader animate-spin text-2xl text-blue-600"></i>
+                                <span class="ml-2 text-gray-600">Cargando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Cargar contenido del cargo
+            // En una implementación real, harías una llamada AJAX aquí
+            setTimeout(() => {
+                const content = modal.querySelector('#quick-view-content');
+                content.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="text-center">
+                            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i class="ti ti-id-badge text-2xl text-blue-600"></i>
+                            </div>
+                            <p class="text-gray-500">Para ver los detalles completos, 
+                            <a href="/cargos/${cargoId}/" class="text-blue-600 hover:underline">haga clic aquí</a></p>
+                        </div>
+                    </div>
+                `;
+            }, 1000);
+            
+            // Cerrar con Escape
+            modal.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            toastManager.error('Error al cargar la vista rápida');
+        });
+}
+
+// Inicializar todas las funcionalidades
+document.addEventListener('DOMContentLoaded', function() {
+    setupLiveSearch();
+    setupKeyboardShortcuts();
+    setupUserPreferences();
+    
+    // Mostrar tooltip con atajos de teclado
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+        searchInput.setAttribute('title', 'Atajo: Ctrl+F para enfocar búsqueda');
+    }
+});
+</script>
+{% endblock %}

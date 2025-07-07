@@ -1,0 +1,108 @@
+{% load i18n %}
+
+<!-- ===== STATUS COMPONENT ===== -->
+<div class="hidden lg:flex items-center space-x-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-2" x-data="{ 
+  currentTime: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  currentDate: new Date().toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }),
+  online: navigator.onLine,
+  serverStatus: 'online'
+}" x-init="
+  // Actualizar tiempo cada segundo
+  setInterval(() => {
+    const now = new Date();
+    currentTime = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    currentDate = now.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  }, 1000);
+  
+  // Eventos de conexión
+  window.addEventListener('online', () => {
+    online = true;
+    serverStatus = 'online';
+  });
+  window.addEventListener('offline', () => {
+    online = false;
+    serverStatus = 'offline';
+  });
+  
+  // Verificar estado del servidor periódicamente
+  setInterval(async () => {
+    try {
+      const response = await fetch('/api/health/', { method: 'HEAD' });
+      serverStatus = response.ok ? 'online' : 'warning';
+    } catch (error) {
+      serverStatus = 'offline';
+    }
+  }, 30000);
+">
+  <!-- Connection Status -->
+  <div class="flex items-center space-x-2">
+    <!-- Indicador de estado con animación -->
+    <div class="relative">
+      <!-- Círculo principal -->
+      <div class="w-2 h-2 rounded-full transition-all duration-300"
+           :class="{
+             'bg-green-500': online && serverStatus === 'online',
+             'bg-yellow-500': online && serverStatus === 'warning', 
+             'bg-red-500': !online || serverStatus === 'offline'
+           }"></div>
+      
+      <!-- Efecto de pulso cuando está online -->
+      <div class="absolute inset-0 w-2 h-2 rounded-full animate-pulse"
+           :class="{
+             'bg-green-400': online && serverStatus === 'online',
+             'bg-yellow-400': online && serverStatus === 'warning'
+           }"
+           x-show="online && serverStatus !== 'offline'"></div>
+    </div>
+    
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <span x-show="online && serverStatus === 'online'" class="text-green-600 dark:text-green-400">
+        {% trans 'En línea' %}
+      </span>
+      <span x-show="online && serverStatus === 'warning'" class="text-yellow-600 dark:text-yellow-400">
+        {% trans 'Conexión lenta' %}
+      </span>
+      <span x-show="!online || serverStatus === 'offline'" class="text-red-600 dark:text-red-400">
+        {% trans 'Sin conexión' %}
+      </span>
+    </span>
+  </div>
+  
+  <!-- Separator -->
+  <div class="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+  
+  <!-- Date & Time Display -->
+  <div class="flex items-center space-x-3">
+    <!-- Fecha -->
+    <div class="flex items-center space-x-2">
+      <i class="fas fa-calendar-alt text-gray-400 text-sm"></i>
+      <span class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="currentDate"></span>
+    </div>
+    
+    <!-- Separador pequeño -->
+    <div class="w-px h-3 bg-gray-300 dark:bg-gray-600"></div>
+    
+    <!-- Hora -->
+    <div class="flex items-center space-x-2">
+      <i class="fas fa-clock text-gray-400 text-sm"></i>
+      <span class="text-sm font-mono text-gray-700 dark:text-gray-300 tabular-nums" x-text="currentTime"></span>
+    </div>
+  </div>
+  
+  <!-- System Performance Indicator (opcional) -->
+  <div class="hidden xl:flex items-center space-x-2" x-data="{ 
+    performance: 'good',
+    loadTime: '0.8s'
+  }">
+    <div class="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+    
+    <div class="flex items-center space-x-2">
+      <i class="fas fa-tachometer-alt text-gray-400 text-sm"></i>
+      <span class="text-xs text-gray-600 dark:text-gray-400">
+        <span x-show="performance === 'good'" class="text-green-600 dark:text-green-400">{% trans 'Óptimo' %}</span>
+        <span x-show="performance === 'warning'" class="text-yellow-600 dark:text-yellow-400">{% trans 'Lento' %}</span>
+        <span x-show="performance === 'poor'" class="text-red-600 dark:text-red-400">{% trans 'Lento' %}</span>
+      </span>
+    </div>
+  </div>
+</div>

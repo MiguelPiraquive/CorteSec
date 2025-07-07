@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}
+    {% if cargo %}{% trans "Editar Cargo" %}{% else %}{% trans "Crear Cargo" %}{% endif %} - CorteSec
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto p-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                <i class="ti ti-briefcase mr-3 text-blue-600"></i>
+                {% if cargo %}{% trans "Editar Cargo" %}{% else %}{% trans "Crear Cargo" %}{% endif %}
+            </h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">
+                {% if cargo %}
+                    {% blocktrans with nombre=cargo.nombre %}Modifica la información del cargo "{{ nombre }}"{% endblocktrans %}
+                {% else %}
+                    {% trans "Completa la información para crear un nuevo cargo" %}
+                {% endif %}
+            </p>
+        </div>
+        <a href="{% url 'cargos:list' %}" 
+           class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
+            <i class="ti ti-arrow-left mr-2"></i>
+            {% trans "Volver" %}
+        </a>
+    </div>
+
+    <form method="post" novalidate class="space-y-8">
+        {% csrf_token %}
+        
+        <!-- Errores generales del formulario -->
+        {% if form.non_field_errors %}
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="ti ti-alert-circle text-red-600 dark:text-red-400 mr-2"></i>
+                    <h3 class="text-red-800 dark:text-red-300 font-semibold">{% trans "Errores en el formulario" %}</h3>
+                </div>
+                <div class="mt-2 text-red-700 dark:text-red-300">{{ form.non_field_errors }}</div>
+            </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Información Básica -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                    <h2 class="text-white font-semibold flex items-center">
+                        <i class="ti ti-info-circle mr-2"></i>
+                        {% trans "Información Básica" %}
+                    </h2>
+                </div>
+                <div class="p-6 space-y-6">
+                    <!-- Código -->
+                    <div>
+                        <label for="{{ form.codigo.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            {{ form.codigo.label }}
+                            {% if form.codigo.field.required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+                        </label>
+                        {{ form.codigo|add_class:"w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" }}
+                        {% if form.codigo.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.codigo.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.codigo.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.codigo.help_text }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Nombre -->
+                    <div>
+                        <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            {{ form.nombre.label }}
+                            {% if form.nombre.field.required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+                        </label>
+                        {{ form.nombre|add_class:"w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" }}
+                        {% if form.nombre.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.nombre.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.nombre.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.nombre.help_text }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Descripción -->
+                    <div>
+                        <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            {{ form.descripcion.label }}
+                            {% if form.descripcion.field.required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+                        </label>
+                        {{ form.descripcion|add_class:"w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-y min-h-24" }}
+                        {% if form.descripcion.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.descripcion.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.descripcion.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.descripcion.help_text }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Estado Activo -->
+                    {% if form.activo %}
+                    <div>
+                        <div class="flex items-center space-x-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                            {{ form.activo|add_class:"h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" }}
+                            <label for="{{ form.activo.id_for_label }}" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {{ form.activo.label }}
+                            </label>
+                        </div>
+                        {% if form.activo.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.activo.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.activo.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.activo.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Jerarquía y Configuración -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
+                    <h2 class="text-white font-semibold flex items-center">
+                        <i class="ti ti-hierarchy mr-2"></i>
+                        {% trans "Jerarquía y Configuración" %}
+                    </h2>
+                </div>
+                <div class="p-6 space-y-6">
+                    <!-- Cargo Superior -->
+                    {% if form.cargo_superior %}
+                    <div>
+                        <label for="{{ form.cargo_superior.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            {{ form.cargo_superior.label }}
+                            {% if form.cargo_superior.field.required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+                        </label>
+                        {{ form.cargo_superior|add_class:"w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" }}
+                        {% if form.cargo_superior.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.cargo_superior.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.cargo_superior.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.cargo_superior.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Nivel Jerárquico -->
+                    {% if form.nivel_jerarquico %}
+                    <div>
+                        <label for="{{ form.nivel_jerarquico.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            {{ form.nivel_jerarquico.label }}
+                            {% if form.nivel_jerarquico.field.required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+                        </label>
+                        {{ form.nivel_jerarquico|add_class:"w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" }}
+                        {% if form.nivel_jerarquico.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.nivel_jerarquico.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.nivel_jerarquico.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.nivel_jerarquico.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Salario Base Mínimo -->
+                    {% if form.salario_base_minimo %}
+                    <div>
+                        <label for="{{ form.salario_base_minimo.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            {{ form.salario_base_minimo.label }}
+                            {% if form.salario_base_minimo.field.required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">$</span>
+                            {{ form.salario_base_minimo|add_class:"w-full pl-8 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" }}
+                        </div>
+                        {% if form.salario_base_minimo.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.salario_base_minimo.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.salario_base_minimo.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.salario_base_minimo.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Salario Base Máximo -->
+                    {% if form.salario_base_maximo %}
+                    <div>
+                        <label for="{{ form.salario_base_maximo.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            {{ form.salario_base_maximo.label }}
+                            {% if form.salario_base_maximo.field.required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">$</span>
+                            {{ form.salario_base_maximo|add_class:"w-full pl-8 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" }}
+                        </div>
+                        {% if form.salario_base_maximo.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.salario_base_maximo.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.salario_base_maximo.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.salario_base_maximo.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuración Avanzada -->
+        {% if form.requiere_aprobacion or form.puede_aprobar or form.limite_aprobacion or form.es_temporal %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
+                <h2 class="text-white font-semibold flex items-center">
+                    <i class="ti ti-settings mr-2"></i>
+                    {% trans "Configuración Avanzada" %}
+                </h2>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {% if form.requiere_aprobacion %}
+                    <div>
+                        <div class="flex items-center space-x-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                            {{ form.requiere_aprobacion|add_class:"h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" }}
+                            <label for="{{ form.requiere_aprobacion.id_for_label }}" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {{ form.requiere_aprobacion.label }}
+                            </label>
+                        </div>
+                        {% if form.requiere_aprobacion.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.requiere_aprobacion.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.requiere_aprobacion.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.requiere_aprobacion.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if form.puede_aprobar %}
+                    <div>
+                        <div class="flex items-center space-x-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                            {{ form.puede_aprobar|add_class:"h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" }}
+                            <label for="{{ form.puede_aprobar.id_for_label }}" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {{ form.puede_aprobar.label }}
+                            </label>
+                        </div>
+                        {% if form.puede_aprobar.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.puede_aprobar.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.puede_aprobar.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.puede_aprobar.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if form.limite_aprobacion %}
+                    <div>
+                        <label for="{{ form.limite_aprobacion.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            {{ form.limite_aprobacion.label }}
+                            {% if form.limite_aprobacion.field.required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">$</span>
+                            {{ form.limite_aprobacion|add_class:"w-full pl-8 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" }}
+                        </div>
+                        {% if form.limite_aprobacion.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.limite_aprobacion.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.limite_aprobacion.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.limite_aprobacion.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if form.es_temporal %}
+                    <div>
+                        <div class="flex items-center space-x-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                            {{ form.es_temporal|add_class:"h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" }}
+                            <label for="{{ form.es_temporal.id_for_label }}" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {{ form.es_temporal.label }}
+                            </label>
+                        </div>
+                        {% if form.es_temporal.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.es_temporal.errors.0 }}</p>
+                        {% endif %}
+                        {% if form.es_temporal.help_text %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.es_temporal.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Información Adicional -->
+        <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 p-6 rounded-lg">
+            <div class="flex items-start">
+                <i class="ti ti-info-circle text-blue-600 dark:text-blue-400 text-xl mr-3 mt-1 flex-shrink-0"></i>
+                <div>
+                    <h3 class="text-blue-800 dark:text-blue-300 font-semibold mb-3">
+                        {% trans "Información importante sobre cargos" %}
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-blue-700 dark:text-blue-300">
+                        <div class="flex items-center">
+                            <i class="ti ti-check text-green-600 mr-2"></i>
+                            {% trans "El código debe ser único para cada cargo" %}
+                        </div>
+                        <div class="flex items-center">
+                            <i class="ti ti-check text-green-600 mr-2"></i>
+                            {% trans "Las funciones describen las responsabilidades del cargo" %}
+                        </div>
+                        <div class="flex items-center">
+                            <i class="ti ti-check text-green-600 mr-2"></i>
+                            {% trans "El salario base puede ser modificado según el nivel salarial" %}
+                        </div>
+                        <div class="flex items-center">
+                            <i class="ti ti-check text-green-600 mr-2"></i>
+                            {% trans "Solo los cargos activos aparecerán en los formularios de empleado" %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="flex justify-center space-x-4 pt-4">
+            <button type="submit" 
+                    class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg">
+                <i class="ti ti-device-floppy mr-2"></i>
+                {% if cargo %}{% trans "Actualizar Cargo" %}{% else %}{% trans "Crear Cargo" %}{% endif %}
+            </button>
+            <a href="{% url 'cargos:list' %}" 
+               class="inline-flex items-center px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg transition-all duration-200">
+                <i class="ti ti-x mr-2"></i>
+                {% trans "Cancelar" %}
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-generar código basado en el nombre
+    const nombreInput = document.querySelector('#id_nombre');
+    const codigoInput = document.querySelector('#id_codigo');
+    
+    if (nombreInput && codigoInput) {
+        nombreInput.addEventListener('input', function() {
+            if (!codigoInput.value && this.value) {
+                const codigo = this.value.substring(0, 4).toUpperCase().replace(/[^A-Z]/g, '');
+                if (codigo) {
+                    codigoInput.value = codigo;
+                    // Efecto visual breve
+                    codigoInput.classList.add('ring-2', 'ring-green-500');
+                    setTimeout(() => {
+                        codigoInput.classList.remove('ring-2', 'ring-green-500');
+                    }, 1500);
+                }
+            }
+        });
+    }
+    
+    // Validación de rango salarial
+    const salarioMin = document.querySelector('#id_salario_base_minimo');
+    const salarioMax = document.querySelector('#id_salario_base_maximo');
+    
+    if (salarioMin && salarioMax) {
+        function validarRangoSalarial() {
+            if (salarioMin.value && salarioMax.value) {
+                if (parseFloat(salarioMin.value) > parseFloat(salarioMax.value)) {
+                    salarioMax.classList.add('border-red-500', 'ring-red-500');
+                    return false;
+                } else {
+                    salarioMax.classList.remove('border-red-500', 'ring-red-500');
+                    return true;
+                }
+            }
+            return true;
+        }
+        
+        salarioMin.addEventListener('input', validarRangoSalarial);
+        salarioMax.addEventListener('input', validarRangoSalarial);
+    }
+});
+</script>
+{% endblock %}
+

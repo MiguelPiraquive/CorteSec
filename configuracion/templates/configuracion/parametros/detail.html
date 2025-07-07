@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans "Detalle del Parámetro" %}: {{ parametro.codigo }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .info-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+    
+    .status-activo {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+    }
+    
+    .status-inactivo {
+        background: linear-gradient(45deg, #6c757d, #495057);
+        color: white;
+    }
+    
+    .status-sistema {
+        background: linear-gradient(45deg, #fd7e14, #e55a00);
+        color: white;
+    }
+    
+    .value-display {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.875rem;
+        word-break: break-all;
+    }
+    
+    .history-item {
+        border-left: 3px solid #e9ecef;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .history-item.recent {
+        border-left-color: #007bff;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        border: none;
+        border-radius: 25px;
+        padding: 8px 20px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,123,255,0.4);
+    }
+    
+    .action-btn {
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                    <i class="ti ti-adjustments text-blue-600 mr-3"></i>
+                    {{ parametro.codigo }}
+                </h1>
+                <p class="text-gray-600 mt-1">{{ parametro.nombre }}</p>
+                
+                <div class="flex gap-2 mt-3">
+                    {% if parametro.activo %}
+                        <span class="status-badge status-activo">
+                            <i class="ti ti-check mr-1"></i>{% trans "Activo" %}
+                        </span>
+                    {% else %}
+                        <span class="status-badge status-inactivo">
+                            <i class="ti ti-x mr-1"></i>{% trans "Inactivo" %}
+                        </span>
+                    {% endif %}
+                    
+                    {% if parametro.es_sistema %}
+                        <span class="status-badge status-sistema">
+                            <i class="ti ti-lock mr-1"></i>{% trans "Sistema" %}
+                        </span>
+                    {% endif %}
+                    
+                    <span class="status-badge bg-blue-100 text-blue-700">
+                        <i class="ti ti-category mr-1"></i>{{ parametro.get_tipo_valor_display }}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <a href="{% url 'configuracion:parametros_list' %}" class="action-btn bg-gray-100 text-gray-700 hover:bg-gray-200">
+                    <i class="ti ti-arrow-left mr-1"></i>{% trans "Volver" %}
+                </a>
+                <a href="{% url 'configuracion:parametro_edit' parametro.pk %}" class="action-btn bg-yellow-100 text-yellow-700 hover:bg-yellow-200">
+                    <i class="ti ti-edit mr-1"></i>{% trans "Editar" %}
+                </a>
+                {% if not parametro.es_sistema %}
+                    <button onclick="confirmarEliminar()" class="action-btn bg-red-100 text-red-700 hover:bg-red-200">
+                        <i class="ti ti-trash mr-1"></i>{% trans "Eliminar" %}
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Información Principal -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Descripción -->
+            {% if parametro.descripcion %}
+                <div class="detail-card p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                        <i class="ti ti-file-text text-blue-600 mr-2"></i>
+                        {% trans "Descripción" %}
+                    </h2>
+                    <p class="text-gray-700 leading-relaxed">{{ parametro.descripcion }}</p>
+                </div>
+            {% endif %}
+
+            <!-- Valores -->
+            <div class="detail-card p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="ti ti-settings text-green-600 mr-2"></i>
+                    {% trans "Configuración de Valores" %}
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {% trans "Valor Actual" %}
+                        </label>
+                        <div class="value-display">
+                            {{ parametro.valor|default:"(vacío)" }}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            {% trans "Tipo:" %} {{ parametro.get_tipo_valor_display }}
+                        </div>
+                    </div>
+                    
+                    {% if parametro.valor_defecto %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Valor por Defecto" %}
+                            </label>
+                            <div class="value-display">
+                                {{ parametro.valor_defecto }}
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Valor procesado -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {% trans "Valor Procesado" %}
+                        </label>
+                        <div class="value-display">
+                            {% with valor_procesado=parametro.get_valor_tipado %}
+                                {% if valor_procesado != None %}
+                                    {{ valor_procesado }}
+                                    {% if parametro.tipo_valor == 'boolean' %}
+                                        {% if valor_procesado %}
+                                            <span class="text-green-600 ml-2">✓ {% trans "Verdadero" %}</span>
+                                        {% else %}
+                                            <span class="text-red-600 ml-2">✗ {% trans "Falso" %}</span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-gray-500">{% trans "No se pudo procesar" %}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            {% trans "Valor convertido al tipo correspondiente" %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información Técnica -->
+            <div class="detail-card p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="ti ti-info-circle text-purple-600 mr-2"></i>
+                    {% trans "Información Técnica" %}
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="space-y-3">
+                        <div>
+                            <span class="font-medium text-gray-700">{% trans "Código:" %}</span>
+                            <div class="mt-1 font-mono bg-gray-100 px-2 py-1 rounded">{{ parametro.codigo }}</div>
+                        </div>
+                        
+                        <div>
+                            <span class="font-medium text-gray-700">{% trans "Tipo de Valor:" %}</span>
+                            <div class="mt-1">{{ parametro.get_tipo_valor_display }}</div>
+                        </div>
+                        
+                        <div>
+                            <span class="font-medium text-gray-700">{% trans "Estado:" %}</span>
+                            <div class="mt-1">
+                                {% if parametro.activo %}
+                                    <span class="text-green-600">✓ {% trans "Activo" %}</span>
+                                {% else %}
+                                    <span class="text-red-600">✗ {% trans "Inactivo" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <span class="font-medium text-gray-700">{% trans "Parámetro del Sistema:" %}</span>
+                            <div class="mt-1">
+                                {% if parametro.es_sistema %}
+                                    <span class="text-orange-600">🔒 {% trans "Sí" %}</span>
+                                {% else %}
+                                    <span class="text-blue-600">{% trans "No" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <span class="font-medium text-gray-700">{% trans "Fecha de Creación:" %}</span>
+                            <div class="mt-1">{{ parametro.fecha_creacion|date:"d/m/Y H:i" }}</div>
+                        </div>
+                        
+                        <div>
+                            <span class="font-medium text-gray-700">{% trans "Última Modificación:" %}</span>
+                            <div class="mt-1">
+                                {{ parametro.fecha_modificacion|date:"d/m/Y H:i" }}
+                                <div class="text-xs text-gray-500">
+                                    ({{ parametro.fecha_modificacion|timesince }} {% trans "atrás" %})
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Acciones Rápidas -->
+            <div class="info-card p-6">
+                <h3 class="font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="ti ti-bolt text-yellow-600 mr-2"></i>
+                    {% trans "Acciones Rápidas" %}
+                </h3>
+                
+                <div class="space-y-3">
+                    <a href="{% url 'configuracion:parametro_edit' parametro.pk %}" 
+                       class="flex items-center w-full p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition">
+                        <i class="ti ti-edit text-blue-600 mr-3"></i>
+                        <span class="text-sm font-medium">{% trans "Editar Parámetro" %}</span>
+                    </a>
+                    
+                    <button onclick="copiarCodigo()" 
+                            class="flex items-center w-full p-3 bg-white rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition">
+                        <i class="ti ti-copy text-green-600 mr-3"></i>
+                        <span class="text-sm font-medium">{% trans "Copiar Código" %}</span>
+                    </button>
+                    
+                    <button onclick="copiarValor()" 
+                            class="flex items-center w-full p-3 bg-white rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition">
+                        <i class="ti ti-clipboard text-purple-600 mr-3"></i>
+                        <span class="text-sm font-medium">{% trans "Copiar Valor" %}</span>
+                    </button>
+                    
+                    {% if not parametro.es_sistema %}
+                        <button onclick="confirmarEliminar()" 
+                                class="flex items-center w-full p-3 bg-white rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 transition">
+                            <i class="ti ti-trash text-red-600 mr-3"></i>
+                            <span class="text-sm font-medium">{% trans "Eliminar Parámetro" %}</span>
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Uso del Parámetro -->
+            <div class="info-card p-6">
+                <h3 class="font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="ti ti-code text-indigo-600 mr-2"></i>
+                    {% trans "Uso en Código" %}
+                </h3>
+                
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-gray-600">{% trans "Python:" %}</label>
+                        <div class="bg-gray-900 text-green-400 p-2 rounded text-xs font-mono mt-1">
+                            from configuracion.models import ParametroSistema<br>
+                            valor = ParametroSistema.get_valor('{{ parametro.codigo }}')
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-xs font-medium text-gray-600">{% trans "Template:" %}</label>
+                        <div class="bg-gray-900 text-green-400 p-2 rounded text-xs font-mono mt-1">
+                            {% verbatim %}{{ parametro_{% endverbatim %}{{ parametro.codigo|lower }}{% verbatim %} }}{% endverbatim %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actividad Reciente -->
+            {% if logs_recientes %}
+                <div class="info-card p-6">
+                    <h3 class="font-semibold text-gray-900 mb-4 flex items-center">
+                        <i class="ti ti-clock text-gray-600 mr-2"></i>
+                        {% trans "Cambios Recientes" %}
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        {% for log in logs_recientes %}
+                            <div class="history-item {% if forloop.first %}recent{% endif %}">
+                                <div class="text-sm">
+                                    <div class="font-medium text-gray-900">
+                                        {% if log.valor_anterior and log.valor_nuevo %}
+                                            {% trans "Valor modificado" %}
+                                        {% else %}
+                                            {% trans "Parámetro creado" %}
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-gray-600 text-xs mt-1">
+                                        {% trans "por" %} {{ log.usuario.get_full_name|default:log.usuario.username }}
+                                    </div>
+                                    <div class="text-gray-500 text-xs">
+                                        {{ log.fecha_cambio|timesince }} {% trans "atrás" %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <a href="{% url 'configuracion:logs_list' %}?parametro={{ parametro.codigo }}" 
+                       class="text-blue-600 hover:text-blue-700 text-sm mt-3 inline-block">
+                        {% trans "Ver historial completo" %} →
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Include the toast system -->
+{% include 'cargos/cargos/toast_notifications.html' %}
+
+<script>
+function copiarCodigo() {
+    navigator.clipboard.writeText('{{ parametro.codigo }}').then(function() {
+        toastManager.success('{% trans "Código copiado al portapapeles" %}');
+    });
+}
+
+function copiarValor() {
+    navigator.clipboard.writeText('{{ parametro.valor }}').then(function() {
+        toastManager.success('{% trans "Valor copiado al portapapeles" %}');
+    });
+}
+
+function confirmarEliminar() {
+    toastManager.confirm(
+        '{% trans "¿Estás seguro de que quieres eliminar este parámetro?" %}<br><strong>{{ parametro.codigo }}</strong><br>{% trans "Esta acción no se puede deshacer." %}',
+        'eliminarParametro()',
+        ''
+    );
+}
+
+function eliminarParametro() {
+    fetch('{% url "configuracion:parametro_delete" parametro.pk %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            toastManager.success(data.message);
+            window.location.href = '{% url "configuracion:parametros_list" %}';
+        } else {
+            toastManager.error(data.message);
+        }
+    })
+    .catch(error => {
+        toastManager.error('{% trans "Error al eliminar el parámetro" %}');
+    });
+}
+
+// Mostrar notificaciones de Django como toasts
+{% if messages %}
+    {% for message in messages %}
+        toastManager.{{ message.tags|default:'info' }}('{{ message|escapejs }}');
+    {% endfor %}
+{% endif %}
+</script>
+{% endblock %}

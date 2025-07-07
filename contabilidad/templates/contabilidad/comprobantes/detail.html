@@ -1,0 +1,376 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Comprobante {{ comprobante.numero }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .status-badge {
+        transition: all 0.3s ease;
+    }
+    .account-row:hover {
+        background-color: #f8fafc;
+    }
+    .print-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    @media print {
+        .no-print { display: none !important; }
+        .print-section { box-shadow: none; border: 1px solid #e5e7eb; }
+        body { font-size: 12px; }
+    }
+    .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-6" x-data="comprobanteDetail()">
+    <!-- Header Section -->
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 no-print">
+        <div class="mb-4 lg:mb-0">
+            <nav class="flex mb-3" aria-label="Breadcrumb">
+                <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                    <li class="inline-flex items-center">
+                        <a href="{% url 'contabilidad:comprobantes_list' %}" class="text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-file-invoice-dollar mr-1"></i>
+                            Comprobantes
+                        </a>
+                    </li>
+                    <li>
+                        <div class="flex items-center">
+                            <i class="fas fa-chevron-right text-gray-400 text-sm"></i>
+                            <span class="ml-1 text-gray-500">{{ comprobante.numero }}</span>
+                        </div>
+                    </li>
+                </ol>
+            </nav>
+            <h1 class="text-3xl font-bold text-gray-900">
+                <i class="fas fa-file-invoice-dollar text-blue-600 mr-3"></i>
+                Comprobante {{ comprobante.numero }}
+            </h1>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-3">
+            <button @click="printComprobante()" 
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg">
+                <i class="fas fa-print mr-2"></i>Imprimir
+            </button>
+            
+            {% if comprobante.estado == 'BORRADOR' %}
+            <button @click="editComprobante()" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg">
+                <i class="fas fa-edit mr-2"></i>Editar
+            </button>
+            
+            <button @click="confirmComprobante()" 
+                    class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg">
+                <i class="fas fa-check mr-2"></i>Confirmar
+            </button>
+            {% endif %}
+            
+            <button @click="exportPDF()" 
+                    class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg">
+                <i class="fas fa-file-pdf mr-2"></i>PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Comprobante Content -->
+    <div class="print-section p-8 mb-8 fade-in">
+        <!-- Header del comprobante -->
+        <div class="border-b border-gray-200 pb-6 mb-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">COMPROBANTE CONTABLE</h2>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-600">Número:</span>
+                            <span class="ml-2 font-bold">{{ comprobante.numero }}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600">Fecha:</span>
+                            <span class="ml-2">{{ comprobante.fecha|date:"d/m/Y" }}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600">Tipo:</span>
+                            <span class="ml-2 px-2 py-1 text-xs font-semibold rounded-full" 
+                                  :class="getTipoBadgeClass('{{ comprobante.tipo }}')">
+                                {{ comprobante.get_tipo_display }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600">Estado:</span>
+                            <span class="ml-2 px-2 py-1 text-xs font-semibold rounded-full status-badge" 
+                                  :class="getStatusBadgeClass('{{ comprobante.estado }}')">
+                                {{ comprobante.get_estado_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-right">
+                    <div class="text-sm text-gray-600">
+                        {% if comprobante.referencia %}
+                        <div class="mb-2">
+                            <span class="font-medium">Referencia:</span>
+                            <span class="ml-2">{{ comprobante.referencia }}</span>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <span class="font-medium">Creado por:</span>
+                            <span class="ml-2">{{ comprobante.creado_por.get_full_name|default:comprobante.creado_por.username }}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">Fecha creación:</span>
+                            <span class="ml-2">{{ comprobante.fecha_creacion|date:"d/m/Y H:i" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Descripción -->
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-3">Descripción</h3>
+            <p class="text-gray-700 bg-gray-50 p-4 rounded-lg">{{ comprobante.descripcion }}</p>
+        </div>
+
+        <!-- Movimientos Contables -->
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Movimientos Contables</h3>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuenta</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Débito</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Crédito</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for movimiento in comprobante.movimientos.all %}
+                        <tr class="account-row transition-colors duration-200">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ movimiento.cuenta.codigo }}</div>
+                                <div class="text-sm text-gray-500">{{ movimiento.cuenta.nombre }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900">{{ movimiento.descripcion|default:comprobante.descripcion }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                {% if movimiento.debito %}
+                                <div class="text-sm font-medium text-gray-900">{{ movimiento.debito|floatformat:2 }}</div>
+                                {% else %}
+                                <div class="text-sm text-gray-400">-</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                {% if movimiento.credito %}
+                                <div class="text-sm font-medium text-gray-900">{{ movimiento.credito|floatformat:2 }}</div>
+                                {% else %}
+                                <div class="text-sm text-gray-400">-</div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-gray-50">
+                        <tr class="font-bold">
+                            <td colspan="2" class="px-6 py-4 text-right text-sm font-medium text-gray-900">TOTALES:</td>
+                            <td class="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                                {{ total_debitos|floatformat:2 }}
+                            </td>
+                            <td class="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                                {{ total_creditos|floatformat:2 }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Validación de balance -->
+            <div class="mt-4 p-4 rounded-lg" 
+                 :class="isBalanced ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'">
+                <div class="flex items-center">
+                    <i :class="isBalanced ? 'fas fa-check-circle text-green-600' : 'fas fa-exclamation-triangle text-red-600'" class="mr-2"></i>
+                    <span :class="isBalanced ? 'text-green-800' : 'text-red-800'" class="text-sm font-medium">
+                        <span x-text="isBalanced ? 'Comprobante balanceado correctamente' : 'ADVERTENCIA: Comprobante desbalanceado'"></span>
+                        <span x-show="!isBalanced" class="ml-2" x-text="`(Diferencia: ${formatCurrency(Math.abs({{ total_debitos }} - {{ total_creditos }}))})`"></span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notas adicionales -->
+        {% if comprobante.notas %}
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-3">Notas Adicionales</h3>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p class="text-gray-700">{{ comprobante.notas }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Información de auditoría -->
+        <div class="border-t border-gray-200 pt-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-3">Información de Auditoría</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>
+                    <span class="font-medium">Creado por:</span>
+                    <span class="ml-2">{{ comprobante.creado_por.get_full_name|default:comprobante.creado_por.username }}</span>
+                </div>
+                <div>
+                    <span class="font-medium">Fecha de creación:</span>
+                    <span class="ml-2">{{ comprobante.fecha_creacion|date:"d/m/Y H:i:s" }}</span>
+                </div>
+                {% if comprobante.modificado_por %}
+                <div>
+                    <span class="font-medium">Modificado por:</span>
+                    <span class="ml-2">{{ comprobante.modificado_por.get_full_name|default:comprobante.modificado_por.username }}</span>
+                </div>
+                <div>
+                    <span class="font-medium">Fecha de modificación:</span>
+                    <span class="ml-2">{{ comprobante.fecha_modificacion|date:"d/m/Y H:i:s" }}</span>
+                </div>
+                {% endif %}
+                {% if comprobante.estado == 'CONFIRMADO' and comprobante.fecha_confirmacion %}
+                <div>
+                    <span class="font-medium">Confirmado el:</span>
+                    <span class="ml-2">{{ comprobante.fecha_confirmacion|date:"d/m/Y H:i:s" }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Historial de cambios (solo si existe) -->
+    {% if comprobante.historial_cambios.exists %}
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-8 no-print fade-in">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">
+            <i class="fas fa-history text-blue-600 mr-2"></i>
+            Historial de Cambios
+        </h3>
+        <div class="space-y-3">
+            {% for cambio in comprobante.historial_cambios.all %}
+            <div class="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-clock text-gray-400"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="text-sm">
+                        <span class="font-medium text-gray-900">{{ cambio.usuario.get_full_name|default:cambio.usuario.username }}</span>
+                        <span class="text-gray-600">{{ cambio.accion }}</span>
+                        <span class="text-gray-400">{{ cambio.fecha|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% if cambio.descripcion %}
+                    <div class="text-sm text-gray-600 mt-1">{{ cambio.descripcion }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function comprobanteDetail() {
+    return {
+        isBalanced: {{ total_debitos }} === {{ total_creditos }},
+
+        printComprobante() {
+            window.print();
+        },
+
+        editComprobante() {
+            window.location.href = '{% url "contabilidad:comprobante_edit" comprobante.pk %}';
+        },
+
+        async confirmComprobante() {
+            if (confirm('¿Está seguro de confirmar este comprobante? No se podrá modificar después.')) {
+                try {
+                    const response = await fetch('{% url "contabilidad:comprobante_confirm" comprobante.pk %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        this.showNotification('Comprobante confirmado exitosamente', 'success');
+                        location.reload();
+                    } else {
+                        this.showNotification('Error al confirmar el comprobante', 'error');
+                    }
+                } catch (error) {
+                    this.showNotification('Error al procesar la solicitud', 'error');
+                }
+            }
+        },
+
+        async exportPDF() {
+            try {
+                const response = await fetch('{% url "contabilidad:comprobante_pdf" comprobante.pk %}');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `comprobante_{{ comprobante.numero }}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                this.showNotification('PDF generado exitosamente', 'success');
+            } catch (error) {
+                this.showNotification('Error al generar el PDF', 'error');
+            }
+        },
+
+        getStatusBadgeClass(estado) {
+            const classes = {
+                'BORRADOR': 'bg-yellow-100 text-yellow-800',
+                'CONFIRMADO': 'bg-green-100 text-green-800',
+                'ANULADO': 'bg-red-100 text-red-800'
+            };
+            return classes[estado] || 'bg-gray-100 text-gray-800';
+        },
+
+        getTipoBadgeClass(tipo) {
+            const classes = {
+                'DIARIO': 'bg-blue-100 text-blue-800',
+                'INGRESO': 'bg-green-100 text-green-800',
+                'EGRESO': 'bg-red-100 text-red-800',
+                'AJUSTE': 'bg-purple-100 text-purple-800'
+            };
+            return classes[tipo] || 'bg-gray-100 text-gray-800';
+        },
+
+        formatCurrency(amount) {
+            return new Intl.NumberFormat('es-ES', {
+                style: 'currency',
+                currency: 'EUR'
+            }).format(amount || 0);
+        },
+
+        showNotification(message, type = 'info') {
+            // Implementar sistema de notificaciones
+            console.log(`${type}: ${message}`);
+        }
+    }
+}
+</script>
+
+{% csrf_token %}
+{% endblock %}

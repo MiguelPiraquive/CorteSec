@@ -1,0 +1,345 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestión de Módulos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        @apply bg-white overflow-hidden shadow rounded-lg;
+    }
+    .stats-card-body {
+        @apply p-5;
+    }
+    .stats-card-icon {
+        @apply flex items-center;
+    }
+    .stats-card-content {
+        @apply ml-5 w-0 flex-1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="modulosManager()" class="space-y-6">
+    <!-- Header -->
+    <div class="md:flex md:items-center md:justify-between">
+        <div class="flex-1 min-w-0">
+            <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                <i class="fas fa-cubes text-indigo-600 mr-3"></i>
+                Gestión de Módulos
+            </h2>
+            <p class="mt-1 text-sm text-gray-500">
+                Administra los módulos del sistema y sus configuraciones
+            </p>
+        </div>
+        <div class="mt-4 flex md:mt-0 md:ml-4">
+            <button @click="openCreateModal()" 
+                    class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <i class="fas fa-plus mr-2"></i>
+                Nuevo Módulo
+            </button>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="stats-card">
+            <div class="stats-card-body">
+                <div class="stats-card-icon">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-cubes text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="stats-card-content">
+                        <p class="text-sm font-medium text-gray-500 truncate">Total</p>
+                        <p class="text-lg font-semibold text-gray-900">{{ stats.total }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-card-body">
+                <div class="stats-card-icon">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-check-circle text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="stats-card-content">
+                        <p class="text-sm font-medium text-gray-500 truncate">Activos</p>
+                        <p class="text-lg font-semibold text-gray-900">{{ stats.activos }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-card-body">
+                <div class="stats-card-icon">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-times-circle text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="stats-card-content">
+                        <p class="text-sm font-medium text-gray-500 truncate">Inactivos</p>
+                        <p class="text-lg font-semibold text-gray-900">{{ stats.inactivos }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-card-body">
+                <div class="stats-card-icon">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-cog text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="stats-card-content">
+                        <p class="text-sm font-medium text-gray-500 truncate">Sistema</p>
+                        <p class="text-lg font-semibold text-gray-900">{{ stats.sistema }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                <div>
+                    <label for="search" class="block text-sm font-medium text-gray-700">Buscar</label>
+                    <input type="text" 
+                           id="search" 
+                           x-model="filters.search"
+                           @input.debounce.500ms="applyFilters()"
+                           placeholder="Buscar módulos..."
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                
+                <div>
+                    <label for="activo" class="block text-sm font-medium text-gray-700">Estado</label>
+                    <select id="activo" 
+                            x-model="filters.activo"
+                            @change="applyFilters()"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Todos</option>
+                        <option value="true">Activos</option>
+                        <option value="false">Inactivos</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="es_sistema" class="block text-sm font-medium text-gray-700">Tipo</label>
+                    <select id="es_sistema" 
+                            x-model="filters.es_sistema"
+                            @change="applyFilters()"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Todos</option>
+                        <option value="true">Sistema</option>
+                        <option value="false">Personalizados</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="order_by" class="block text-sm font-medium text-gray-700">Ordenar por</label>
+                    <select id="order_by" 
+                            x-model="filters.order_by"
+                            @change="applyFilters()"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="orden">Orden</option>
+                        <option value="nombre">Nombre</option>
+                        <option value="codigo">Código</option>
+                        <option value="-fecha_creacion">Más recientes</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <div id="modulos-table" x-show="!loading">
+            {% include 'permisos/modulos/table.html' %}
+        </div>
+        
+        <!-- Loading -->
+        <div x-show="loading" class="p-8 text-center">
+            <div class="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-gray-500 bg-white">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Cargando...
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div x-show="showModal" 
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 overflow-y-auto" 
+         style="display: none;">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+            
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
+                 @click.away="closeModal()">
+                <div id="modal-content">
+                    <!-- El contenido se carga dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function modulosManager() {
+    return {
+        loading: false,
+        showModal: false,
+        filters: {
+            search: '{{ search }}',
+            activo: '{{ activo }}',
+            es_sistema: '{{ es_sistema }}',
+            order_by: '{{ order_by }}'
+        },
+        
+        applyFilters() {
+            this.loading = true;
+            const params = new URLSearchParams();
+            
+            Object.keys(this.filters).forEach(key => {
+                if (this.filters[key]) {
+                    params.append(key, this.filters[key]);
+                }
+            });
+            
+            fetch(`{% url 'permisos:modulos_list' %}?${params.toString()}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('modulos-table').innerHTML = html;
+                this.loading = false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                this.loading = false;
+            });
+        },
+        
+        openCreateModal() {
+            this.showModal = true;
+            fetch('{% url "permisos:modulo_create" %}', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('modal-content').innerHTML = html;
+            });
+        },
+        
+        openEditModal(id) {
+            this.showModal = true;
+            fetch(`/permisos/modulos/${id}/editar/`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('modal-content').innerHTML = html;
+            });
+        },
+        
+        closeModal() {
+            this.showModal = false;
+            document.getElementById('modal-content').innerHTML = '';
+        },
+        
+        deleteModulo(id, nombre) {
+            if (confirm(`¿Estás seguro de que deseas eliminar el módulo "${nombre}"?`)) {
+                fetch(`/permisos/modulos/${id}/eliminar/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.applyFilters();
+                        this.showNotification(data.message, 'success');
+                    } else {
+                        this.showNotification(data.message || 'Error al eliminar el módulo', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    this.showNotification('Error al eliminar el módulo', 'error');
+                });
+            }
+        },
+        
+        showNotification(message, type) {
+            // Implementar notificación (puedes usar una librería como toastr o crear tu propio sistema)
+            if (type === 'success') {
+                alert(message); // Temporal - reemplazar con mejor notificación
+            } else {
+                alert(message);
+            }
+        }
+    }
+}
+
+// Función global para ser llamada desde los modales
+function submitModalForm(form) {
+    const formData = new FormData(form);
+    
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload(); // O usar applyFilters() si tienes acceso al scope
+        } else {
+            // Mostrar errores del formulario
+            Object.keys(data.errors).forEach(field => {
+                const fieldElement = form.querySelector(`[name="${field}"]`);
+                if (fieldElement) {
+                    const errorDiv = fieldElement.parentNode.querySelector('.error-message');
+                    if (errorDiv) {
+                        errorDiv.textContent = data.errors[field][0];
+                    }
+                }
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %}

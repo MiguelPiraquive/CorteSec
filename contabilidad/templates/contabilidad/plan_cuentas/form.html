@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load widget_tweaks %}
+{% block title %}{% trans "Plan de Cuentas" %}{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-10 transition-all duration-300">
+    <h2 class="text-4xl font-extrabold text-center mb-8 tracking-tight text-blue-700 dark:text-blue-300">
+        {% if object %}{% trans "Editar Cuenta" %}{% else %}{% trans "Crear Cuenta" %}{% endif %}
+    </h2>
+    <form method="post" id="cuenta-form" class="space-y-8">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Información básica -->
+            <div class="space-y-6">
+                <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2">
+                    <i class="ti ti-info-circle mr-2"></i>{% trans "Información Básica" %}
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="{{ form.codigo.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                            {{ form.codigo.label|capfirst }}
+                            {% if form.codigo.field.required %}<span class="text-red-500">*</span>{% endif %}
+                        </label>
+                        {{ form.codigo|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                        {% if form.codigo.help_text %}
+                            <div class="text-xs text-gray-500 mt-1">{{ form.codigo.help_text }}</div>
+                        {% endif %}
+                        {% if form.codigo.errors %}
+                            <div class="text-red-500 text-xs mt-1">{{ form.codigo.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <label for="{{ form.cuenta_padre.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                            {{ form.cuenta_padre.label|capfirst }}
+                            {% if form.cuenta_padre.field.required %}<span class="text-red-500">*</span>{% endif %}
+                        </label>
+                        {{ form.cuenta_padre|add_class:"form-select w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                        {% if form.cuenta_padre.help_text %}
+                            <div class="text-xs text-gray-500 mt-1">{{ form.cuenta_padre.help_text }}</div>
+                        {% endif %}
+                        {% if form.cuenta_padre.errors %}
+                            <div class="text-red-500 text-xs mt-1">{{ form.cuenta_padre.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="{{ form.nombre.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                        {{ form.nombre.label|capfirst }}
+                        {% if form.nombre.field.required %}<span class="text-red-500">*</span>{% endif %}
+                    </label>
+                    {{ form.nombre|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                    {% if form.nombre.help_text %}
+                        <div class="text-xs text-gray-500 mt-1">{{ form.nombre.help_text }}</div>
+                    {% endif %}
+                    {% if form.nombre.errors %}
+                        <div class="text-red-500 text-xs mt-1">{{ form.nombre.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="{{ form.descripcion.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                        {{ form.descripcion.label|capfirst }}
+                        {% if form.descripcion.field.required %}<span class="text-red-500">*</span>{% endif %}
+                    </label>
+                    {{ form.descripcion|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition min-h-20 resize-y" }}
+                    {% if form.descripcion.help_text %}
+                        <div class="text-xs text-gray-500 mt-1">{{ form.descripcion.help_text }}</div>
+                    {% endif %}
+                    {% if form.descripcion.errors %}
+                        <div class="text-red-500 text-xs mt-1">{{ form.descripcion.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Configuración contable -->
+            <div class="space-y-6">
+                <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2">
+                    <i class="ti ti-settings mr-2"></i>{% trans "Configuración Contable" %}
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="{{ form.tipo_cuenta.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                            {{ form.tipo_cuenta.label|capfirst }}
+                            {% if form.tipo_cuenta.field.required %}<span class="text-red-500">*</span>{% endif %}
+                        </label>
+                        {{ form.tipo_cuenta|add_class:"form-select w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                        {% if form.tipo_cuenta.help_text %}
+                            <div class="text-xs text-gray-500 mt-1">{{ form.tipo_cuenta.help_text }}</div>
+                        {% endif %}
+                        {% if form.tipo_cuenta.errors %}
+                            <div class="text-red-500 text-xs mt-1">{{ form.tipo_cuenta.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <label for="{{ form.naturaleza.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                            {{ form.naturaleza.label|capfirst }}
+                            {% if form.naturaleza.field.required %}<span class="text-red-500">*</span>{% endif %}
+                        </label>
+                        {{ form.naturaleza|add_class:"form-select w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                        {% if form.naturaleza.help_text %}
+                            <div class="text-xs text-gray-500 mt-1">{{ form.naturaleza.help_text }}</div>
+                        {% endif %}
+                        {% if form.naturaleza.errors %}
+                            <div class="text-red-500 text-xs mt-1">{{ form.naturaleza.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Configuración de comportamiento -->
+                <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 space-y-4">
+                    <h4 class="text-lg font-bold text-blue-600 mb-4">
+                        <i class="ti ti-toggle-left mr-2"></i>{% trans "Comportamiento de la Cuenta" %}
+                    </h4>
+                    
+                    <div class="space-y-4">
+                        <div class="flex items-start space-x-3 p-3 bg-white dark:bg-gray-700 rounded-xl border border-blue-200">
+                            <div class="flex items-center h-5 mt-1">
+                                {{ form.acepta_movimientos|add_class:"h-5 w-5 text-blue-600 border-2 border-blue-300 rounded focus:ring-4 focus:ring-blue-400" }}
+                            </div>
+                            <div class="flex-1">
+                                <label for="{{ form.acepta_movimientos.id_for_label }}" class="block text-sm font-semibold text-blue-700 dark:text-blue-200">
+                                    {{ form.acepta_movimientos.label }}
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    {% trans "Permite que se registren movimientos contables directamente en esta cuenta" %}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start space-x-3 p-3 bg-white dark:bg-gray-700 rounded-xl border border-blue-200">
+                            <div class="flex items-center h-5 mt-1">
+                                {{ form.requiere_tercero|add_class:"h-5 w-5 text-blue-600 border-2 border-blue-300 rounded focus:ring-4 focus:ring-blue-400" }}
+                            </div>
+                            <div class="flex-1">
+                                <label for="{{ form.requiere_tercero.id_for_label }}" class="block text-sm font-semibold text-blue-700 dark:text-blue-200">
+                                    {{ form.requiere_tercero.label }}
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    {% trans "Los movimientos en esta cuenta deben especificar un tercero" %}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start space-x-3 p-3 bg-white dark:bg-gray-700 rounded-xl border border-blue-200">
+                            <div class="flex items-center h-5 mt-1">
+                                {{ form.activa|add_class:"h-5 w-5 text-blue-600 border-2 border-blue-300 rounded focus:ring-4 focus:ring-blue-400" }}
+                            </div>
+                            <div class="flex-1">
+                                <label for="{{ form.activa.id_for_label }}" class="block text-sm font-semibold text-blue-700 dark:text-blue-200">
+                                    {{ form.activa.label }}
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    {% trans "La cuenta está disponible para su uso en el sistema" %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Información de validación -->
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-2xl p-6 shadow-sm">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="ti ti-info-circle text-blue-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-lg font-bold text-blue-800 mb-2">
+                        {% trans "Información importante sobre el plan de cuentas" %}
+                    </h3>
+                    <div class="text-sm text-blue-700 space-y-1">
+                        <p><i class="ti ti-check mr-2"></i>{% trans "El código debe ser único en todo el plan de cuentas" %}</p>
+                        <p><i class="ti ti-check mr-2"></i>{% trans "Las cuentas con subcuentas no pueden aceptar movimientos directos" %}</p>
+                        <p><i class="ti ti-check mr-2"></i>{% trans "El nivel se calcula automáticamente según la cuenta padre" %}</p>
+                        <p><i class="ti ti-check mr-2"></i>{% trans "La naturaleza debe coincidir con el tipo de cuenta" %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="mt-10 flex flex-wrap gap-4 justify-center">
+            <button type="submit" class="px-10 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-xl hover:from-blue-700 hover:to-blue-800 transition font-bold text-lg transform hover:scale-105">
+                <i class="ti ti-device-floppy mr-2"></i>
+                {% if object %}{% trans "Guardar Cambios" %}{% else %}{% trans "Crear Cuenta" %}{% endif %}
+            </button>
+            <a href="{% url 'contabilidad:plan_cuentas_list' %}" class="px-10 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold text-lg shadow transform hover:scale-105">
+                <i class="ti ti-arrow-left mr-2"></i>{% trans "Cancelar" %}
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoSelect = document.getElementById('id_tipo_cuenta');
+    const naturalezaSelect = document.getElementById('id_naturaleza');
+    
+    if (tipoSelect && naturalezaSelect) {
+        // Sugerir naturaleza según el tipo de cuenta
+        tipoSelect.addEventListener('change', function() {
+            const tipo = this.value;
+            let naturalezaSugerida = '';
+            
+            switch(tipo) {
+                case 'activo':
+                case 'gasto':
+                case 'costo':
+                    naturalezaSugerida = 'debito';
+                    break;
+                case 'pasivo':
+                case 'patrimonio':
+                case 'ingreso':
+                    naturalezaSugerida = 'credito';
+                    break;
+            }
+            
+            if (naturalezaSugerida && naturalezaSelect.value === '') {
+                naturalezaSelect.value = naturalezaSugerida;
+                naturalezaSelect.style.borderColor = '#10B981';
+                naturalezaSelect.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.2)';
+                setTimeout(() => {
+                    naturalezaSelect.style.borderColor = '#93C5FD';
+                    naturalezaSelect.style.boxShadow = '';
+                }, 1500);
+            }
+        });
+    }
+    
+    // Validación del código
+    const codigoInput = document.getElementById('id_codigo');
+    if (codigoInput) {
+        codigoInput.addEventListener('input', function() {
+            const valor = this.value;
+            const pattern = /^[0-9.]+$/;
+            
+            if (valor && !pattern.test(valor)) {
+                this.style.borderColor = '#EF4444';
+                this.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.2)';
+                this.title = '{% trans "El código debe contener solo números y puntos" %}';
+            } else {
+                this.style.borderColor = '#93C5FD';
+                this.style.boxShadow = '';
+                this.title = '';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
