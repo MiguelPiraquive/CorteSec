@@ -14440,3 +14440,7 @@ Traceback (most recent call last):
     raise NoReverseMatch(msg)
 django.urls.exceptions.NoReverseMatch: Reverse for 'home' not found. 'home' is not a valid view function or pattern name.
 ERROR 2025-07-07 07:55:45,312 basehttp 11948 11272 "GET /tipos-cantidad/ HTTP/1.1" 500 174480
+ERROR 2025-07-07 18:16:37,175 basehttp 11256 6604 You're accessing the development server over HTTPS, but it only supports HTTP.
+ERROR 2025-07-07 18:16:37,189 basehttp 11256 32680 You're accessing the development server over HTTPS, but it only supports HTTP.
+ERROR 2025-07-07 18:16:41,503 basehttp 11256 32908 You're accessing the development server over HTTPS, but it only supports HTTP.
+ERROR 2025-07-07 18:16:41,505 basehttp 11256 26040 You're accessing the development server over HTTPS, but it only supports HTTP.

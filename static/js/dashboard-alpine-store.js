@@ -2,7 +2,7 @@
 console.log('🎯 Dashboard Alpine Store Iniciado');
 
 // Función que retorna el store data
-function createDashboardStore() {
+window.createDashboardStore = function() {
     return {
         // Estado inicial
         loading: true,
