@@ -1,0 +1,26 @@
+databases:
+  - name: cortesec-db
+    databaseName: contractor_management
+    user: cortesec
+    plan: free
+
+services:
+  - type: web
+    name: cortesec
+    env: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn contractor_management.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cortesec-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: DEBUG
+        value: false
+      - key: CREATE_SUPERUSER
+        value: true

@@ -5,15 +5,17 @@ from django.urls import reverse_lazy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = True
+# Detectar si estamos en producción
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = [
-    'cortesec.onrender.com',  # Cambia por tu dominio real
+    'cortesec.onrender.com',
     'localhost',
     '127.0.0.1',
+    '0.0.0.0',
 ]
 
-SECRET_KEY = os.environ.get('SECRET_KEY','django-insecure-4y7!k@#g8z$1p^wq2r9s0l%t6b3c5v8n')  # Debe estar definida en el entorno
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-4y7!k@#g8z$1p^wq2r9s0l%t6b3c5v8n')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -92,16 +94,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'contractor_management.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'contractor_management',
-        'USER': 'postgres',
-        'PASSWORD': '12345',
-        'HOST': 'localhost',
-        'PORT': '5432',
+# Configuración de base de datos con soporte para producción
+if os.environ.get('DATABASE_URL'):
+    # Configuración para producción (Render, Heroku, etc.)
+    DATABASES = {
+        'default': dj_database_url.parse(os.environ.get('DATABASE_URL'))
     }
-}
+else:
+    # Configuración para desarrollo local
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'contractor_management',
+            'USER': 'postgres',
+            'PASSWORD': '12345',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
+    }
 
 
 
@@ -145,16 +155,26 @@ DEFAULT_FROM_EMAIL = 'CorteSec <no-reply@cortesec.com>'
 # --- Password reset settings ---
 PASSWORD_RESET_TIMEOUT = 60 * 60  # 1 hora
 
-# --- Seguridad extra ---
+# --- Seguridad mejorada para producción ---
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+
+# Configuración SSL/HTTPS para producción
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+else:
+    # Desarrollo local sin HTTPS
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
+    SECURE_HSTS_SECONDS = 0
+
 X_FRAME_OPTIONS = 'DENY'
-SECURE_SSL_REDIRECT = False
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
 
 # --- Internacionalización ---
 LANGUAGE_CODE = 'es'
