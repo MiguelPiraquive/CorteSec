@@ -92,12 +92,20 @@ def dashboard_principal(request):
     # Promedio de producción
     promedio_produccion = total_produccion_mes / nominas_mes.count() if nominas_mes.count() > 0 else Decimal('0')
     
-    # Préstamos
-    prestamos_activos = Prestamo.objects.filter(estado='activo').count()
-    prestamos_pendientes = Prestamo.objects.filter(estado='pendiente').count()
-    prestamos_aprobados = Prestamo.objects.filter(estado='aprobado').count()
-    prestamos_completados = Prestamo.objects.filter(estado='completado').count()
-    prestamos_en_mora = Prestamo.objects.filter(estado='en_mora').count()
+    # Préstamos - Con manejo de errores para tablas que no existen
+    try:
+        prestamos_activos = Prestamo.objects.filter(estado='activo').count()
+        prestamos_pendientes = Prestamo.objects.filter(estado='pendiente').count()
+        prestamos_aprobados = Prestamo.objects.filter(estado='aprobado').count()
+        prestamos_completados = Prestamo.objects.filter(estado='completado').count()
+        prestamos_en_mora = Prestamo.objects.filter(estado='en_mora').count()
+    except Exception as e:
+        # Si las tablas no existen, usar valores por defecto
+        prestamos_activos = 0
+        prestamos_pendientes = 0
+        prestamos_aprobados = 0
+        prestamos_completados = 0
+        prestamos_en_mora = 0
     
     # Monto total de préstamos
     monto_prestamos_activos = Prestamo.objects.filter(
