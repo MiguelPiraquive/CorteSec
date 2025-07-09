@@ -2,14 +2,40 @@
 # exit on error
 set -o errexit
 
+echo "=== INICIANDO BUILD SCRIPT ==="
+
 # Install dependencies
+echo "📦 Instalando dependencias..."
 pip install -r requirements.txt
 
-# Convert static asset files
-python manage.py collectstatic --no-input
+# Verificar que la carpeta static existe
+echo "📁 Verificando carpeta static..."
+if [ -d "static" ]; then
+    echo "✅ Carpeta static encontrada"
+    ls -la static/
+else
+    echo "❌ Error: Carpeta static no encontrada"
+    exit 1
+fi
+
+# Collect static files - con más verbosidad
+echo "📋 Ejecutando collectstatic..."
+python manage.py collectstatic --no-input --verbosity=2
+
+# Verificar que se crearon los archivos estáticos
+echo "🔍 Verificando archivos estáticos generados..."
+if [ -d "staticfiles" ]; then
+    echo "✅ Carpeta staticfiles creada"
+    echo "📊 Archivos en staticfiles:"
+    find staticfiles/ -name "*.css" -o -name "*.js" | head -10
+else
+    echo "❌ Error: Carpeta staticfiles no fue creada"
+    exit 1
+fi
 
 # Apply any outstanding database migrations
-python manage.py migrate
+echo "🗃️ Aplicando migraciones..."
+python manage.py migrate --noinput
 
 # Create superuser if it doesn't exist
 if [[ $CREATE_SUPERUSER ]];

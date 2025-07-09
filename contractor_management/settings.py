@@ -136,15 +136,13 @@ LOCALE_PATHS = [BASE_DIR / 'locale']
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Configuración de archivos estáticos según el entorno
-if DEBUG:
-    # En desarrollo, usar configuración simple sin compresión
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
-else:
-    # En producción, usar WhiteNoise con configuración más estable
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
-
+# Configuración de archivos estáticos más robusta para producción
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Configuración adicional de WhiteNoise para mayor compatibilidad
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
