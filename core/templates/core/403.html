@@ -96,10 +96,12 @@
                     {% if user.perfil.roles.exists %}
                     <p class="text-sm text-gray-500 mt-1">
                         Roles actuales: 
-                        {% for rol in user.perfil.roles.filter:activo=True %}
+                        {% for rol in user.perfil.roles.all %}
+                            {% if rol.activo %}
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-1">
                                 {{ rol.nombre }}
                             </span>
+                            {% endif %}
                         {% endfor %}
                     </p>
                     {% endif %}
