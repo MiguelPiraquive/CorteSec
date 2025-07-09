@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load widget_tweaks %}
+{% block title %}{% trans "Roles" %}{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-10 transition-all duration-300">
+    <h2 class="text-4xl font-extrabold text-center mb-8 tracking-tight text-blue-700 dark:text-blue-300">
+        {% if rol %}{% trans "Editar Rol" %}{% else %}{% trans "Crear Rol" %}{% endif %}
+    </h2>
+    <form method="post" id="rol-form" class="space-y-8">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Información básica -->
+            <div class="space-y-6">
+                <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2">
+                    <i class="ti ti-info-circle mr-2"></i>{% trans "Información Básica" %}
+                </h3>
+                
+                <div>
+                    <label for="{{ form.nombre.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                        {{ form.nombre.label|capfirst }}
+                        {% if form.nombre.field.required %}<span class="text-red-500">*</span>{% endif %}
+                    </label>
+                    {{ form.nombre|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                    {% if form.nombre.help_text %}
+                        <div class="text-xs text-gray-500 mt-1">{{ form.nombre.help_text }}</div>
+                    {% endif %}
+                    {% if form.nombre.errors %}
+                        <div class="text-red-500 text-xs mt-1">{{ form.nombre.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="{{ form.nivel.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                        {{ form.nivel.label|capfirst }}
+                        {% if form.nivel.field.required %}<span class="text-red-500">*</span>{% endif %}
+                    </label>
+                    {{ form.nivel|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                    {% if form.nivel.help_text %}
+                        <div class="text-xs text-gray-500 mt-1">{{ form.nivel.help_text }}</div>
+                    {% endif %}
+                    {% if form.nivel.errors %}
+                        <div class="text-red-500 text-xs mt-1">{{ form.nivel.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="{{ form.descripcion.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                        {{ form.descripcion.label|capfirst }}
+                        {% if form.descripcion.field.required %}<span class="text-red-500">*</span>{% endif %}
+                    </label>
+                    {{ form.descripcion|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition min-h-24 resize-y" }}
+                    {% if form.descripcion.help_text %}
+                        <div class="text-xs text-gray-500 mt-1">{{ form.descripcion.help_text }}</div>
+                    {% endif %}
+                    {% if form.descripcion.errors %}
+                        <div class="text-red-500 text-xs mt-1">{{ form.descripcion.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Permisos y configuración -->
+            <div class="space-y-6">
+                <h3 class="text-xl font-bold text-blue-600 border-b-2 border-blue-200 pb-2">
+                    <i class="ti ti-shield-check mr-2"></i>{% trans "Permisos y Configuración" %}
+                </h3>
+                
+                {% for field in form %}
+                    {% if field.name not in "nombre,nivel,descripcion,activo" %}
+                        <div>
+                            <label for="{{ field.id_for_label }}" class="block text-base font-semibold text-blue-700 dark:text-blue-200 mb-1 tracking-wide">
+                                {{ field.label|capfirst }}
+                                {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                            </label>
+                            {% if field.field.widget.input_type == "checkbox" %}
+                                <div class="space-y-3">
+                                    {% for choice in field %}
+                                        <div class="flex items-start space-x-3 p-3 bg-white dark:bg-gray-700 rounded-xl border border-blue-200">
+                                            <div class="flex items-center h-5 mt-1">
+                                                {{ choice.tag|add_class:"h-5 w-5 text-blue-600 border-2 border-blue-300 rounded focus:ring-4 focus:ring-blue-400" }}
+                                            </div>
+                                            <div class="flex-1">
+                                                <label for="{{ choice.id_for_label }}" class="block text-sm font-semibold text-blue-700 dark:text-blue-200">
+                                                    {{ choice.choice_label }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% elif field.field.widget.input_type == "select" %}
+                                {{ field|add_class:"form-select w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                            {% else %}
+                                {{ field|add_class:"form-input w-full px-4 py-2 border border-blue-300 rounded-xl bg-blue-50 focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition" }}
+                            {% endif %}
+                            {% if field.help_text %}
+                                <div class="text-xs text-gray-500 mt-1">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% if field.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ field.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                
+                <!-- Estado -->
+                <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6">
+                    <h4 class="text-lg font-bold text-blue-600 mb-4">
+                        <i class="ti ti-toggle-left mr-2"></i>{% trans "Estado del Rol" %}
+                    </h4>
+                    
+                    {% if form.activo %}
+                    <div class="flex items-start space-x-3 p-3 bg-white dark:bg-gray-700 rounded-xl border border-blue-200">
+                        <div class="flex items-center h-5 mt-1">
+                            {{ form.activo|add_class:"h-5 w-5 text-blue-600 border-2 border-blue-300 rounded focus:ring-4 focus:ring-blue-400" }}
+                        </div>
+                        <div class="flex-1">
+                            <label for="{{ form.activo.id_for_label }}" class="block text-sm font-semibold text-blue-700 dark:text-blue-200">
+                                {{ form.activo.label }}
+                            </label>
+                            <p class="text-xs text-gray-500 mt-1">
+                                {% trans "El rol está disponible para asignación a usuarios" %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Información adicional -->
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-2xl p-6 shadow-sm">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="ti ti-info-circle text-blue-500 text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-lg font-bold text-blue-800 mb-2">
+                        {% trans "Información importante sobre roles" %}
+                    </h3>
+                    <div class="text-sm text-blue-700 space-y-1">
+                        <p><i class="ti ti-check mr-2"></i>{% trans "El nombre del rol debe ser único en el sistema" %}</p>
+                        <p><i class="ti ti-check mr-2"></i>{% trans "El nivel determina la jerarquía de permisos" %}</p>
+                        <p><i class="ti ti-check mr-2"></i>{% trans "Los permisos definen las acciones que puede realizar el usuario" %}</p>
+                        <p><i class="ti ti-check mr-2"></i>{% trans "Solo los roles activos aparecerán en los formularios de usuario" %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="mt-10 flex flex-wrap gap-4 justify-center">
+            <button type="submit" class="px-10 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-xl hover:from-blue-700 hover:to-blue-800 transition font-bold text-lg transform hover:scale-105">
+                <i class="ti ti-device-floppy mr-2"></i>
+                {% if rol %}{% trans "Guardar Cambios" %}{% else %}{% trans "Crear Rol" %}{% endif %}
+            </button>
+            <a href="{% url 'roles:lista' %}" class="px-10 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold text-lg shadow transform hover:scale-105">
+                <i class="ti ti-arrow-left mr-2"></i>{% trans "Cancelar" %}
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validación del nivel
+    const nivelInput = document.getElementById('id_nivel');
+    if (nivelInput) {
+        nivelInput.addEventListener('input', function() {
+            const valor = parseInt(this.value);
+            
+            if (valor && (valor < 1 || valor > 10)) {
+                this.style.borderColor = '#F59E0B';
+                this.style.boxShadow = '0 0 0 4px rgba(245, 158, 11, 0.2)';
+                this.title = '{% trans "El nivel debe estar entre 1 y 10" %}';
+            } else {
+                this.style.borderColor = '#93C5FD';
+                this.style.boxShadow = '';
+                this.title = '';
+            }
+        });
+    }
+    
+    // Auto-formatear nombre del rol
+    const nombreInput = document.getElementById('id_nombre');
+    if (nombreInput) {
+        nombreInput.addEventListener('input', function() {
+            const valor = this.value;
+            // Capitalizar primera letra de cada palabra
+            const valorFormateado = valor.replace(/\b\w/g, l => l.toUpperCase());
+            if (valorFormateado !== valor) {
+                this.value = valorFormateado;
+                this.style.borderColor = '#10B981';
+                this.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.2)';
+                setTimeout(() => {
+                    this.style.borderColor = '#93C5FD';
+                    this.style.boxShadow = '';
+                }, 1000);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

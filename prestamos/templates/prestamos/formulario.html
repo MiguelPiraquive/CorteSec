@@ -1,0 +1,628 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}
+    {% if object %}
+        {% trans "Editar Préstamo" %}: {{ object.numero_prestamo }}
+    {% else %}
+        {% trans "Nuevo Préstamo" %}
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.field-error {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.form-section {
+    transition: all 0.3s ease;
+}
+
+.form-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* Input group styling mejorado */
+.input-group {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+
+.input-addon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    pointer-events: none;
+    font-size: 0.875rem;
+    color: #6B7280;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    height: 48px;
+    line-height: 48px;
+}
+
+.input-addon.left {
+    left: 0.75rem;
+}
+
+.input-addon.right {
+    right: 0.75rem;
+}
+
+/* Estilos específicos para inputs con adornos */
+.input-with-left-addon {
+    padding-left: 2.5rem !important;
+}
+
+.input-with-right-addon-short {
+    padding-right: 2.5rem !important;
+}
+
+.input-with-right-addon-long {
+    padding-right: 4rem !important;
+}
+
+/* Focus states */
+.input-group input:focus + .input-addon,
+.input-group input:focus ~ .input-addon {
+    color: #3B82F6;
+}
+
+.calculation-result {
+    animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* SweetAlert2 custom styles */
+.swal2-popup-custom {
+    font-family: 'Inter', sans-serif;
+    border-radius: 12px;
+}
+
+.swal2-title-custom {
+    color: #1F2937;
+    font-weight: 600;
+}
+
+.swal2-content-custom {
+    color: #4B5563;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-blue-700">
+                <i class="ti ti-{% if object %}pencil{% else %}plus{% endif %} mr-2"></i>
+                {% if object %}
+                    {% trans "Editar Préstamo" %}: {{ object.numero_prestamo }}
+                {% else %}
+                    {% trans "Nuevo Préstamo" %}
+                {% endif %}
+            </h2>
+            <nav class="text-sm text-gray-500 mt-1">
+                <a href="{% url 'dashboard:principal' %}" class="hover:text-blue-600">Dashboard</a>
+                <span class="mx-2">/</span>
+                <a href="{% url 'prestamos:lista' %}" class="hover:text-blue-600">{% trans "Préstamos" %}</a>
+                <span class="mx-2">/</span>
+                <span class="text-gray-900">
+                    {% if object %}{{ object.numero_prestamo }}{% else %}{% trans "Nuevo" %}{% endif %}
+                </span>
+            </nav>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'prestamos:lista' %}"
+               class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow hover:bg-gray-300 transition">
+                <i class="ti ti-arrow-left mr-2"></i> {% trans "Volver" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Alertas de estado -->
+    {% if object %}
+    <div class="mb-6">
+        {% if object.estado == 'aprobado' %}
+        <div class="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="ti ti-check text-green-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-green-700">
+                        {% trans "Este préstamo ha sido aprobado" %}
+                        {% if object.fecha_aprobacion %}
+                            {% trans "el" %} {{ object.fecha_aprobacion|date:"d/m/Y" }}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% elif object.estado == 'rechazado' %}
+        <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="ti ti-x text-red-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-red-700">{% trans "Este préstamo ha sido rechazado" %}</p>
+                </div>
+            </div>
+        </div>
+        {% elif object.estado == 'desembolsado' %}
+        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="ti ti-credit-card text-blue-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700">
+                        {% trans "Este préstamo ha sido desembolsado" %}
+                        {% if object.fecha_desembolso %}
+                            {% trans "el" %} {{ object.fecha_desembolso|date:"d/m/Y" }}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Calculadora de Cuota -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6">
+        <h3 class="text-lg font-semibold text-blue-700 mb-4">
+            <i class="ti ti-calculator mr-2"></i>{% trans "Calculadora de Cuota Mensual" %}
+        </h3>
+        <div class="bg-white rounded-lg p-4">
+            <div class="text-center">
+                <p class="text-sm text-gray-600 mb-2">{% trans "Cuota Mensual Estimada" %}</p>
+                <div id="cuota-calculada" class="text-3xl font-bold text-blue-600 calculation-result">$0</div>
+                <p class="text-xs text-gray-500 mt-2">{% trans "Se calcula automáticamente al llenar los campos" %}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario -->
+    <form method="post" id="prestamoForm" class="space-y-6" novalidate>
+        {% csrf_token %}
+        
+        <!-- Información del Empleado -->
+        <div class="form-section bg-blue-50 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-blue-700 mb-4">
+                <i class="ti ti-user mr-2"></i>{% trans "Información del Empleado" %}
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Empleado -->
+                <div class="form-field">
+                    <label for="{{ form.empleado.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.empleado.label }}
+                        {% if form.empleado.field.required %}
+                            <span class="text-red-500">*</span>
+                        {% endif %}
+                    </label>
+                    <div class="relative">
+                        {{ form.empleado|add_class:"appearance-none rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 w-full pr-8 pl-3 py-3 bg-white transition-colors duration-200" }}
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                            <i class="ti ti-chevron-down text-gray-400"></i>
+                        </div>
+                    </div>
+                    {% if form.empleado.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.empleado.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Solicitado por -->
+                {% if form.solicitado_por %}
+                <div class="form-field">
+                    <label for="{{ form.solicitado_por.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.solicitado_por.label }}
+                        {% if form.solicitado_por.field.required %}
+                            <span class="text-red-500">*</span>
+                        {% endif %}
+                    </label>
+                    <div class="relative">
+                        {{ form.solicitado_por|add_class:"appearance-none rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 w-full pr-8 pl-3 py-3 bg-white transition-colors duration-200" }}
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                            <i class="ti ti-chevron-down text-gray-400"></i>
+                        </div>
+                    </div>
+                    {% if form.solicitado_por.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.solicitado_por.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Detalles del Préstamo -->
+        <div class="form-section bg-green-50 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-green-700 mb-4">
+                <i class="ti ti-credit-card mr-2"></i>{% trans "Detalles del Préstamo" %}
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Tipo de Préstamo -->
+                <div class="form-field">
+                    <label for="{{ form.tipo_prestamo.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.tipo_prestamo.label }}
+                        {% if form.tipo_prestamo.field.required %}
+                            <span class="text-red-500">*</span>
+                        {% endif %}
+                    </label>
+                    <div class="relative">
+                        {{ form.tipo_prestamo|add_class:"appearance-none rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 w-full pr-8 pl-3 py-3 bg-white transition-colors duration-200" }}
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                            <i class="ti ti-chevron-down text-gray-400"></i>
+                        </div>
+                    </div>
+                    {% if form.tipo_prestamo.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.tipo_prestamo.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Monto Solicitado -->
+                <div class="form-field">
+                    <label for="{{ form.monto_solicitado.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.monto_solicitado.label }}
+                        {% if form.monto_solicitado.field.required %}
+                            <span class="text-red-500">*</span>
+                        {% endif %}
+                    </label>
+                    <div class="input-group">
+                        {{ form.monto_solicitado|add_class:"input-with-left-addon pl-10 pr-3 py-3 rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 w-full transition-colors duration-200" }}
+                        <span class="input-addon left">$</span>
+                    </div>
+                    {% if form.monto_solicitado.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.monto_solicitado.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <p class="mt-1 text-xs text-gray-500">{% trans "Ingrese el monto sin puntos ni comas" %}</p>
+                </div>
+
+                <!-- Plazo en Meses -->
+                <div class="form-field">
+                    <label for="{{ form.plazo_meses.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.plazo_meses.label }}
+                        {% if form.plazo_meses.field.required %}
+                            <span class="text-red-500">*</span>
+                        {% endif %}
+                    </label>
+                    <div class="input-group">
+                        {{ form.plazo_meses|add_class:"input-with-right-addon-long pr-16 pl-3 py-3 rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 w-full transition-colors duration-200" }}
+                        <span class="input-addon right">{% trans "meses" %}</span>
+                    </div>
+                    {% if form.plazo_meses.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.plazo_meses.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Tasa de Interés -->
+                <div class="form-field">
+                    <label for="{{ form.tasa_interes.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.tasa_interes.label }}
+                        {% if form.tasa_interes.field.required %}
+                            <span class="text-red-500">*</span>
+                        {% endif %}
+                    </label>
+                    <div class="input-group">
+                        {{ form.tasa_interes|add_class:"input-with-right-addon-short pr-10 pl-3 py-3 rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 w-full transition-colors duration-200" }}
+                        <span class="input-addon right">%</span>
+                    </div>
+                    {% if form.tasa_interes.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.tasa_interes.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <p class="mt-1 text-xs text-gray-500">{% trans "Tasa anual (ej: 12.5 para 12.5%) - Se permite 0" %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fechas y Cronograma -->
+        <div class="form-section bg-purple-50 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-purple-700 mb-4">
+                <i class="ti ti-calendar mr-2"></i>{% trans "Fechas y Cronograma" %}
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Fecha de Solicitud -->
+                {% if form.fecha_solicitud %}
+                <div class="form-field">
+                    <label for="{{ form.fecha_solicitud.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.fecha_solicitud.label }}
+                        {% if form.fecha_solicitud.field.required %}
+                            <span class="text-red-500">*</span>
+                        {% endif %}
+                    </label>
+                    {{ form.fecha_solicitud|add_class:"w-full px-3 py-3 rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" }}
+                    {% if form.fecha_solicitud.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.fecha_solicitud.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Fecha Primer Pago -->
+                {% if form.fecha_primer_pago %}
+                <div class="form-field">
+                    <label for="{{ form.fecha_primer_pago.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.fecha_primer_pago.label }}
+                        {% if form.fecha_primer_pago.field.required %}
+                            <span class="text-red-500">*</span>
+                        {% endif %}
+                    </label>
+                    {{ form.fecha_primer_pago|add_class:"w-full px-3 py-3 rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" }}
+                    {% if form.fecha_primer_pago.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.fecha_primer_pago.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <p class="mt-1 text-xs text-gray-500">{% trans "Se calculará automáticamente un mes después de la solicitud" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Información Adicional -->
+        <div class="form-section bg-yellow-50 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-yellow-700 mb-4">
+                <i class="ti ti-file-text mr-2"></i>{% trans "Información Adicional" %}
+            </h3>
+            
+            <div class="grid grid-cols-1 gap-6">
+                <!-- Garantía -->
+                {% if form.garantia_descripcion %}
+                <div class="form-field">
+                    <label for="{{ form.garantia_descripcion.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.garantia_descripcion.label }}
+                    </label>
+                    {{ form.garantia_descripcion|add_class:"w-full px-3 py-3 rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" }}
+                    {% if form.garantia_descripcion.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.garantia_descripcion.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Observaciones -->
+                {% if form.observaciones %}
+                <div class="form-field">
+                    <label for="{{ form.observaciones.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.observaciones.label }}
+                    </label>
+                    {{ form.observaciones|add_class:"w-full px-3 py-3 rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" }}
+                    {% if form.observaciones.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.observaciones.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Estado (solo para edición) -->
+                {% if object and form.estado %}
+                <div class="form-field">
+                    <label for="{{ form.estado.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.estado.label }}
+                    </label>
+                    <div class="relative">
+                        {{ form.estado|add_class:"appearance-none rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500 w-full pr-8 pl-3 py-3 bg-white transition-colors duration-200" }}
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                            <i class="ti ti-chevron-down text-gray-400"></i>
+                        </div>
+                    </div>
+                    {% if form.estado.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.estado.errors %}
+                                <p class="field-error">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Campos ocultos adicionales -->
+        {% for field in form.hidden_fields %}
+            {{ field }}
+        {% endfor %}
+
+        <!-- Botones de Acción -->
+        <div class="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+            <button type="submit"
+                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg shadow-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:-translate-y-0.5">
+                <i class="ti ti-device-floppy mr-2"></i>
+                {% if object %}
+                    {% trans "Actualizar Préstamo" %}
+                {% else %}
+                    {% trans "Crear Préstamo" %}
+                {% endif %}
+            </button>
+            
+            <a href="{% url 'prestamos:lista' %}"
+               class="inline-flex items-center justify-center px-6 py-3 bg-gray-500 text-white text-sm font-medium rounded-lg shadow hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200">
+                <i class="ti ti-x mr-2"></i>
+                {% trans "Cancelar" %}
+            </a>
+            
+            <button type="button" onclick="limpiarFormulario()"
+                    class="inline-flex items-center justify-center px-6 py-3 bg-yellow-500 text-white text-sm font-medium rounded-lg shadow hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-all duration-200 sm:ml-auto">
+                <i class="ti ti-refresh mr-2"></i>
+                {% trans "Limpiar Formulario" %}
+            </button>
+            
+            {% if object %}
+            <button type="button"
+                    onclick="confirmarEliminacion({{ object.pk }}, '{{ object.numero_prestamo }}')"
+                    class="inline-flex items-center justify-center px-6 py-3 bg-red-600 text-white text-sm font-medium rounded-lg shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200">
+                <i class="ti ti-trash mr-2"></i>
+                {% trans "Eliminar" %}
+            </button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- SweetAlert2 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Préstamo Form JS -->
+<script src="{% static 'js/prestamo-form.js' %}"></script>
+
+<script>
+// Función para limpiar formulario
+function limpiarFormulario() {
+    if (window.prestamoFormManager && typeof window.prestamoFormManager.reset === 'function') {
+        window.prestamoFormManager.reset();
+    } else {
+        // Fallback si el PrestamoFormManager no está disponible
+        Swal.fire({
+            title: '{% trans "¿Limpiar formulario?" %}',
+            text: '{% trans "Se perderán todos los datos ingresados" %}',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '{% trans "Sí, limpiar" %}',
+            cancelButtonText: '{% trans "Cancelar" %}',
+            confirmButtonColor: '#EAB308',
+            cancelButtonColor: '#6B7280'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const form = document.getElementById('prestamoForm');
+                if (form) {
+                    form.reset();
+                    const cuotaDisplay = document.getElementById('cuota-calculada');
+                    if (cuotaDisplay) {
+                        cuotaDisplay.textContent = '$0';
+                    }
+                    
+                    Swal.fire({
+                        title: '{% trans "Formulario limpiado" %}',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            }
+        });
+    }
+}
+
+// Función para confirmar eliminación específica del template
+{% if object %}
+function confirmarEliminacion(prestamoId, numeroPrestamo) {
+    Swal.fire({
+        title: '{% trans "¿Eliminar préstamo?" %}',
+        text: `{% trans "¿Está seguro de eliminar el préstamo" %} ${numeroPrestamo}? {% trans "Esta acción no se puede deshacer." %}`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '{% trans "Sí, eliminar" %}',
+        cancelButtonText: '{% trans "Cancelar" %}',
+        confirmButtonColor: '#EF4444',
+        cancelButtonColor: '#6B7280',
+        customClass: {
+            popup: 'swal2-popup-custom',
+            title: 'swal2-title-custom',
+            content: 'swal2-content-custom'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Crear formulario para eliminar
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{% url "prestamos:eliminar" object.pk %}';
+            
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken;
+            
+            form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+{% endif %}
+
+// Inicializar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('💼 Formulario de préstamo cargado correctamente');
+    
+    // Dar tiempo para que el PrestamoFormManager se inicialice
+    setTimeout(() => {
+        if (window.prestamoFormManager) {
+            console.log('✅ PrestamoFormManager está disponible');
+        } else {
+            console.warn('⚠️ PrestamoFormManager no está disponible');
+        }
+    }, 200);
+});
+</script>
+{% endblock %}

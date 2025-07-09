@@ -7,7 +7,7 @@ from django.db.models import Q, Sum
 from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
 from django.utils import timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from .models import Prestamo, PagoPrestamo, TipoPrestamo
 from .forms import PrestamoForm, PagoPrestamoForm
@@ -26,9 +26,9 @@ def lista_prestamos(request):
     # Filtro de búsqueda
     if search_query:
         prestamos = prestamos.filter(
-            Q(empleado__nombre__icontains=search_query) |
-            Q(empleado__apellido__icontains=search_query) |
-            Q(concepto__icontains=search_query) |
+            Q(empleado__nombres__icontains=search_query) |
+            Q(empleado__apellidos__icontains=search_query) |
+            Q(numero_prestamo__icontains=search_query) |
             Q(observaciones__icontains=search_query)
         )
     
@@ -55,9 +55,13 @@ def lista_prestamos(request):
         'activos': Prestamo.objects.filter(estado='activo').count(),
         'completados': Prestamo.objects.filter(estado='completado').count(),
         'cancelados': Prestamo.objects.filter(estado='cancelado').count(),
+        'rechazados': Prestamo.objects.filter(estado='rechazado').count(),
         'monto_total_prestado': Prestamo.objects.filter(
             estado__in=['aprobado', 'activo', 'completado']
-        ).aggregate(total=Sum('monto'))['total'] or 0,
+        ).aggregate(total=Sum('monto_solicitado'))['total'] or 0,
+        'monto_total_pendiente': Prestamo.objects.filter(
+            estado__in=['activo']
+        ).aggregate(total=Sum('saldo_pendiente'))['total'] or 0,
     }
     
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -77,12 +81,14 @@ def lista_prestamos(request):
         })
     
     context = {
+        'prestamos': page_obj,  # Los préstamos paginados
         'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
         'search_query': search_query,
         'estado_filter': estado_filter,
         'empleado_filter': empleado_filter,
         'estadisticas': estadisticas,
-        'empleados': Empleado.objects.filter(activo=True).order_by('nombre', 'apellido'),
+        'empleados': Empleado.objects.all().order_by('nombres', 'apellidos'),
         'title': 'Gestión de Préstamos',
     }
     return render(request, 'prestamos/lista.html', context)
@@ -96,11 +102,21 @@ def crear_prestamo(request):
         if form.is_valid():
             prestamo = form.save(commit=False)
             prestamo.solicitado_por = request.user
+            
+            # Si no tiene monto aprobado, usar el solicitado
+            if not prestamo.monto_aprobado:
+                prestamo.monto_aprobado = prestamo.monto_solicitado
+            
+            # Calcular saldo pendiente inicial
+            prestamo.saldo_pendiente = prestamo.monto_aprobado or prestamo.monto_solicitado
+            
             prestamo.save()
             
             # Generar cuotas automáticamente si el préstamo está aprobado
+            # TODO: Implementar generación automática de cuotas de pago
             if prestamo.estado == 'aprobado':
-                prestamo.generar_cuotas()
+                # TODO: Implementar método generar_cuotas() o similar
+                pass
             
             messages.success(request, f'Préstamo para {prestamo.empleado} creado exitosamente.')
             
@@ -144,12 +160,23 @@ def editar_prestamo(request, pk):
         if form.is_valid():
             prestamo_anterior_estado = prestamo.estado
             prestamo = form.save(commit=False)
-            prestamo.modificado_por = request.user
+            
+            # Si no tiene monto aprobado, usar el solicitado
+            if not prestamo.monto_aprobado:
+                prestamo.monto_aprobado = prestamo.monto_solicitado
+            
+            # Recalcular saldo pendiente si es necesario
+            if prestamo_anterior_estado != prestamo.estado and prestamo.estado == 'aprobado':
+                prestamo.saldo_pendiente = prestamo.monto_aprobado or prestamo.monto_solicitado
+            
             prestamo.save()
             
             # Si cambió de pendiente a aprobado, generar cuotas
+            # Si cambió de pendiente a aprobado, generar cuotas
+            # TODO: Implementar generación automática de cuotas de pago
             if prestamo_anterior_estado == 'pendiente' and prestamo.estado == 'aprobado':
-                prestamo.generar_cuotas()
+                # TODO: Implementar método generar_cuotas() o similar
+                pass
             
             messages.success(request, f'Préstamo de {prestamo.empleado} actualizado exitosamente.')
             
@@ -172,6 +199,7 @@ def editar_prestamo(request, pk):
     
     context = {
         'form': form,
+        'object': prestamo,  # Agregar object para el template
         'prestamo': prestamo,
         'title': f'Editar Préstamo: {prestamo.empleado}',
         'action': 'Actualizar'
@@ -188,11 +216,11 @@ def editar_prestamo(request, pk):
 def detalle_prestamo(request, pk):
     """Vista para ver los detalles de un préstamo"""
     prestamo = get_object_or_404(Prestamo, pk=pk)
-    cuotas = prestamo.cuotas.all().order_by('numero_cuota')
+    pagos = prestamo.pagos.all().order_by('numero_pago')
     
     context = {
         'prestamo': prestamo,
-        'cuotas': cuotas,
+        'pagos': pagos,
         'title': f'Detalle del Préstamo: {prestamo.empleado}',
     }
     
@@ -237,22 +265,39 @@ def aprobar_prestamo(request, pk):
     """Vista para aprobar un préstamo"""
     prestamo = get_object_or_404(Prestamo, pk=pk)
     
-    if prestamo.estado != 'pendiente':
-        message = 'Solo se pueden aprobar préstamos pendientes.'
+    if prestamo.estado not in ['solicitado', 'pendiente']:
+        message = 'Solo se pueden aprobar préstamos pendientes o solicitados.'
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'message': message})
         messages.error(request, message)
         return redirect('prestamos:lista')
     
+    # Obtener monto aprobado del formulario
+    monto_aprobado = request.POST.get('monto_aprobado')
+    observaciones = request.POST.get('observaciones', '')
+    
+    if monto_aprobado:
+        try:
+            prestamo.monto_aprobado = Decimal(monto_aprobado)
+        except (ValueError, InvalidOperation):
+            prestamo.monto_aprobado = prestamo.monto_solicitado
+    else:
+        prestamo.monto_aprobado = prestamo.monto_solicitado
+    
     prestamo.estado = 'aprobado'
     prestamo.fecha_aprobacion = timezone.now().date()
     prestamo.aprobado_por = request.user
+    
+    # Agregar observaciones si las hay
+    if observaciones:
+        if prestamo.observaciones:
+            prestamo.observaciones += f"\n\nAprobación: {observaciones}"
+        else:
+            prestamo.observaciones = f"Aprobación: {observaciones}"
+    
     prestamo.save()
     
-    # Generar cuotas
-    prestamo.generar_cuotas()
-    
-    message = f'Préstamo de {prestamo.empleado} aprobado exitosamente.'
+    message = f'Préstamo de {prestamo.empleado} aprobado exitosamente por ${prestamo.monto_aprobado:,.0f}.'
     messages.success(request, message)
     
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -270,14 +315,26 @@ def rechazar_prestamo(request, pk):
     """Vista para rechazar un préstamo"""
     prestamo = get_object_or_404(Prestamo, pk=pk)
     
-    if prestamo.estado != 'pendiente':
-        message = 'Solo se pueden rechazar préstamos pendientes.'
+    if prestamo.estado not in ['solicitado', 'pendiente']:
+        message = 'Solo se pueden rechazar préstamos pendientes o solicitados.'
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'message': message})
         messages.error(request, message)
         return redirect('prestamos:lista')
     
+    # Obtener motivo del rechazo del formulario
+    motivo_rechazo = request.POST.get('motivo_rechazo', '')
+    
     prestamo.estado = 'rechazado'
+    prestamo.fecha_rechazo = timezone.now().date()
+    
+    # Agregar motivo del rechazo a las observaciones
+    if motivo_rechazo:
+        if prestamo.observaciones:
+            prestamo.observaciones += f"\n\nRechazo: {motivo_rechazo}"
+        else:
+            prestamo.observaciones = f"Rechazo: {motivo_rechazo}"
+    
     prestamo.save()
     
     message = f'Préstamo de {prestamo.empleado} rechazado.'
@@ -337,8 +394,9 @@ def api_prestamos(request):
     
     if search:
         prestamos = prestamos.filter(
-            Q(empleado__nombre__icontains=search) |
-            Q(empleado__apellido__icontains=search)
+            Q(empleado__nombres__icontains=search) |
+            Q(empleado__apellidos__icontains=search) |
+            Q(numero_prestamo__icontains=search)
         )
     
     if empleado_id:
@@ -349,7 +407,7 @@ def api_prestamos(request):
         prestamos_data.append({
             'id': prestamo.id,
             'empleado': str(prestamo.empleado),
-            'monto': float(prestamo.monto),
+            'monto': float(prestamo.monto_solicitado),
             'estado': prestamo.get_estado_display(),
             'fecha_solicitud': prestamo.fecha_solicitud.strftime('%d/%m/%Y'),
             'saldo_pendiente': float(prestamo.saldo_pendiente),
@@ -359,3 +417,33 @@ def api_prestamos(request):
         'results': prestamos_data,
         'pagination': {'more': prestamos.count() > 20}
     })
+
+
+@login_required
+@require_http_methods(["POST"])
+def desembolsar_prestamo(request, pk):
+    """Vista para desembolsar un préstamo"""
+    prestamo = get_object_or_404(Prestamo, pk=pk)
+    
+    if prestamo.estado != 'aprobado':
+        message = 'Solo se pueden desembolsar préstamos aprobados.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'message': message})
+        messages.error(request, message)
+        return redirect('prestamos:lista')
+    
+    prestamo.estado = 'desembolsado'
+    prestamo.fecha_desembolso = timezone.now().date()
+    prestamo.saldo_pendiente = prestamo.monto_aprobado or prestamo.monto_solicitado
+    prestamo.save()
+    
+    message = f'Préstamo de {prestamo.empleado} desembolsado exitosamente.'
+    messages.success(request, message)
+    
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': message
+        })
+    
+    return redirect('prestamos:lista')

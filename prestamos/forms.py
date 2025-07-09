@@ -10,7 +10,8 @@ class PrestamoForm(forms.ModelForm):
 
     class Meta:
         model = Prestamo
-        fields = ['empleado', 'tipo_prestamo', 'monto_solicitado', 'tasa_interes', 'plazo_meses', 'observaciones', 'garantia_descripcion', 'estado']
+        fields = ['empleado', 'tipo_prestamo', 'monto_solicitado', 'tasa_interes', 'plazo_meses', 
+                 'fecha_solicitud', 'fecha_primer_pago', 'observaciones', 'garantia_descripcion']
         widgets = {
             'empleado': forms.Select(attrs={
                 'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm',
@@ -50,6 +51,14 @@ class PrestamoForm(forms.ModelForm):
             'estado': forms.Select(attrs={
                 'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm',
             }),
+            'fecha_solicitud': forms.DateInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm',
+                'type': 'date'
+            }),
+            'fecha_primer_pago': forms.DateInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm',
+                'type': 'date'
+            }),
         }
         labels = {
             'empleado': 'Empleado',
@@ -57,14 +66,17 @@ class PrestamoForm(forms.ModelForm):
             'monto_solicitado': 'Monto Solicitado',
             'plazo_meses': 'Plazo (Meses)',
             'tasa_interes': 'Tasa de Interés (%)',
+            'fecha_solicitud': 'Fecha de Solicitud',
+            'fecha_primer_pago': 'Fecha Primer Pago',
             'observaciones': 'Observaciones',
             'garantia_descripcion': 'Descripción de Garantía',
-            'estado': 'Estado',
         }
         help_texts = {
             'monto_solicitado': 'Monto total del préstamo solicitado',
             'plazo_meses': 'Número de meses para el pago (máximo 60)',
-            'tasa_interes': 'Tasa de interés anual en porcentaje',
+            'tasa_interes': 'Tasa de interés anual en porcentaje (puede ser 0)',
+            'fecha_solicitud': 'Fecha en que se realiza la solicitud',
+            'fecha_primer_pago': 'Fecha programada para el primer pago',
             'observaciones': 'Observaciones adicionales sobre el préstamo',
             'garantia_descripcion': 'Descripción de la garantía ofrecida',
         }
@@ -110,25 +122,15 @@ class PrestamoForm(forms.ModelForm):
         tasa = self.cleaned_data.get('tasa_interes')
         if tasa is not None:
             if tasa < 0:
-                raise ValidationError('La tasa de interés no puede ser negativa.')
-            if tasa > 100:
-                raise ValidationError('La tasa de interés no puede ser mayor a 100%.')
+                raise ValidationError('La tasa de interés debe ser mayor o igual a cero.')
+            if tasa > 50:
+                raise ValidationError('La tasa de interés no puede ser mayor al 50%.')
         return tasa
-
-    def clean_tasa_interes(self):
-        tasa_interes = self.cleaned_data.get('tasa_interes')
-        if tasa_interes is not None:
-            if tasa_interes < 0:
-                raise ValidationError('La tasa de interés no puede ser negativa.')
-            if tasa_interes > 100:
-                raise ValidationError('La tasa de interés no puede ser mayor al 100%.')
-        return tasa_interes
 
     def clean(self):
         cleaned_data = super().clean()
         empleado = cleaned_data.get('empleado')
-        monto = cleaned_data.get('monto')
-        estado = cleaned_data.get('estado')
+        monto_solicitado = cleaned_data.get('monto_solicitado')
         
         # Validar que el empleado no tenga préstamos activos
         if empleado and not self.instance.pk:

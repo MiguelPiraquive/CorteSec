@@ -1,265 +1,595 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
+{% load i18n %}
 
-{% block title %}Tipos de Cantidad{% endblock %}
-
-{% block extra_css %}
-<style>
-.stats-card {
-    border-left: 4px solid var(--bs-primary);
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-}
-.badge-status {
-    font-size: 0.75rem;
-    padding: 0.375rem 0.75rem;
-}
-</style>
-{% endblock %}
+{% block title %}{% trans "Tipos de Cantidad" %}{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="bg-white rounded-2xl shadow p-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
         <div>
-            <h1 class="h3 mb-1">Tipos de Cantidad</h1>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item active">Tipos de Cantidad</li>
-                </ol>
+            <h2 class="text-2xl font-bold text-blue-700">{% trans "Tipos de Cantidad" %}</h2>
+            <nav class="text-sm text-gray-500 mt-1">
+                <a href="{% url 'dashboard:principal' %}" class="hover:text-blue-600">Dashboard</a>
+                <span class="mx-2">/</span>
+                <span class="text-gray-900">{% trans "Tipos de Cantidad" %}</span>
             </nav>
         </div>
-        <div>
-            <a href="{% url 'tipos_cantidad:crear' %}" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>
-                Nuevo Tipo
+        <div class="flex gap-3">
+            <button onclick="exportarDatos()" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition">
+                <i class="ti ti-download mr-2"></i> {% trans "Exportar" %}
+            </button>
+            <a href="{% url 'tipos_cantidad:crear' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                <i class="ti ti-plus mr-2"></i> {% trans "Nuevo Tipo" %}
             </a>
         </div>
     </div>
 
     <!-- Estadísticas -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-clipboard-list fa-2x text-primary"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Total</div>
-                            <div class="h4 mb-0">{{ stats.total }}</div>
-                        </div>
-                    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i class="ti ti-clipboard-list text-2xl text-blue-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-blue-600">{% trans "Total Tipos" %}</p>
+                    <p class="text-2xl font-bold text-blue-700">{{ stats.total }}</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-check-circle fa-2x text-success"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Activos</div>
-                            <div class="h4 mb-0 text-success">{{ stats.activos }}</div>
-                        </div>
-                    </div>
+        <div class="bg-green-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-green-100 rounded-lg">
+                    <i class="ti ti-check text-2xl text-green-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-green-600">{% trans "Activos" %}</p>
+                    <p class="text-2xl font-bold text-green-700">{{ stats.activos }}</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-times-circle fa-2x text-danger"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Inactivos</div>
-                            <div class="h4 mb-0 text-danger">{{ stats.inactivos }}</div>
-                        </div>
-                    </div>
+        <div class="bg-red-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-red-100 rounded-lg">
+                    <i class="ti ti-x text-2xl text-red-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-red-600">{% trans "Inactivos" %}</p>
+                    <p class="text-2xl font-bold text-red-700">{{ stats.inactivos }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-4">
+            <div class="flex items-center">
+                <div class="p-3 bg-purple-100 rounded-lg">
+                    <i class="ti ti-cog text-2xl text-purple-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-purple-600">{% trans "Sistema" %}</p>
+                    <p class="text-2xl font-bold text-purple-700">{{ stats.sistema|default:0 }}</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Filtros -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">
-                <i class="fas fa-filter me-2"></i>
-                Filtros de Búsqueda
-            </h5>
-        </div>
-        <div class="card-body">
-            <form method="get" id="filtros-form">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label for="{{ filtro_form.search.id_for_label }}" class="form-label">Buscar</label>
-                        {{ filtro_form.search|add_class:"form-control" }}
-                    </div>
-                    <div class="col-md-3">
-                        <label for="{{ filtro_form.estado.id_for_label }}" class="form-label">Estado</label>
-                        {{ filtro_form.estado|add_class:"form-select" }}
-                    </div>
-                    <div class="col-md-3">
-                        <label for="{{ filtro_form.orden_por.id_for_label }}" class="form-label">Ordenar por</label>
-                        {{ filtro_form.orden_por|add_class:"form-select" }}
-                    </div>
+    <div class="bg-gray-50 rounded-xl p-4 mb-6">
+        <form method="get" id="filtros-form" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label for="{{ filtro_form.search.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                        {% trans "Buscar" %}
+                    </label>
+                    {{ filtro_form.search|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" }}
                 </div>
-                <div class="row mt-3">
-                    <div class="col-auto">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-search me-2"></i>
-                            Buscar
-                        </button>
-                    </div>
-                    <div class="col-auto">
-                        <a href="{% url 'tipos_cantidad:lista' %}" class="btn btn-outline-secondary">
-                            <i class="fas fa-times me-2"></i>
-                            Limpiar
-                        </a>
-                    </div>
+                <div>
+                    <label for="{{ filtro_form.estado.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                        {% trans "Estado" %}
+                    </label>
+                    {{ filtro_form.estado|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" }}
                 </div>
-            </form>
-        </div>
+                <div>
+                    <label for="{{ filtro_form.orden_por.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                        {% trans "Ordenar por" %}
+                    </label>
+                    {{ filtro_form.orden_por|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" }}
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                    <i class="ti ti-search mr-2"></i> {% trans "Buscar" %}
+                </button>
+                <a href="{% url 'tipos_cantidad:lista' %}" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow hover:bg-gray-300 transition">
+                    <i class="ti ti-x mr-2"></i> {% trans "Limpiar" %}
+                </a>
+            </div>
+        </form>
     </div>
 
     <!-- Tabla -->
-    <div class="card">
-        <div class="card-header">
-            <div class="d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-list me-2"></i>
-                    Listado de Tipos ({{ tipos.paginator.count }} registros)
-                </h5>
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="refreshTable()">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-            </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-blue-100">
+            <thead class="bg-blue-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Código" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Descripción" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Símbolo" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Orden" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Estado" %}</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Fecha" %}</th>
+                    <th class="px-4 py-2 text-center text-xs font-semibold text-blue-700 uppercase tracking-wider">{% trans "Acciones" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-blue-50">
+                {% for tipo in tipos %}
+                <tr class="hover:bg-blue-50 transition">
+                    <td class="px-4 py-3">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10">
+                                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <i class="ti ti-clipboard-list text-blue-600"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900 font-mono">{{ tipo.codigo }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-sm font-medium text-gray-900">{{ tipo.descripcion }}</div>
+                        {% if tipo.descripcion|length > 30 %}
+                            <div class="text-sm text-gray-500">{{ tipo.descripcion|truncatewords:5 }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if tipo.simbolo %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {{ tipo.simbolo }}
+                            </span>
+                        {% else %}
+                            <span class="text-gray-400">{% trans "Sin símbolo" %}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {{ tipo.orden }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex flex-col gap-1">
+                            {% if tipo.activo %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="ti ti-check mr-1"></i> {% trans "Activo" %}
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <i class="ti ti-x mr-1"></i> {% trans "Inactivo" %}
+                                </span>
+                            {% endif %}
+                            {% if tipo.es_sistema %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    <i class="ti ti-cog mr-1"></i> {% trans "Sistema" %}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-sm text-gray-900">{{ tipo.fecha_creacion|date:"d/m/Y" }}</div>
+                        <div class="text-sm text-gray-500">{{ tipo.fecha_creacion|date:"H:i" }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex justify-center gap-2">
+                            <a href="{% url 'tipos_cantidad:detalle' tipo.pk %}" 
+                               class="inline-flex items-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-xs" 
+                               title="{% trans 'Ver Detalles' %}">
+                                <i class="ti ti-eye"></i>
+                            </a>
+                            <a href="{% url 'tipos_cantidad:editar' tipo.pk %}" 
+                               class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs" 
+                               title="{% trans 'Editar' %}">
+                                <i class="ti ti-pencil"></i>
+                            </a>
+                            {% if not tipo.es_sistema %}
+                            <button type="button" 
+                                    onclick="eliminarTipo({{ tipo.pk }}, '{{ tipo.codigo }}')"
+                                    class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs" 
+                                    title="{% trans 'Eliminar' %}">
+                                <i class="ti ti-trash"></i>
+                            </button>
+                            {% endif %}
+                            <button type="button" 
+                                    onclick="toggleEstado({{ tipo.pk }})"
+                                    class="inline-flex items-center px-2 py-1 {% if tipo.activo %}bg-orange-500 hover:bg-orange-600{% else %}bg-green-500 hover:bg-green-600{% endif %} text-white rounded transition text-xs" 
+                                    title="{% trans 'Cambiar Estado' %}">
+                                <i class="ti ti-toggle-{% if tipo.activo %}left{% else %}right{% endif %}"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-8">
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                <i class="ti ti-clipboard-list text-2xl text-gray-400"></i>
+                            </div>
+                            <p class="text-gray-500 text-lg font-medium">{% trans "No hay tipos de cantidad registrados" %}</p>
+                            <p class="text-gray-400 text-sm mt-1">{% trans "Comienza creando tu primer tipo de cantidad" %}</p>
+                            <a href="{% url 'tipos_cantidad:crear' %}" 
+                               class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                                <i class="ti ti-plus mr-2"></i> {% trans "Crear Primer Tipo" %}
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if tipos.has_other_pages %}
+    <div class="mt-6 flex items-center justify-between">
+        <div class="flex-1 flex justify-between sm:hidden">
+            {% if tipos.has_previous %}
+                <a href="?page={{ tipos.previous_page_number }}{{ request.GET.urlencode|slice:'1:' }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    {% trans "Anterior" %}
+                </a>
+            {% endif %}
+            {% if tipos.has_next %}
+                <a href="?page={{ tipos.next_page_number }}{{ request.GET.urlencode|slice:'1:' }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    {% trans "Siguiente" %}
+                </a>
+            {% endif %}
         </div>
-        <div class="card-body p-0">
-            <div id="tipos-table-container">
-                {% include 'tipos_cantidad/table.html' %}
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700">
+                    {% trans "Mostrando" %}
+                    <span class="font-medium">{{ tipos.start_index }}</span>
+                    {% trans "a" %}
+                    <span class="font-medium">{{ tipos.end_index }}</span>
+                    {% trans "de" %}
+                    <span class="font-medium">{{ tipos.paginator.count }}</span>
+                    {% trans "resultados" %}
+                </p>
+            </div>
+            <div>
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    {% if tipos.has_previous %}
+                        <a href="?page={{ tipos.previous_page_number }}{{ request.GET.urlencode|slice:'1:' }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="ti ti-chevron-left"></i>
+                        </a>
+                    {% endif %}
+                    
+                    {% for num in tipos.paginator.page_range %}
+                        {% if tipos.number == num %}
+                            <span class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">
+                                {{ num }}
+                            </span>
+                        {% elif num > tipos.number|add:'-3' and num < tipos.number|add:'3' %}
+                            <a href="?page={{ num }}{{ request.GET.urlencode|slice:'1:' }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                {{ num }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if tipos.has_next %}
+                        <a href="?page={{ tipos.next_page_number }}{{ request.GET.urlencode|slice:'1:' }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="ti ti-chevron-right"></i>
+                        </a>
+                    {% endif %}
+                </nav>
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<!-- SweetAlert2 CSS y JS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- CSS personalizado para SweetAlert2 -->
+<style>
+.swal2-container {
+    z-index: 999999 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-color: rgba(0, 0, 0, 0.4) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.swal2-popup {
+    z-index: 9999999 !important;
+    position: relative !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+    border: none !important;
+    max-width: 500px !important;
+    width: 90% !important;
+    background: white !important;
+}
+
+.swal2-title {
+    color: #374151 !important;
+    font-weight: 600 !important;
+    font-size: 1.5rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.swal2-html-container {
+    color: #6B7280 !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+}
+
+.swal2-confirm {
+    background-color: #DC2626 !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 12px 24px !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+}
+
+.swal2-confirm:hover {
+    background-color: #B91C1C !important;
+    transform: translateY(-1px) !important;
+}
+
+.swal2-cancel {
+    background-color: #3B82F6 !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 12px 24px !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+}
+
+.swal2-cancel:hover {
+    background-color: #2563EB !important;
+    transform: translateY(-1px) !important;
+}
+
+.swal2-icon {
+    border: none !important;
+    margin: 0.5rem auto 1rem !important;
+}
+
+.swal2-icon.swal2-warning {
+    color: #F59E0B !important;
+    border-color: #F59E0B !important;
+}
+
+.swal2-icon.swal2-success {
+    color: #10B981 !important;
+    border-color: #10B981 !important;
+}
+
+.swal2-icon.swal2-error {
+    color: #EF4444 !important;
+    border-color: #EF4444 !important;
+}
+
+.swal2-actions {
+    gap: 12px !important;
+    margin-top: 1.5rem !important;
+}
+
+/* Toast notifications */
+.swal2-toast {
+    border-radius: 12px !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+}
+</style>
+
 <script>
-$(document).ready(function() {
+// Definir funciones globales inmediatamente (fuera de document.ready)
+window.exportarDatos = function() {
+    Swal.fire({
+        title: 'Exportar Datos',
+        text: '¿En qué formato desea exportar?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: '<i class="ti ti-file-spreadsheet mr-2"></i>Excel',
+        cancelButtonText: '<i class="ti ti-file-type-pdf mr-2"></i>PDF',
+        reverseButtons: true,
+        position: 'center',
+        backdrop: true,
+        allowOutsideClick: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Exportar a Excel
+            window.location.href = '/tipos-cantidad/export/excel/';
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+            // Exportar a PDF
+            window.location.href = '/tipos-cantidad/export/pdf/';
+        }
+    });
+};
+
+window.toggleEstado = function(id) {
+    // Obtener el token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                     document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    
+    fetch(`/tipos-cantidad/${id}/toggle-activo/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                title: 'Éxito',
+                text: data.message,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false,
+                position: 'center',
+                backdrop: true,
+                allowOutsideClick: true
+            }).then(() => {
+                location.reload();
+            });
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.message,
+                icon: 'error',
+                position: 'center',
+                backdrop: true,
+                allowOutsideClick: true
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            title: 'Error',
+            text: 'Error al procesar la solicitud',
+            icon: 'error',
+            position: 'center',
+            backdrop: true,
+            allowOutsideClick: true
+        });
+    });
+};
+
+window.eliminarTipo = function(id, codigo) {
+    Swal.fire({
+        title: '¿Está seguro?',
+        html: `<div class="text-gray-600">
+                  <p>¿Desea eliminar el tipo de cantidad</p>
+                  <p class="font-semibold text-gray-800 mt-2">"${codigo}"</p>
+                  <p class="text-sm text-red-600 mt-3">Esta acción no se puede deshacer</p>
+               </div>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: false,
+        focusCancel: true,
+        allowOutsideClick: true,
+        allowEscapeKey: true,
+        position: 'center',
+        backdrop: true,
+        customClass: {
+            confirmButton: 'swal2-confirm',
+            cancelButton: 'swal2-cancel'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar loading
+            Swal.fire({
+                title: 'Eliminando...',
+                html: '<div class="text-gray-600">Por favor espere...</div>',
+                icon: 'info',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                position: 'center',
+                backdrop: true,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Obtener el token CSRF
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                             document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            fetch(`/tipos-cantidad/${id}/eliminar/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: '¡Eliminado!',
+                        text: data.message,
+                        icon: 'success',
+                        timer: 3000,
+                        showConfirmButton: false,
+                        position: 'center',
+                        backdrop: true,
+                        allowOutsideClick: true
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.message,
+                        icon: 'error',
+                        position: 'center',
+                        backdrop: true,
+                        allowOutsideClick: true
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error al eliminar el tipo de cantidad',
+                    icon: 'error',
+                    position: 'center',
+                    backdrop: true,
+                    allowOutsideClick: true
+                });
+            });
+        }
+    });
+};
+
+// Configuraciones cuando el documento esté listo
+document.addEventListener('DOMContentLoaded', function() {
     // Auto-submit filtros
-    $('#filtros-form select').on('change', function() {
-        $('#filtros-form').submit();
+    const selectElements = document.querySelectorAll('#filtros-form select');
+    selectElements.forEach(select => {
+        select.addEventListener('change', function() {
+            document.getElementById('filtros-form').submit();
+        });
     });
     
     // Búsqueda con debounce
     let searchTimeout;
-    $('#id_search').on('input', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(function() {
-            $('#filtros-form').submit();
-        }, 500);
-    });
+    const searchInput = document.getElementById('id_search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                document.getElementById('filtros-form').submit();
+            }, 500);
+        });
+    }
+    
+    // Verificar que SweetAlert2 esté disponible
+    if (typeof Swal === 'undefined') {
+        console.error('SweetAlert2 no está cargado');
+        return;
+    }
+    
+    console.log('SweetAlert2 cargado correctamente:', typeof Swal !== 'undefined');
 });
-
-function refreshTable() {
-    $.get(window.location.href, function(data) {
-        const newTable = $(data).find('#tipos-table-container').html();
-        $('#tipos-table-container').html(newTable);
-    });
-}
-
-function toggleEstado(id) {
-    $.ajax({
-        url: `/tipos-cantidad/${id}/toggle-activo/`,
-        type: 'POST',
-        headers: {
-            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        success: function(response) {
-            if (response.success) {
-                Swal.fire({
-                    title: 'Éxito',
-                    text: response.message,
-                    icon: 'success',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-                refreshTable();
-            } else {
-                Swal.fire({
-                    title: 'Error',
-                    text: response.message,
-                    icon: 'error'
-                });
-            }
-        },
-        error: function() {
-            Swal.fire({
-                title: 'Error',
-                text: 'Error al procesar la solicitud',
-                icon: 'error'
-            });
-        }
-    });
-}
-
-function eliminarTipo(id, codigo) {
-    Swal.fire({
-        title: '¿Está seguro?',
-        text: `¿Desea eliminar el tipo de cantidad "${codigo}"?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            $.ajax({
-                url: `/tipos-cantidad/${id}/eliminar/`,
-                type: 'DELETE',
-                headers: {
-                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                success: function(response) {
-                    if (response.success) {
-                        Swal.fire({
-                            title: 'Eliminado',
-                            text: response.message,
-                            icon: 'success',
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-                        refreshTable();
-                    } else {
-                        Swal.fire({
-                            title: 'Error',
-                            text: response.message,
-                            icon: 'error'
-                        });
-                    }
-                },
-                error: function() {
-                    Swal.fire({
-                        title: 'Error',
-                        text: 'Error al eliminar el tipo de cantidad',
-                        icon: 'error'
-                    });
-                }
-            });
-        }
-    });
-}
 </script>
 {% endblock %}

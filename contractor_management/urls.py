@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import redirect
-from django.contrib.auth import views as auth_views  # <-- Agrega esto
+from django.contrib.auth import views as auth_views
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('', lambda request: redirect('dashboard:principal'), name='home'),
@@ -33,3 +35,8 @@ urlpatterns = [
     # --- Incluye tus rutas con namespace al final ---
     path('login/', include('login.urls', namespace='login')),
 ]
+
+# Servir archivos estáticos en desarrollo
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

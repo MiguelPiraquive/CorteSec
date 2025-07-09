@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load humanize %}
+{% load static %}
+
+{% block title %}{% trans "Detalle del Préstamo" %}: {{ prestamo.numero_prestamo }}{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-blue-700">
+                <i class="ti ti-credit-card mr-2"></i>{% trans "Préstamo" %}: {{ prestamo.numero_prestamo }}
+            </h2>
+            <nav class="text-sm text-gray-500 mt-1">
+                <a href="{% url 'dashboard:principal' %}" class="hover:text-blue-600">Dashboard</a>
+                <span class="mx-2">/</span>
+                <a href="{% url 'prestamos:lista' %}" class="hover:text-blue-600">{% trans "Préstamos" %}</a>
+                <span class="mx-2">/</span>
+                <span class="text-gray-900">{{ prestamo.numero_prestamo }}</span>
+            </nav>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'prestamos:lista' %}"
+               class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow hover:bg-gray-300 transition">
+                <i class="ti ti-arrow-left mr-2"></i> {% trans "Volver" %}
+            </a>
+            {% if prestamo.estado == 'solicitado' %}
+            <a href="{% url 'prestamos:editar' prestamo.pk %}"
+               class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+                <i class="ti ti-pencil mr-2"></i> {% trans "Editar" %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Estado del Préstamo -->
+    <div class="mb-6">
+        <div class="bg-{% if prestamo.estado == 'aprobado' %}green{% elif prestamo.estado == 'rechazado' %}red{% elif prestamo.estado == 'desembolsado' %}blue{% else %}yellow{% endif %}-50 border-l-4 border-{% if prestamo.estado == 'aprobado' %}green{% elif prestamo.estado == 'rechazado' %}red{% elif prestamo.estado == 'desembolsado' %}blue{% else %}yellow{% endif %}-400 p-4 rounded-r-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="ti ti-{% if prestamo.estado == 'aprobado' %}check{% elif prestamo.estado == 'rechazado' %}x{% elif prestamo.estado == 'desembolsado' %}credit-card{% else %}clock{% endif %} text-{% if prestamo.estado == 'aprobado' %}green{% elif prestamo.estado == 'rechazado' %}red{% elif prestamo.estado == 'desembolsado' %}blue{% else %}yellow{% endif %}-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-{% if prestamo.estado == 'aprobado' %}green{% elif prestamo.estado == 'rechazado' %}red{% elif prestamo.estado == 'desembolsado' %}blue{% else %}yellow{% endif %}-700">
+                        {% trans "Estado del préstamo" %}: 
+                        <strong>
+                            {% if prestamo.estado == 'solicitado' %}{% trans "Solicitado" %}
+                            {% elif prestamo.estado == 'aprobado' %}{% trans "Aprobado" %}
+                            {% elif prestamo.estado == 'rechazado' %}{% trans "Rechazado" %}
+                            {% elif prestamo.estado == 'desembolsado' %}{% trans "Desembolsado" %}
+                            {% endif %}
+                        </strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información Principal -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Información del Empleado -->
+        <div class="bg-blue-50 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-blue-700 mb-4">
+                <i class="ti ti-user mr-2"></i>{% trans "Información del Empleado" %}
+            </h3>
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Nombre" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.empleado.nombres }} {{ prestamo.empleado.apellidos }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Documento" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.empleado.documento }}</span>
+                </div>
+                {% if prestamo.empleado.email %}
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Email" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.empleado.email }}</span>
+                </div>
+                {% endif %}
+                {% if prestamo.empleado.telefono %}
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Teléfono" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.empleado.telefono }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Detalles del Préstamo -->
+        <div class="bg-green-50 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-green-700 mb-4">
+                <i class="ti ti-credit-card mr-2"></i>{% trans "Detalles del Préstamo" %}
+            </h3>
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Tipo" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.tipo_prestamo.nombre }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Monto Solicitado" %}:</span>
+                    <span class="text-sm text-gray-900 font-semibold">${{ prestamo.monto_solicitado|floatformat:0|intcomma }}</span>
+                </div>
+                {% if prestamo.monto_aprobado %}
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Monto Aprobado" %}:</span>
+                    <span class="text-sm text-green-700 font-semibold">${{ prestamo.monto_aprobado|floatformat:0|intcomma }}</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Tasa de Interés" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.tasa_interes|floatformat:2 }}%</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Plazo" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.plazo_meses }} {% trans "meses" %}</span>
+                </div>
+                {% if prestamo.cuota_mensual %}
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Cuota Mensual" %}:</span>
+                    <span class="text-sm text-blue-700 font-semibold">${{ prestamo.cuota_mensual|floatformat:0|intcomma }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Fechas y Cronograma -->
+    <div class="bg-purple-50 rounded-xl p-6 mb-8">
+        <h3 class="text-lg font-semibold text-purple-700 mb-4">
+            <i class="ti ti-calendar mr-2"></i>{% trans "Fechas y Cronograma" %}
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <span class="text-sm font-medium text-gray-600">{% trans "Fecha de Solicitud" %}:</span>
+                <p class="text-sm text-gray-900 mt-1">{{ prestamo.fecha_solicitud|date:"d/m/Y" }}</p>
+            </div>
+            {% if prestamo.fecha_aprobacion %}
+            <div>
+                <span class="text-sm font-medium text-gray-600">{% trans "Fecha de Aprobación" %}:</span>
+                <p class="text-sm text-gray-900 mt-1">{{ prestamo.fecha_aprobacion|date:"d/m/Y" }}</p>
+            </div>
+            {% endif %}
+            {% if prestamo.fecha_primer_pago %}
+            <div>
+                <span class="text-sm font-medium text-gray-600">{% trans "Fecha Primer Pago" %}:</span>
+                <p class="text-sm text-gray-900 mt-1">{{ prestamo.fecha_primer_pago|date:"d/m/Y" }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Información Financiera -->
+    {% if prestamo.estado != 'solicitado' %}
+    <div class="bg-yellow-50 rounded-xl p-6 mb-8">
+        <h3 class="text-lg font-semibold text-yellow-700 mb-4">
+            <i class="ti ti-calculator mr-2"></i>{% trans "Estado Financiero" %}
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <span class="text-sm font-medium text-gray-600">{% trans "Saldo Pendiente" %}:</span>
+                <p class="text-lg font-bold text-red-600 mt-1">${{ prestamo.saldo_pendiente|floatformat:0|intcomma }}</p>
+            </div>
+            <div>
+                <span class="text-sm font-medium text-gray-600">{% trans "Total Pagado" %}:</span>
+                <p class="text-lg font-bold text-green-600 mt-1">${{ prestamo.total_pagado|floatformat:0|intcomma }}</p>
+            </div>
+            <div>
+                <span class="text-sm font-medium text-gray-600">{% trans "Progreso de Pago" %}:</span>
+                {% if prestamo.monto_aprobado and prestamo.monto_aprobado > 0 %}
+                    {% widthratio prestamo.total_pagado prestamo.monto_aprobado 100 as porcentaje_pagado %}
+                    <div class="mt-1">
+                        <div class="flex justify-between text-sm">
+                            <span>{{ porcentaje_pagado }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-green-600 h-2 rounded-full" style="width: {{ porcentaje_pagado }}%"></div>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="text-sm text-gray-500 mt-1">{% trans "N/A" %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historial de Pagos -->
+    {% if pagos %}
+    <div class="bg-gray-50 rounded-xl p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-700 mb-4">
+            <i class="ti ti-history mr-2"></i>{% trans "Historial de Pagos" %}
+        </h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {% trans "Fecha" %}
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {% trans "Monto" %}
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {% trans "Capital" %}
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {% trans "Interés" %}
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {% trans "Saldo" %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for pago in pagos %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ pago.fecha_pago|date:"d/m/Y" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            ${{ pago.monto_pago|floatformat:0|intcomma }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${{ pago.monto_capital|floatformat:0|intcomma }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${{ pago.monto_interes|floatformat:0|intcomma }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${{ pago.saldo_restante|floatformat:0|intcomma }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Observaciones -->
+    {% if prestamo.observaciones %}
+    <div class="bg-blue-50 rounded-xl p-6 mb-8">
+        <h3 class="text-lg font-semibold text-blue-700 mb-4">
+            <i class="ti ti-notes mr-2"></i>{% trans "Observaciones" %}
+        </h3>
+        <p class="text-sm text-gray-700">{{ prestamo.observaciones }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Garantía -->
+    {% if prestamo.garantia_descripcion %}
+    <div class="bg-orange-50 rounded-xl p-6 mb-8">
+        <h3 class="text-lg font-semibold text-orange-700 mb-4">
+            <i class="ti ti-shield mr-2"></i>{% trans "Garantía" %}
+        </h3>
+        <p class="text-sm text-gray-700">{{ prestamo.garantia_descripcion }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Información de Auditoría -->
+    <div class="bg-gray-50 rounded-xl p-6">
+        <h3 class="text-lg font-semibold text-gray-700 mb-4">
+            <i class="ti ti-info-circle mr-2"></i>{% trans "Información de Auditoría" %}
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Solicitado por" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.solicitado_por.get_full_name|default:prestamo.solicitado_por.username }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Fecha de creación" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.fecha_creacion|date:"d/m/Y H:i" }}</span>
+                </div>
+            </div>
+            <div class="space-y-3">
+                {% if prestamo.aprobado_por %}
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Aprobado por" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.aprobado_por.get_full_name|default:prestamo.aprobado_por.username }}</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between">
+                    <span class="text-sm font-medium text-gray-600">{% trans "Última modificación" %}:</span>
+                    <span class="text-sm text-gray-900">{{ prestamo.fecha_modificacion|date:"d/m/Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones Adicionales -->
+    {% if prestamo.estado == 'solicitado' %}
+    <div class="mt-8 pt-6 border-t border-gray-200">
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <button type="button"
+                    onclick="confirmarAprobacion({{ prestamo.pk }})"
+                    class="inline-flex items-center justify-center px-6 py-3 bg-green-600 text-white text-sm font-medium rounded-lg shadow hover:bg-green-700 transition">
+                <i class="ti ti-check mr-2"></i>{% trans "Aprobar Préstamo" %}
+            </button>
+            
+            <button type="button"
+                    onclick="confirmarRechazo({{ prestamo.pk }})"
+                    class="inline-flex items-center justify-center px-6 py-3 bg-red-600 text-white text-sm font-medium rounded-lg shadow hover:bg-red-700 transition">
+                <i class="ti ti-x mr-2"></i>{% trans "Rechazar Préstamo" %}
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- SweetAlert2 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Préstamos Lista JS -->
+<script src="{% static 'js/prestamos-lista.js' %}"></script>
+{% endblock %}

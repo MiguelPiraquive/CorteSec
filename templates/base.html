@@ -527,8 +527,7 @@
   {% endif %}
 
   <!-- Tailwind CSS -->
-  <!-- Tailwind CSS compilado localmente -->
-  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -560,11 +559,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@alpinejs/tooltip@3.x.x/dist/cdn.min.js" defer></script>
-  
-  <!-- Dashboard Global Functions - DEBE CARGARSE ANTES QUE ALPINE -->
-  <script src="{% static 'js/dashboard-globals.js' %}"></script>
-  
-  <!-- Alpine.js - AL FINAL -->
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   
   <!-- Header Advanced JavaScript -->
@@ -752,6 +746,7 @@
   </script>
 
   <!-- Tus estilos personalizados -->
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'css/custom.css' %}">
   <link rel="stylesheet" href="{% static 'css/base-improvements.css' %}">
 
@@ -953,15 +948,6 @@
   </div>
 </div>
 
-</div>
-
-<!-- Scripts del Dashboard CorteSec -->
-<script src="{% static 'js/dashboard-alpine-store.js' %}" defer></script>
-<script src="{% static 'js/dashboard-filters.js' %}" defer></script>
-<script src="{% static 'js/notification-system.js' %}" defer></script>
-
-<!-- Scripts adicionales del dashboard -->
 {% block extra_js %}{% endblock %}
-
 </body>
 </html>

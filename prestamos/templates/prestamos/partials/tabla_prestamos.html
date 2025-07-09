@@ -1,0 +1,294 @@
+{% load i18n %}
+{% load humanize %}
+
+<!-- Tabla de préstamos -->
+{% if page_obj.object_list %}
+<div class="overflow-hidden rounded-lg border border-gray-200">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gradient-to-r from-gray-50 to-blue-50">
+            <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {% trans "Préstamo" %}
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {% trans "Empleado" %}
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {% trans "Monto" %}
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {% trans "Estado" %}
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {% trans "Fecha" %}
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {% trans "Progreso" %}
+                </th>
+                <th scope="col" class="relative px-6 py-3">
+                    <span class="sr-only">{% trans "Acciones" %}</span>
+                </th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for prestamo in page_obj.object_list %}
+            <tr class="card-hover cursor-pointer" onclick="window.location.href='{% url 'prestamos:detalle' prestamo.pk %}'">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="h-10 w-10 flex-shrink-0">
+                            <div class="h-10 w-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+                                <i class="ti ti-credit-card text-white text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <div class="text-sm font-medium text-gray-900">
+                                {{ prestamo.numero_prestamo }}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                {{ prestamo.tipo_prestamo.nombre }}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="h-8 w-8 flex-shrink-0">
+                            <div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                                <i class="ti ti-user text-white text-xs"></i>
+                            </div>
+                        </div>
+                        <div class="ml-3">
+                            <div class="text-sm font-medium text-gray-900">
+                                {{ prestamo.empleado.nombre }} {{ prestamo.empleado.apellido }}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                {{ prestamo.empleado.cargo.nombre|default:"Sin cargo" }}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                        {% if prestamo.monto_aprobado %}
+                            <div class="font-bold text-green-600">
+                                ${{ prestamo.monto_aprobado|floatformat:0|intcomma }}
+                            </div>
+                            {% if prestamo.monto_solicitado != prestamo.monto_aprobado %}
+                                <div class="text-xs text-gray-500 line-through">
+                                    ${{ prestamo.monto_solicitado|floatformat:0|intcomma }}
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="font-bold text-blue-600">
+                                ${{ prestamo.monto_solicitado|floatformat:0|intcomma }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        {{ prestamo.plazo_meses }} {% trans "meses" %}
+                    </div>
+                </td>
+                
+                <td class="px-6 py-4 whitespace-nowrap">
+                    {% if prestamo.estado == 'pendiente' %}
+                        <span class="estado-badge estado-pendiente">
+                            <i class="ti ti-clock mr-1"></i>{% trans "Pendiente" %}
+                        </span>
+                    {% elif prestamo.estado == 'aprobado' %}
+                        <span class="estado-badge estado-aprobado">
+                            <i class="ti ti-check mr-1"></i>{% trans "Aprobado" %}
+                        </span>
+                    {% elif prestamo.estado == 'activo' %}
+                        <span class="estado-badge estado-activo">
+                            <i class="ti ti-play mr-1"></i>{% trans "Activo" %}
+                        </span>
+                    {% elif prestamo.estado == 'completado' %}
+                        <span class="estado-badge estado-completado">
+                            <i class="ti ti-check-circle mr-1"></i>{% trans "Completado" %}
+                        </span>
+                    {% elif prestamo.estado == 'rechazado' %}
+                        <span class="estado-badge estado-rechazado">
+                            <i class="ti ti-x mr-1"></i>{% trans "Rechazado" %}
+                        </span>
+                    {% elif prestamo.estado == 'cancelado' %}
+                        <span class="estado-badge estado-cancelado">
+                            <i class="ti ti-ban mr-1"></i>{% trans "Cancelado" %}
+                        </span>
+                    {% endif %}
+                </td>
+                
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div class="flex flex-col">
+                        <span class="font-medium">{{ prestamo.fecha_solicitud|date:"d/m/Y" }}</span>
+                        {% if prestamo.fecha_aprobacion %}
+                            <span class="text-xs text-gray-500">
+                                {% trans "Aprobado" %}: {{ prestamo.fecha_aprobacion|date:"d/m/Y" }}
+                            </span>
+                        {% endif %}
+                    </div>
+                </td>
+                
+                <td class="px-6 py-4 whitespace-nowrap">
+                    {% if prestamo.estado == 'activo' and prestamo.monto_aprobado and prestamo.monto_aprobado > 0 %}
+                        <div class="flex items-center">
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">{% trans "Pagado" %}</span>
+                                    <span class="font-medium">
+                                        {% widthratio prestamo.total_pagado prestamo.monto_aprobado 100 %}%
+                                    </span>
+                                </div>
+                                <div class="mt-1 w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300" 
+                                         style="width: {% widthratio prestamo.total_pagado prestamo.monto_aprobado 100 %}%"></div>
+                                </div>
+                                <div class="mt-1 text-xs text-gray-500">
+                                    ${{ prestamo.saldo_pendiente|floatformat:0|intcomma }} {% trans "restante" %}
+                                </div>
+                            </div>
+                        </div>
+                    {% elif prestamo.estado == 'completado' %>
+                        <div class="flex items-center text-green-600">
+                            <i class="ti ti-check-circle mr-1"></i>
+                            <span class="text-sm font-medium">{% trans "Completado" %}</span>
+                        </div>
+                    {% else %}
+                        <div class="text-sm text-gray-400">-</div>
+                    {% endif %}
+                </td>
+                
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div class="flex items-center space-x-2">
+                        <!-- Ver detalle -->
+                        <button @click.stop="abrirModal('ver', {{ prestamo.pk }})"
+                                class="text-blue-600 hover:text-blue-900 transition-colors"
+                                title="{% trans 'Ver detalle' %}">
+                            <i class="ti ti-eye"></i>
+                        </button>
+                        
+                        <!-- Editar (solo si está pendiente o es admin) -->
+                        {% if prestamo.estado == 'pendiente' or user.is_superuser %}
+                        <button @click.stop="abrirModal('editar', {{ prestamo.pk }})"
+                                class="text-green-600 hover:text-green-900 transition-colors"
+                                title="{% trans 'Editar' %}">
+                            <i class="ti ti-edit"></i>
+                        </button>
+                        {% endif %}
+                        
+                        <!-- Aprobar (solo si está pendiente y es admin) -->
+                        {% if prestamo.estado == 'pendiente' and user.is_superuser %}
+                        <button @click.stop="confirmarAprobacion({{ prestamo.pk }}, '{{ prestamo.empleado.nombre }} {{ prestamo.empleado.apellido }}')"
+                                class="text-green-600 hover:text-green-900 transition-colors"
+                                title="{% trans 'Aprobar' %}">
+                            <i class="ti ti-check"></i>
+                        </button>
+                        {% endif %}
+                        
+                        <!-- Rechazar (solo si está pendiente y es admin) -->
+                        {% if prestamo.estado == 'pendiente' and user.is_superuser %}
+                        <button @click.stop="confirmarRechazo({{ prestamo.pk }}, '{{ prestamo.empleado.nombre }} {{ prestamo.empleado.apellido }}')"
+                                class="text-red-600 hover:text-red-900 transition-colors"
+                                title="{% trans 'Rechazar' %}">
+                            <i class="ti ti-x"></i>
+                        </button>
+                        {% endif %}
+                        
+                        <!-- Eliminar (solo admin) -->
+                        {% if user.is_superuser %}
+                        <button @click.stop="confirmarEliminacion({{ prestamo.pk }}, '{{ prestamo.empleado.nombre }} {{ prestamo.empleado.apellido }}')"
+                                class="text-red-600 hover:text-red-900 transition-colors"
+                                title="{% trans 'Eliminar' %}">
+                            <i class="ti ti-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación -->
+{% if page_obj.has_other_pages %}
+<div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+    <div class="flex-1 flex justify-between sm:hidden">
+        {% if page_obj.has_previous %}
+            <button @click="cambiarPagina({{ page_obj.previous_page_number }})"
+                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                {% trans "Anterior" %}
+            </button>
+        {% endif %}
+        {% if page_obj.has_next %}
+            <button @click="cambiarPagina({{ page_obj.next_page_number }})"
+                    class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                {% trans "Siguiente" %}
+            </button>
+        {% endif %}
+    </div>
+    
+    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+        <div>
+            <p class="text-sm text-gray-700">
+                {% trans "Mostrando" %}
+                <span class="font-medium">{{ page_obj.start_index }}</span>
+                {% trans "a" %}
+                <span class="font-medium">{{ page_obj.end_index }}</span>
+                {% trans "de" %}
+                <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                {% trans "resultados" %}
+            </p>
+        </div>
+        <div>
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                {% if page_obj.has_previous %}
+                    <button @click="cambiarPagina({{ page_obj.previous_page_number }})"
+                            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <i class="ti ti-chevron-left"></i>
+                    </button>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <span class="relative inline-flex items-center px-4 py-2 border border-green-500 bg-green-50 text-sm font-medium text-green-600">
+                            {{ num }}
+                        </span>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <button @click="cambiarPagina({{ num }})"
+                                class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            {{ num }}
+                        </button>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <button @click="cambiarPagina({{ page_obj.next_page_number }})"
+                            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <i class="ti ti-chevron-right"></i>
+                    </button>
+                {% endif %}
+            </nav>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- Estado vacío -->
+<div class="text-center py-12">
+    <div class="mx-auto h-24 w-24 text-gray-400 mb-4">
+        <i class="ti ti-credit-card-off text-6xl"></i>
+    </div>
+    <h3 class="mt-2 text-sm font-medium text-gray-900">{% trans "No hay préstamos" %}</h3>
+    <p class="mt-1 text-sm text-gray-500">{% trans "Comience creando un nuevo préstamo." %}</p>
+    <div class="mt-6">
+        <button @click="abrirModal('crear')"
+                class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+            <i class="ti ti-plus mr-2"></i>
+            {% trans "Nuevo Préstamo" %}
+        </button>
+    </div>
+</div>
+{% endif %}

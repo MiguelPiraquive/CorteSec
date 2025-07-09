@@ -14,6 +14,7 @@ urlpatterns = [
     # Acciones de préstamos
     path('<int:pk>/aprobar/', views.aprobar_prestamo, name='aprobar'),
     path('<int:pk>/rechazar/', views.rechazar_prestamo, name='rechazar'),
+    path('<int:pk>/desembolsar/', views.desembolsar_prestamo, name='desembolsar'),
     
     # Gestión de cuotas
     path('<int:prestamo_pk>/cuota/<int:cuota_pk>/pagar/', views.pagar_cuota, name='pagar_cuota'),

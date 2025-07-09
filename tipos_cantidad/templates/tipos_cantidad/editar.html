@@ -1,0 +1,189 @@
+{% include 'tipos_cantidad/form.html' %}
+    <div class="row align-items-center">
+        <div class="col">
+            <h1 class="h2 page-title">Editar Tipo de Cantidad</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard:principal' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tipos_cantidad:lista' %}">Tipos de Cantidad</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Editar</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'tipos_cantidad:lista' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                Volver al Listado
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Información del Tipo de Cantidad</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'tipos_cantidad:editar' tipo.id %}">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="codigo" class="form-label">
+                                    Código <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="codigo" 
+                                       name="codigo" 
+                                       value="{{ tipo.codigo }}"
+                                       placeholder="Ingrese el código del tipo de cantidad"
+                                       required>
+                                <div class="form-text">Código único del tipo de cantidad</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="simbolo" class="form-label">Símbolo</label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="simbolo" 
+                                       name="simbolo" 
+                                       value="{{ tipo.simbolo|default:'' }}"
+                                       placeholder="Símbolo del tipo (opcional)">
+                                <div class="form-text">Símbolo o abreviatura del tipo</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label">
+                            Descripción <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" 
+                                  id="descripcion" 
+                                  name="descripcion" 
+                                  rows="3" 
+                                  placeholder="Ingrese una descripción detallada del tipo de cantidad"
+                                  required>{{ tipo.descripcion }}</textarea>
+                        <div class="form-text">Descripción completa del tipo de cantidad</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="orden" class="form-label">Orden</label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="orden" 
+                                       name="orden" 
+                                       value="{{ tipo.orden|default:0 }}"
+                                       min="0"
+                                       placeholder="Orden de visualización">
+                                <div class="form-text">Orden para mostrar en listados</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="activo" 
+                                           name="activo" 
+                                           {% if tipo.activo %}checked{% endif %}>
+                                    <label class="form-check-label" for="activo">
+                                        Activo
+                                    </label>
+                                    <div class="form-text">Si está marcado, el tipo de cantidad estará disponible para su uso</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'tipos_cantidad:lista' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i>
+                            Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i>
+                            Actualizar Tipo de Cantidad
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Información del Registro</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6 class="alert-heading">Datos del Tipo</h6>
+                    <p class="mb-1"><strong>ID:</strong> {{ tipo.id }}</p>
+                    <p class="mb-1"><strong>Creado:</strong> {{ tipo.created_at|date:"d/m/Y H:i" }}</p>
+                    <p class="mb-0"><strong>Modificado:</strong> {{ tipo.updated_at|date:"d/m/Y H:i" }}</p>
+                </div>
+                
+                <h6>Campos requeridos:</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> Código</li>
+                    <li><i class="fas fa-check text-success"></i> Descripción</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Validación del formulario
+    $('form').on('submit', function(e) {
+        let isValid = true;
+        
+        // Validar código
+        const codigo = $('#codigo').val().trim();
+        if (!codigo) {
+            isValid = false;
+            $('#codigo').addClass('is-invalid');
+        } else {
+            $('#codigo').removeClass('is-invalid');
+        }
+        
+        // Validar descripción
+        const descripcion = $('#descripcion').val().trim();
+        if (!descripcion) {
+            isValid = false;
+            $('#descripcion').addClass('is-invalid');
+        } else {
+            $('#descripcion').removeClass('is-invalid');
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Error',
+                text: 'Por favor complete todos los campos requeridos',
+                icon: 'error',
+                confirmButtonText: 'Entendido'
+            });
+        }
+    });
+    
+    // Limpiar validación al escribir
+    $('#codigo, #descripcion').on('input', function() {
+        $(this).removeClass('is-invalid');
+    });
+});
+</script>
+{% endblock %}
