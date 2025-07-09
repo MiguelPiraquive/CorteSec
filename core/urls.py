@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import search_apis
+from .system_status import system_status
 
 app_name = 'core'
 
@@ -17,6 +18,10 @@ urlpatterns = [
     
     # Página de prueba para header sticky
     path('test-sticky/', views.test_sticky, name='test_sticky'),
+    
+    # Verificación del sistema (solo para staff)
+    path('api/system-status/', system_status, name='system_status'),
+    path('system-check/', views.system_check, name='system_check'),
     
     # Otras APIs
     path('notificaciones/', views.notificaciones, name='notificaciones'),

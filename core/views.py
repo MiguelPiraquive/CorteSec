@@ -7,6 +7,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+from django.conf import settings
 
 def buscar(request):
     q = request.GET.get('q', '').strip()
@@ -53,6 +54,18 @@ def health_check(request):
         'timestamp': timezone.now().isoformat(),
         'version': '1.0.0'
     })
+
+@login_required
+def system_check(request):
+    """
+    Vista para verificar el estado visual del sistema
+    """
+    context = {
+        'title': 'Verificación del Sistema',
+        'current_time': timezone.now(),
+        'debug': getattr(settings, 'DEBUG', False)
+    }
+    return render(request, 'system_check.html', context)
 
 def test_sticky(request):
     """
