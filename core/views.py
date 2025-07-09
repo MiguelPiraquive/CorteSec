@@ -8,6 +8,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.conf import settings
+from django.conf import settings
 
 def buscar(request):
     q = request.GET.get('q', '').strip()

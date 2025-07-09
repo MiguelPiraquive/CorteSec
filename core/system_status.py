@@ -1,11 +1,9 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.admin.views.decorators import staff_member_required
 from django.conf import settings
 import os
 from pathlib import Path
 
-@staff_member_required
 def system_status(request):
     """
     Vista para verificar el estado del sistema en producción
@@ -33,14 +31,14 @@ def system_status(request):
     status['directories']['static_dir'] = {
         'path': str(static_dir),
         'exists': static_dir.exists(),
-        'files': list(static_dir.rglob('*')) if static_dir.exists() else []
+        'file_count': len(list(static_dir.rglob('*'))) if static_dir.exists() else 0
     }
     
     if staticfiles_dir:
         status['directories']['staticfiles_dir'] = {
             'path': str(staticfiles_dir),
             'exists': staticfiles_dir.exists(),
-            'files': list(staticfiles_dir.rglob('*')) if staticfiles_dir.exists() else []
+            'file_count': len(list(staticfiles_dir.rglob('*'))) if staticfiles_dir.exists() else 0
         }
     
     # Verificar archivos críticos
@@ -65,4 +63,4 @@ def system_status(request):
             'staticfiles_size': staticfiles_file.stat().st_size if staticfiles_file and staticfiles_file.exists() else 0
         }
     
-    return JsonResponse(status, indent=2)
+    return JsonResponse(status, json_dumps_params={'indent': 2})

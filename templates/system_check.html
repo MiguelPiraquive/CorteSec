@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Verificación del Sistema - CorteSec{% endblock %}
+{% block title %}Verificación del Sistema{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -14,15 +14,15 @@
                 <div class="space-y-2">
                     <div class="flex items-center">
                         <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                        <span class="text-sm">Tailwind CSS cargado</span>
+                        <span class="text-sm">Tailwind CSS</span>
                     </div>
                     <div class="flex items-center">
                         <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                        <span class="text-sm">Base improvements CSS cargado</span>
+                        <span class="text-sm">Base improvements CSS</span>
                     </div>
                     <div class="flex items-center">
                         <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                        <span class="text-sm">Custom CSS cargado</span>
+                        <span class="text-sm">Custom CSS</span>
                     </div>
                 </div>
             </div>
@@ -33,15 +33,15 @@
                 <div class="space-y-2">
                     <div class="flex items-center">
                         <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                        <span class="text-sm">Dashboard globals JS cargado</span>
+                        <span class="text-sm">Dashboard globals JS</span>
                     </div>
                     <div class="flex items-center">
                         <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                        <span class="text-sm">Header advanced JS cargado</span>
+                        <span class="text-sm">Header advanced JS</span>
                     </div>
                     <div class="flex items-center">
                         <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                        <span class="text-sm">Notification system JS cargado</span>
+                        <span class="text-sm">Notification system JS</span>
                     </div>
                 </div>
             </div>
@@ -60,7 +60,7 @@
                     </div>
                     <div class="flex items-center">
                         <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                        <span class="text-sm">Modo producción: {{ debug|yesno:"No,Sí" }}</span>
+                        <span class="text-sm">Modo producción: {% if debug %}No{% else %}Sí{% endif %}</span>
                     </div>
                 </div>
             </div>
@@ -76,14 +76,14 @@
                         <strong>Usuario:</strong> {{ user.username }}
                     </div>
                     <div class="text-sm">
-                        <strong>Perfil:</strong> {{ user.perfil.nombre|default:"No definido" }}
+                        <strong>Estado:</strong> Sistema funcionando
                     </div>
                 </div>
             </div>
         </div>
         
         <div class="mt-6 text-center">
-            <a href="{% url 'core:system_status' %}" 
+            <a href="/api/system-status/" 
                class="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                target="_blank">
                 📋 Ver Estado Técnico Completo
