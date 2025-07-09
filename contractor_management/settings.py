@@ -141,8 +141,8 @@ if DEBUG:
     # En desarrollo, usar configuración simple sin compresión
     STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 else:
-    # En producción, usar compresión con WhiteNoise
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    # En producción, usar WhiteNoise con configuración más estable
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
