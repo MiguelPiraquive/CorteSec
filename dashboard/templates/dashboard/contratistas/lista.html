@@ -1,196 +1,51 @@
 {% extends "base.html" %}
-{% load widget_tweaks %}
-
-{% block title %}Contratistas{% endblock %}
-
-{% block extra_css %}
-<style>
-.stats-card {
-    border-left: 4px solid var(--bs-primary);
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-}
-.badge-status {
-    font-size: 0.75rem;
-    padding: 0.375rem 0.75rem;
-}
-</style>
-{% endblock %}
-
+{% block title %}Empresas{% endblock %}
 {% block content %}
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-1">Contratistas</h1>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="{% url 'dashboard:principal' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item active">Contratistas</li>
-                </ol>
-            </nav>
-        </div>
-        <div>
-            <a href="{% url 'dashboard:contratista_agregar' %}" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>
-                Nuevo Contratista
-            </a>
-        </div>
+<div class="bg-white rounded-2xl shadow p-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <h2 class="text-2xl font-bold text-blue-700">Empresas</h2>
+        <a href="{% url 'dashboard:contratista_agregar' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">
+            <i class="ti ti-building mr-2"></i> Agregar Empresa
+        </a>
     </div>
-
-    <!-- Estadísticas -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-building fa-2x text-primary"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Total</div>
-                            <div class="h4 mb-0">{{ contratistas.count }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-check-circle fa-2x text-success"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Activos</div>
-                            <div class="h4 mb-0 text-success">{{ contratistas.count }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-handshake fa-2x text-info"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Proyectos</div>
-                            <div class="h4 mb-0 text-info">0</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tabla -->
-    <div class="card">
-        <div class="card-header">
-            <div class="d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-list me-2"></i>
-                    Listado de Contratistas
-                </h5>
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="refreshTable()">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Nombre</th>
-                            <th>NIT</th>
-                            <th>Teléfono</th>
-                            <th>Correo</th>
-                            <th>Estado</th>
-                            <th width="140">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for contratista in contratistas %}
-                        <tr>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar avatar-sm bg-primary text-white rounded-circle me-2">
-                                        <i class="fas fa-building"></i>
-                                    </div>
-                                    <strong>{{ contratista.nombre }}</strong>
-                                </div>
-                            </td>
-                            <td><code class="text-primary">{{ contratista.nit }}</code></td>
-                            <td>{{ contratista.telefono|default:"-" }}</td>
-                            <td>{{ contratista.email|default:"-" }}</td>
-                            <td>
-                                <span class="badge bg-success badge-status">
-                                    <i class="fas fa-check me-1"></i>Activo
-                                </span>
-                            </td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{% url 'dashboard:contratista_detalle' contratista.pk %}" 
-                                       class="btn btn-sm btn-outline-primary" title="Ver detalles">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{% url 'dashboard:contratista_editar' contratista.pk %}" 
-                                       class="btn btn-sm btn-outline-warning" title="Editar">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" 
-                                            onclick="eliminarContratista({{ contratista.pk }}, '{{ contratista.nombre }}')" 
-                                            title="Eliminar">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center py-4">
-                                <div class="text-muted">
-                                    <i class="fas fa-building fa-2x mb-2"></i>
-                                    <br>No hay contratistas registrados
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-blue-100">
+            <thead class="bg-blue-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Nombre</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">NIT</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Teléfono</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-blue-700">Correo</th>
+                    <th class="px-4 py-2"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-blue-50">
+                {% for contratista in contratistas %}
+                <tr class="hover:bg-blue-50 transition">
+                    <td class="px-4 py-2">
+                        <a href="{% url 'dashboard:contratista_detalle' contratista.pk %}" class="text-blue-700 font-semibold hover:underline">
+                            {{ contratista.nombre }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-2">{{ contratista.nit }}</td>
+                    <td class="px-4 py-2">{{ contratista.telefono }}</td>
+                    <td class="px-4 py-2">{{ contratista.email }}</td>
+                    <td class="px-4 py-2 flex gap-2">
+                        <a href="{% url 'dashboard:contratista_editar' contratista.pk %}" class="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 transition text-xs">
+                            <i class="ti ti-pencil"></i>
+                        </a>
+                        <a href="{% url 'dashboard:contratista_eliminar' contratista.pk %}" class="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs">
+                            <i class="ti ti-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-6 text-gray-400">No hay empresas registradas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function refreshTable() {
-    location.reload();
-}
-
-function eliminarContratista(id, nombre) {
-    Swal.fire({
-        title: '¿Está seguro?',
-        text: `¿Desea eliminar el contratista "${nombre}"?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = `/dashboard/contratistas/${id}/eliminar/`;
-        }
-    });
-}
-</script>
-{% endblock %}
 {% endblock %}
