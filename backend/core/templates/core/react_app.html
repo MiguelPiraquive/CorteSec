@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="description" content="Sistema integral de gestión empresarial CorteSec">
+    <meta name="keywords" content="gestión, empresarial, cortesec, dashboard, contratistas">
+    <meta name="author" content="CorteSec">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="CorteSec">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    
+    <title>CorteSec - Sistema de Gestión</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="modulepreload" href="/static/dist/js/main.js">
+    
+    <!-- Global data injection -->
+    <script>
+        window.CorteSec = {
+            user: {% if user_data %}{{ user_data|safe }}{% else %}null{% endif %},
+            permissions: {{ user_permissions|safe }},
+            csrfToken: "{{ csrf_token }}",
+            apiBaseUrl: "{% url 'api-root' %}",
+            staticUrl: "/static/",
+            debug: {% if debug %}true{% else %}false{% endif %}
+        };
+        
+        // CSRF Token setup for Axios
+        window.csrfToken = "{{ csrf_token }}";
+    </script>
+</head>
+<body class="h-full">
+    <div id="root" class="h-full">
+        <!-- Loading fallback -->
+        <div class="d-flex justify-content-center align-items-center vh-100">
+            <div class="text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Cargando CorteSec...</span>
+                </div>
+                <h5 class="text-muted">Iniciando aplicación...</h5>
+            </div>
+        </div>
+    </div>
+    
+    <!-- React App Scripts -->
+    <script type="module" src="/static/dist/js/main.js"></script>
+</body>
+</html>

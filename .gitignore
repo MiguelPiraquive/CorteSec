@@ -1,0 +1,274 @@
+# ==============================================
+# 🗂️ GITIGNORE COMPLETO - PROYECTO CORTESEC
+# ==============================================
+
+# =====================
+# 🐍 BACKEND (DJANGO)
+# =====================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Entornos virtuales
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Variables de entorno
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Configuración IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =====================
+# ⚛️ FRONTEND (REACT)
+# =====================
+
+# Dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+
+# Cache
+.cache/
+.parcel-cache/
+.npm/
+.yarn/
+.pnpm/
+
+# Vite
+.vite/
+
+# =====================
+# 📁 ARCHIVOS DESARROLLO
+# =====================
+
+# Backups de desarrollo
+dev-backup/
+*-backup/
+*.bak
+*.backup
+
+# Logs
+*.log
+logs/
+security.log
+django-error.log
+
+# Archivos temporales
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Reportes y documentación de desarrollo
+*REPORTE*.md
+*README_*_COMPLETE.md
+ARCHIVOS-DUPLICADOS-*.md
+PERFORMANCE-OPTIMIZATION.md
+EXPORTERS_README.md
+MULTITENANT_CORRECTION_SUMMARY.md
+
+# Scripts de testing y utilidad
+test_*.py
+test-*.html
+test-*.js
+cleanup-*.py
+cleanup-*.js
+cleanup-*.cjs
+fix_*.py
+reset_*.py
+debug_*.py
+verificar_*.py
+setup_org_data.py
+enable_modules_*.py
+update_imports.py
+
+# Archivos de configuración temporales
+*_clean.py
+*_corrupted*.py
+settings_backup*.py
+
+# =====================
+# 🔐 SEGURIDAD
+# =====================
+
+# Claves y tokens
+*.pem
+*.key
+*.crt
+*.p12
+.secret
+secrets.json
+credentials.json
+
+# Archivos con información sensible
+obtener_credenciales_*.py
+get_token.py
+
+# =====================
+# 🗄️ BASE DE DATOS
+# =====================
+
+# SQLite
+*.sqlite
+*.sqlite3
+*.db
+
+# MySQL
+*.sql
+
+# PostgreSQL
+*.backup
+
+# =====================
+# 🏗️ BUILD Y DEPLOY
+# =====================
+
+# Archivos de build
+/build/
+/static/
+/collected-static/
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# Deployment
+.vercel/
+.netlify/
+.firebase/
+
+# =====================
+# 📊 HERRAMIENTAS
+# =====================
+
+# Coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# =====================
+# 🎯 ESPECÍFICOS DEL PROYECTO
+# =====================
+
+# Archivos de migración problemáticos (mantener solo los necesarios)
+*/migrations/0*_temp_*.py
+*/migrations/0*_fix_*.py
+*/migrations/0*_debug_*.py
+
+# Archivos de configuración local
+local_config.py
+development_config.py
+
+# Scripts de PowerShell temporales
+*.ps1
+start_*.sh
+start_*.bat
+test_cors*.ps1
+
+# Archivos JSON de reporte/testing
+organizational_security_report.json
+*_report.json
+
+# =====================
+# 📱 MÓVIL (si se agrega)
+# =====================
+
+# React Native
+.expo/
+.expo-shared/
+
+# =====================
+# 🌐 OTROS
+# =====================
+
+# Archivos del sistema
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor temporales
+*.swp
+*.swo
+*~
+.tmp
+
+# Compresión
+*.zip
+*.tar.gz
+*.rar
