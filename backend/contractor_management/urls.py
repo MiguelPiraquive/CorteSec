@@ -13,6 +13,11 @@ Fecha: 2025-07-28
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from core.documentation_views import (
+    PublicSpectacularAPIView, 
+    PublicSpectacularSwaggerView, 
+    PublicSpectacularRedocView
+)
 
 urlpatterns = [
     # ==================== API ENDPOINTS PARA REACT ====================
@@ -46,6 +51,14 @@ urlpatterns = [
     # App-level views (templates / non-API) used by tests
     path('roles/', include('roles.urls')),
     path('tipos-cantidad/', include('tipos_cantidad.urls')),
+    
+    # ==================== API DOCUMENTATION ====================
+    # OpenAPI 3.0 schema (sin autenticación)
+    path('api/schema/', PublicSpectacularAPIView.as_view(), name='schema'),
+    # Swagger UI (sin autenticación)
+    path('api/docs/', PublicSpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    # ReDoc UI (sin autenticación)
+    path('api/redoc/', PublicSpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
     # ==================== PENDIENTES DE MIGRAR A API ====================
     # TODO: Convertir estos a APIs para React cuando sea necesario

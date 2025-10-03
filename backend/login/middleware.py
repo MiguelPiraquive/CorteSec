@@ -98,11 +98,13 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
             'Referrer-Policy': 'strict-origin-when-cross-origin',
             'Content-Security-Policy': (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline'; "
-                "style-src 'self' 'unsafe-inline'; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; "
                 "img-src 'self' data: https:; "
                 "connect-src 'self'; "
-                "font-src 'self'"
+                "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+                "worker-src 'self' blob:; "
+                "child-src 'self' blob:"
             ),
         }
         

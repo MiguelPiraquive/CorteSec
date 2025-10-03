@@ -211,7 +211,7 @@ class PermisoViewSet(MultiTenantViewSetMixin, PermissionRequiredMixin, viewsets.
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
         'activo', 'es_sistema', 'ambito', 'es_heredable', 'es_revocable',
-        'modulo', 'tipo_permiso', 'organizacion'
+        'modulo', 'tipo_permiso', 'Organizacion'
     ]
     search_fields = ['nombre', 'codigo', 'descripcion']
     ordering = ['modulo__nombre', 'tipo_permiso__nombre', 'nombre']

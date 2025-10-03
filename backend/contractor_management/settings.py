@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'django_filters',
+    'drf_spectacular',  # OpenAPI 3.0 schema generation
     # Apps del proyecto - Core
     'core',
     'login',
@@ -331,7 +332,159 @@ REST_FRAMEWORK = {
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
     'DATE_FORMAT': '%Y-%m-%d',
     'TIME_FORMAT': '%H:%M:%S',
+    # Schema generation for API documentation
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+# ============================================
+# DRF SPECTACULAR - API DOCUMENTATION
+# ============================================
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'CorteSec API',
+    'DESCRIPTION': '''
+    API completa para el sistema de gestión empresarial CorteSec.
+    
+    Esta API proporciona endpoints para:
+    - 🔐 Autenticación y autorización
+    - 👥 Gestión de usuarios y perfiles
+    - 🏢 Gestión de organizaciones (multi-tenant)
+    - 💼 Nómina y empleados
+    - 📊 Reportes y dashboard
+    - 🎯 Cargos y roles
+    - 📍 Ubicaciones (departamentos/municipios)
+    - 💰 Préstamos y contabilidad
+    - ⚙️ Configuración del sistema
+    - 📋 Items y tipos de cantidad
+    - 🆘 Sistema de ayuda
+    
+    ## Autenticación
+    La API utiliza Token Authentication. Incluye el token en el header:
+    ```
+    Authorization: Token your_token_here
+    ```
+    
+    ## Multi-tenant
+    El sistema soporta múltiples organizaciones. Muchos endpoints 
+    filtran datos automáticamente según la organización del usuario.
+    ''',
+    'VERSION': '2.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SORT_OPERATIONS': True,
+    'ENABLE_DJANGO_DEPLOY_CHECK': True,
+    'DISABLE_ERRORS_AND_WARNINGS': False,
+    
+    # Configuración de la interfaz Swagger UI  
+    # 'SWAGGER_UI_DIST': Usar por defecto (CDN)
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+        'defaultModelExpandDepth': 2,
+        'defaultModelsExpandDepth': 2,
+        'displayRequestDuration': True,
+        'docExpansion': 'none',
+        'filter': True,
+        'showExtensions': True,
+        'showCommonExtensions': True,
+        'tryItOutEnabled': True,
+    },
+    
+    # Configuración de ReDoc
+    # 'REDOC_DIST': Usar por defecto (CDN)  
+    'REDOC_UI_SETTINGS': {
+        'nativeScrollbars': True,
+        'theme': {
+            'colors': {
+                'primary': {
+                    'main': '#1976d2'
+                }
+            },
+            'typography': {
+                'fontSize': '14px',
+                'lineHeight': '1.5em',
+                'code': {
+                    'fontSize': '13px',
+                },
+                'headings': {
+                    'fontFamily': 'Roboto, sans-serif',
+                }
+            }
+        }
+    },
+    
+    # Configuración del schema
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'DEFAULT_GENERATOR_CLASS': 'drf_spectacular.generators.SchemaGenerator',
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],  # Solo para desarrollo
+    'SERVE_AUTHENTICATION': [],  # Desactivar autenticación para documentación
+    'SERVERS': [
+        {
+            'url': 'http://localhost:8000',
+            'description': 'Development server'
+        },
+        {
+            'url': 'https://cortesec.onrender.com',
+            'description': 'Production server'
+        },
+        
+    ],
+    
+    # Configuración de autenticación en la documentación
+    'AUTHENTICATION_WHITELIST': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    
+    # Etiquetas para organizar endpoints
+    'TAGS': [
+        {'name': 'Auth', 'description': 'Autenticación y autorización'},
+        {'name': 'Users', 'description': 'Gestión de usuarios y perfiles'},
+        {'name': 'Organizations', 'description': 'Gestión de organizaciones'},
+        {'name': 'Dashboard', 'description': 'Dashboard y métricas'},
+        {'name': 'Payroll', 'description': 'Nómina y empleados'},
+        {'name': 'Cargos', 'description': 'Cargos y posiciones'},
+        {'name': 'Locations', 'description': 'Departamentos y municipios'},
+        {'name': 'Loans', 'description': 'Préstamos'},
+        {'name': 'Accounting', 'description': 'Contabilidad'},
+        {'name': 'Reports', 'description': 'Reportes'},
+        {'name': 'Configuration', 'description': 'Configuración del sistema'},
+        {'name': 'Items', 'description': 'Items y inventario'},
+        {'name': 'Help', 'description': 'Sistema de ayuda'},
+        {'name': 'Core', 'description': 'Funcionalidades base del sistema'},
+    ],
+    
+    # Excluir paths específicos si es necesario
+    'EXCLUDE_PATH_FORMAT': [
+        '/api/admin/',
+        '/api/internal/',
+    ],
+}
+
+# ============================================
+# MULTI-TENANT CONFIGURATION
+# ============================================
+
+# Rutas que están exentas de requerir tenant
+TENANT_EXEMPT_PATHS = [
+    '/api/auth/login/',
+    '/api/auth/register/',
+    '/api/auth/verify-email/',
+    '/api/organizations/',  # Permitir a organizaciones sin tenant
+    '/admin/',
+    '/static/',
+    '/media/',
+    # API Documentation paths
+    '/api/schema/',         # OpenAPI schema
+    '/api/docs/',          # Swagger UI
+    '/api/redoc/',         # ReDoc UI
+]
+
+# Rutas que requieren tenant obligatorio
+TENANT_REQUIRED_PATHS = [
+    '/api/',
+    '/dashboard/',
+]
 
 # ============================================
 # SISTEMA DE PERMISOS

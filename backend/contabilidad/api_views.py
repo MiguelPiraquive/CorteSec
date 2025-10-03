@@ -266,8 +266,8 @@ class FlujoCajaViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     serializer_class = FlujoCajaSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['tipo_movimiento', 'categoria', 'fecha']
-    search_fields = ['descripcion', 'referencia']
+    filterset_fields = ['tipo_movimiento', 'fecha']
+    search_fields = ['concepto', 'observaciones']
     ordering_fields = ['fecha', 'valor']
     ordering = ['-fecha']
 

@@ -41,8 +41,8 @@ class ComprobanteContableSerializer(serializers.ModelSerializer):
     class Meta:
         model = ComprobanteContable
         fields = [
-            'id', 'numero', 'tipo', 'fecha', 'descripcion', 'observaciones',
-            'estado', 'valor_total', 'nomina_relacionada', 'prestamo_relacionado',
+            'id', 'numero', 'tipo_comprobante', 'fecha', 'descripcion',
+            'estado', 'total_debito', 'total_credito', 'nomina_relacionada', 'prestamo_relacionado',
             'creado_por', 'creado_por_nombre', 'fecha_creacion',
             'contabilizado_por', 'contabilizado_por_nombre', 'fecha_contabilizacion',
             'total_debitos', 'total_creditos', 'esta_cuadrado', 'movimientos_count'
@@ -63,17 +63,15 @@ class MovimientoContableSerializer(serializers.ModelSerializer):
     comprobante_numero = serializers.CharField(source='comprobante.numero', read_only=True)
     cuenta_codigo = serializers.CharField(source='cuenta.codigo', read_only=True)
     cuenta_nombre = serializers.CharField(source='cuenta.nombre', read_only=True)
-    centro_costo_nombre = serializers.CharField(source='centro_costo.nombre', read_only=True)
     
     class Meta:
         model = MovimientoContable
         fields = [
             'id', 'comprobante', 'comprobante_numero', 'cuenta', 'cuenta_codigo',
-            'cuenta_nombre', 'centro_costo', 'centro_costo_nombre', 'descripcion',
-            'valor_debito', 'valor_credito', 'documento_referencia',
-            'tercero_identificacion', 'tercero_nombre', 'fecha_movimiento'
+            'cuenta_nombre', 'descripcion', 'valor_debito', 'valor_credito', 
+            'tercero', 'centro_costo'
         ]
-        read_only_fields = ['fecha_movimiento']
+        read_only_fields = ['comprobante_numero', 'cuenta_codigo', 'cuenta_nombre']
     
     def validate(self, data):
         """Validaciones del movimiento contable"""

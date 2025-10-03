@@ -185,14 +185,14 @@ class PermisoSerializer(serializers.ModelSerializer):
     content_type_info = ContentTypeSerializer(source='content_type', read_only=True)
     
     ambito_display = serializers.CharField(source='get_ambito_display', read_only=True)
-    esta_vigente = serializers.ReadOnlyField(source='esta_vigente')
-    organizacion_nombre = serializers.CharField(source='organizacion.nombre', read_only=True)
+    esta_vigente = serializers.ReadOnlyField()
+    organizacion_nombre = serializers.CharField(source='Organizacion.nombre', read_only=True)
     
     class Meta:
         model = Permiso
         fields = [
             'id', 'nombre', 'codigo', 'descripcion', 'modulo', 'modulo_info',
-            'tipo_permiso', 'tipo_permiso_info', 'organizacion', 'organizacion_nombre',
+            'tipo_permiso', 'tipo_permiso_info', 'Organizacion', 'organizacion_nombre',
             'ambito', 'ambito_display', 'content_type', 'content_type_info',
             'object_id', 'condiciones', 'condiciones_info', 'es_heredable',
             'es_revocable', 'prioridad', 'vigencia_inicio', 'vigencia_fin',
@@ -230,7 +230,7 @@ class PermisoCreateUpdateSerializer(serializers.ModelSerializer):
         model = Permiso
         fields = [
             'nombre', 'codigo', 'descripcion', 'modulo', 'tipo_permiso',
-            'organizacion', 'ambito', 'content_type', 'object_id', 'condiciones',
+            'Organizacion', 'ambito', 'content_type', 'object_id', 'condiciones',
             'es_heredable', 'es_revocable', 'prioridad', 'vigencia_inicio',
             'vigencia_fin', 'activo'
         ]
@@ -274,8 +274,8 @@ class PermisoDirectoSerializer(serializers.ModelSerializer):
     asignado_por_info = UserBasicSerializer(source='asignado_por', read_only=True)
     
     tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
-    esta_vigente = serializers.ReadOnlyField(source='esta_vigente')
-    es_efectivo = serializers.ReadOnlyField(source='es_efectivo')
+    esta_vigente = serializers.ReadOnlyField()
+    es_efectivo = serializers.ReadOnlyField()
     
     class Meta:
         model = PermisoDirecto

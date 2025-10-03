@@ -14,7 +14,7 @@ class RolViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     queryset = Rol.objects.select_related('organization').all()
     serializer_class = RolSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['tipo', 'activo']
+    filterset_fields = ['tipo_rol', 'activo']
     search_fields = ['nombre', 'descripcion']
     ordering_fields = ['nombre', 'fecha_creacion']
     ordering = ['nombre']

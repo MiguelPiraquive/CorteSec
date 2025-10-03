@@ -195,8 +195,8 @@ class SolicitudSoporteViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     pagination_class = AyudaPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['estado', 'prioridad', 'categoria']
-    search_fields = ['titulo', 'descripcion']
-    ordering_fields = ['fecha_creacion', 'fecha_actualizacion', 'prioridad']
+    search_fields = ['asunto', 'descripcion']
+    ordering_fields = ['fecha_creacion', 'fecha_modificacion', 'prioridad']
     ordering = ['-fecha_creacion']
 
     def get_queryset(self):
@@ -263,15 +263,15 @@ class TutorialViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = AyudaPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['categoria', 'nivel', 'activo']
+    filterset_fields = ['categoria', 'dificultad', 'publicado']
     search_fields = ['titulo', 'descripcion', 'tags']
-    ordering_fields = ['orden', 'titulo', 'fecha_creacion']
+    ordering_fields = ['tiempo_estimado', 'titulo', 'fecha_creacion']
     ordering = ['orden', '-fecha_creacion']
 
     def get_queryset(self):
-        """Filtrar tutoriales activos"""
+        """Filtrar tutoriales publicados"""
         if self.action in ['list', 'retrieve']:
-            return self.queryset.filter(activo=True)
+            return self.queryset.filter(publicado=True)
         return self.queryset
 
     @action(detail=True, methods=['get'])
@@ -308,16 +308,15 @@ class RecursoAyudaViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = AyudaPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['tipo', 'formato']
+    filterset_fields = ['tipo', 'activo']
     search_fields = ['nombre', 'descripcion']
-    ordering_fields = ['fecha_creacion', 'descargas', 'nombre']
+    ordering_fields = ['fecha_creacion', 'orden', 'nombre']
     ordering = ['-fecha_creacion']
 
     @action(detail=True, methods=['post'])
-    def descargar(self, request, pk=None):
-        """Incrementar contador de descargas"""
+    def acceder(self, request, pk=None):
+        """Registrar acceso al recurso"""
         recurso = self.get_object()
-        RecursoAyuda.objects.filter(id=recurso.id).update(descargas=F('descargas') + 1)
         
         return Response({
             'message': 'Descarga registrada',

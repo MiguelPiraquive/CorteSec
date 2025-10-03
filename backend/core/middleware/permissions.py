@@ -44,6 +44,9 @@ class PermissionMiddleware(MiddlewareMixin):
         '/api/configuracion/parametros/',  # Endpoint público para parámetros
         '/api/configuracion/dashboard/',   # Endpoint público para dashboard
         '/api/cargos/',  # APIs de cargos (temporalmente excluido para debug)
+        '/api/schema/',  # OpenAPI schema (público)
+        '/api/docs/',    # Swagger UI (público)
+        '/api/redoc/',   # ReDoc UI (público)
     ]
     
     # URLs que solo requieren autenticación
@@ -149,6 +152,9 @@ class PermissionMiddleware(MiddlewareMixin):
             '/api/dashboard/',      # Dashboard público
             '/api/locations/',      # Ubicaciones públicas
             '/api/tipos-cantidad/', # Tipos de cantidad
+            '/api/schema/',         # OpenAPI schema (público)
+            '/api/docs/',          # Swagger UI (público)
+            '/api/redoc/',         # ReDoc UI (público)
         ]
         
         # APIs que SÍ requieren verificación adicional de permisos

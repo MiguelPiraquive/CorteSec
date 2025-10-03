@@ -36,9 +36,9 @@ class RecursoAyudaSerializer(serializers.ModelSerializer):
         model = RecursoAyuda
         fields = [
             'id', 'tipo', 'nombre', 'descripcion', 'url', 
-            'archivo', 'tamaño', 'formato', 'fecha_creacion', 'descargas'
+            'archivo', 'orden', 'activo', 'fecha_creacion'
         ]
-        read_only_fields = ['id', 'fecha_creacion', 'descargas']
+        read_only_fields = ['id', 'fecha_creacion']
 
 
 class ArticuloAyudaSerializer(serializers.ModelSerializer):
@@ -46,69 +46,57 @@ class ArticuloAyudaSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
     autor_nombre = serializers.CharField(source='autor.get_full_name', read_only=True)
     recursos = RecursoAyudaSerializer(many=True, read_only=True)
-    rating_promedio = serializers.ReadOnlyField()
-    tiempo_lectura = serializers.ReadOnlyField()
     
     class Meta:
         model = ArticuloAyuda
         fields = [
-            'id', 'categoria', 'categoria_nombre', 'titulo', 'slug', 'resumen',
-            'contenido', 'estado', 'dificultad', 'autor', 'autor_nombre',
-            'fecha_creacion', 'fecha_actualizacion', 'fecha_publicacion',
-            'visualizaciones', 'valoraciones_positivas', 'valoraciones_negativas',
-            'rating_promedio', 'tiempo_lectura', 'tags', 'palabras_clave',
-            'meta_descripcion', 'meta_keywords', 'recursos'
+            'id', 'categoria', 'categoria_nombre', 'titulo', 'slug', 
+            'contenido', 'tags', 'es_faq', 'orden', 'publicado', 'activo', 
+            'vistas', 'autor', 'autor_nombre', 'fecha_creacion', 
+            'fecha_modificacion', 'recursos'
         ]
         read_only_fields = [
-            'id', 'slug', 'fecha_creacion', 'fecha_actualizacion', 
-            'fecha_publicacion', 'visualizaciones', 'valoraciones_positivas',
-            'valoraciones_negativas', 'categoria_nombre', 'autor_nombre',
-            'rating_promedio', 'tiempo_lectura', 'recursos'
+            'id', 'slug', 'fecha_creacion', 'fecha_modificacion',
+            'categoria_nombre', 'autor_nombre', 'recursos', 'vistas'
         ]
 
 
 class FAQSerializer(serializers.ModelSerializer):
     """Serializer para FAQs"""
     categoria_display = serializers.CharField(source='get_categoria_display', read_only=True)
-    autor_nombre = serializers.CharField(source='autor.get_full_name', read_only=True)
     
     class Meta:
         model = FAQ
         fields = [
-            'id', 'organization', 'categoria', 'categoria_display', 'pregunta',
-            'respuesta', 'orden', 'activo', 'autor', 'autor_nombre',
-            'fecha_creacion', 'fecha_actualizacion', 'visualizaciones',
-            'es_util_si', 'es_util_no'
+            'id', 'pregunta', 'respuesta', 'categoria', 'categoria_display', 
+            'orden', 'activo', 'vistas', 'util_si', 'util_no', 
+            'fecha_creacion', 'fecha_modificacion'
         ]
         read_only_fields = [
-            'id', 'fecha_creacion', 'fecha_actualizacion', 'visualizaciones',
-            'es_util_si', 'es_util_no', 'categoria_display', 'autor_nombre'
+            'id', 'fecha_creacion', 'fecha_modificacion', 'vistas',
+            'util_si', 'util_no', 'categoria_display'
         ]
 
 
 class RespuestaSoporteSerializer(serializers.ModelSerializer):
     """Serializer para respuestas de soporte"""
-    autor_nombre = serializers.CharField(source='autor.get_full_name', read_only=True)
-    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    usuario_nombre = serializers.CharField(source='usuario.get_full_name', read_only=True)
     
     class Meta:
         model = RespuestaSoporte
         fields = [
-            'id', 'solicitud', 'tipo', 'tipo_display', 'contenido',
-            'es_solucion', 'es_publica', 'autor', 'autor_nombre',
-            'fecha_creacion', 'fecha_actualizacion'
+            'id', 'solicitud', 'respuesta', 'es_interna', 
+            'usuario', 'usuario_nombre', 'fecha_respuesta'
         ]
         read_only_fields = [
-            'id', 'fecha_creacion', 'fecha_actualizacion', 
-            'autor_nombre', 'tipo_display'
+            'id', 'fecha_respuesta', 'usuario_nombre'
         ]
 
 
 class SolicitudSoporteSerializer(serializers.ModelSerializer):
     """Serializer para solicitudes de soporte"""
-    solicitante_nombre = serializers.CharField(source='solicitante.get_full_name', read_only=True)
+    usuario_nombre = serializers.CharField(source='usuario.get_full_name', read_only=True)
     asignado_a_nombre = serializers.CharField(source='asignado_a.get_full_name', read_only=True)
-    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
     prioridad_display = serializers.CharField(source='get_prioridad_display', read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     respuestas = RespuestaSoporteSerializer(many=True, read_only=True)
@@ -116,18 +104,14 @@ class SolicitudSoporteSerializer(serializers.ModelSerializer):
     class Meta:
         model = SolicitudSoporte
         fields = [
-            'id', 'organization', 'solicitante', 'solicitante_nombre',
-            'tipo', 'tipo_display', 'prioridad', 'prioridad_display',
-            'estado', 'estado_display', 'asunto', 'descripcion',
-            'pasos_reproducir', 'resultado_esperado', 'resultado_actual',
-            'navegador', 'sistema_operativo', 'url_problema',
-            'asignado_a', 'asignado_a_nombre', 'fecha_creacion',
-            'fecha_actualizacion', 'fecha_resolucion', 'valoracion',
-            'comentario_valoracion', 'respuestas'
+            'id', 'usuario', 'usuario_nombre', 'asunto', 'descripcion',
+            'prioridad', 'prioridad_display', 'estado', 'estado_display', 
+            'categoria', 'asignado_a', 'asignado_a_nombre', 
+            'fecha_creacion', 'fecha_modificacion', 'respuestas'
         ]
         read_only_fields = [
-            'id', 'fecha_creacion', 'fecha_actualizacion', 'fecha_resolucion',
-            'solicitante_nombre', 'asignado_a_nombre', 'tipo_display',
+            'id', 'fecha_creacion', 'fecha_modificacion',
+            'usuario_nombre', 'asignado_a_nombre', 
             'prioridad_display', 'estado_display', 'respuestas'
         ]
 
@@ -138,8 +122,8 @@ class PasoTutorialSerializer(serializers.ModelSerializer):
     class Meta:
         model = PasoTutorial
         fields = [
-            'id', 'tutorial', 'numero', 'titulo', 'contenido',
-            'imagen_url', 'video_url', 'codigo_ejemplo', 'notas'
+            'id', 'tutorial', 'numero_paso', 'titulo', 'contenido',
+            'imagen', 'video_url', 'codigo_ejemplo'
         ]
         read_only_fields = ['id']
 
@@ -148,18 +132,16 @@ class ProgresoTutorialSerializer(serializers.ModelSerializer):
     """Serializer para progreso de tutorial"""
     usuario_nombre = serializers.CharField(source='usuario.get_full_name', read_only=True)
     tutorial_titulo = serializers.CharField(source='tutorial.titulo', read_only=True)
-    porcentaje_completado = serializers.ReadOnlyField()
     
     class Meta:
         model = ProgresoTutorial
         fields = [
             'id', 'usuario', 'usuario_nombre', 'tutorial', 'tutorial_titulo',
             'paso_actual', 'completado', 'fecha_inicio', 'fecha_completado',
-            'tiempo_total', 'valoracion', 'porcentaje_completado'
+            'tiempo_total'
         ]
         read_only_fields = [
-            'id', 'fecha_inicio', 'usuario_nombre', 'tutorial_titulo',
-            'porcentaje_completado'
+            'id', 'fecha_inicio', 'usuario_nombre', 'tutorial_titulo'
         ]
 
 
@@ -167,7 +149,6 @@ class TutorialSerializer(serializers.ModelSerializer):
     """Serializer para tutoriales"""
     categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
     autor_nombre = serializers.CharField(source='autor.get_full_name', read_only=True)
-    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
     dificultad_display = serializers.CharField(source='get_dificultad_display', read_only=True)
     pasos = PasoTutorialSerializer(many=True, read_only=True)
     recursos = RecursoAyudaSerializer(many=True, read_only=True)
@@ -176,18 +157,15 @@ class TutorialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tutorial
         fields = [
-            'id', 'categoria', 'categoria_nombre', 'titulo', 'slug',
-            'descripcion', 'tipo', 'tipo_display', 'dificultad', 'dificultad_display',
-            'objetivos', 'prerequisitos', 'duracion_estimada', 'video_url',
-            'imagen_portada', 'publicado', 'destacado', 'autor', 'autor_nombre',
-            'fecha_creacion', 'fecha_actualizacion', 'visualizaciones',
-            'completados', 'valoracion_promedio', 'pasos', 'recursos', 'total_pasos'
+            'id', 'titulo', 'descripcion', 'slug', 'categoria', 'categoria_nombre',
+            'dificultad', 'dificultad_display', 'tiempo_estimado', 'imagen_portada',
+            'tags', 'publicado', 'destacado', 'vistas', 'autor', 'autor_nombre',
+            'fecha_creacion', 'fecha_modificacion', 'pasos', 'recursos', 'total_pasos'
         ]
         read_only_fields = [
-            'id', 'slug', 'fecha_creacion', 'fecha_actualizacion',
-            'visualizaciones', 'completados', 'valoracion_promedio',
-            'categoria_nombre', 'autor_nombre', 'tipo_display',
-            'dificultad_display', 'pasos', 'recursos', 'total_pasos'
+            'id', 'slug', 'fecha_creacion', 'fecha_modificacion', 'vistas',
+            'categoria_nombre', 'autor_nombre', 'dificultad_display',
+            'pasos', 'recursos', 'total_pasos'
         ]
     
     def get_total_pasos(self, obj):
@@ -198,7 +176,6 @@ class TutorialListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para lista de tutoriales"""
     categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
     autor_nombre = serializers.CharField(source='autor.get_full_name', read_only=True)
-    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
     dificultad_display = serializers.CharField(source='get_dificultad_display', read_only=True)
     total_pasos = serializers.SerializerMethodField()
     
@@ -206,15 +183,13 @@ class TutorialListSerializer(serializers.ModelSerializer):
         model = Tutorial
         fields = [
             'id', 'categoria_nombre', 'titulo', 'slug', 'descripcion',
-            'tipo', 'tipo_display', 'dificultad', 'dificultad_display',
-            'duracion_estimada', 'imagen_portada', 'publicado', 'destacado',
-            'autor_nombre', 'fecha_actualizacion', 'visualizaciones',
-            'completados', 'valoracion_promedio', 'total_pasos'
+            'dificultad', 'dificultad_display', 'tiempo_estimado', 
+            'imagen_portada', 'publicado', 'destacado', 'autor_nombre', 
+            'fecha_modificacion', 'vistas', 'total_pasos'
         ]
         read_only_fields = [
-            'id', 'slug', 'fecha_actualizacion', 'visualizaciones',
-            'completados', 'valoracion_promedio', 'categoria_nombre',
-            'autor_nombre', 'tipo_display', 'dificultad_display', 'total_pasos'
+            'id', 'slug', 'fecha_modificacion', 'vistas',
+            'categoria_nombre', 'autor_nombre', 'dificultad_display', 'total_pasos'
         ]
     
     def get_total_pasos(self, obj):

@@ -48,6 +48,14 @@ class APISecurityMiddleware(MiddlewareMixin):
         '/api/reportes/',
     ]
     
+    # APIs que NO requieren autenticación (públicas)
+    PUBLIC_APIS = [
+        '/api/schema/',      # OpenAPI schema
+        '/api/docs/',        # Swagger UI
+        '/api/redoc/',       # ReDoc UI
+        '/api/auth/login/',  # Login endpoint
+    ]
+    
     def __init__(self, get_response):
         self.get_response = get_response
         super().__init__(get_response)
@@ -56,6 +64,12 @@ class APISecurityMiddleware(MiddlewareMixin):
         # Solo procesar requests a APIs
         if not request.path.startswith('/api/'):
             return self.get_response(request)
+        
+        # Permitir acceso a APIs públicas sin validaciones
+        for public_api in self.PUBLIC_APIS:
+            if request.path.startswith(public_api):
+                logger.info(f"API pública accedida: {request.path}")
+                return self.get_response(request)
         
         # Verificar permisos específicos
         response = self._check_api_permissions(request)
