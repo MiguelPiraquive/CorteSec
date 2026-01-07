@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, IntegrityError
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
@@ -569,8 +569,7 @@ class AsignacionRol(TenantAwareModel):
     estado = models.ForeignKey(
         EstadoAsignacion,
         on_delete=models.PROTECT,
-        verbose_name=_("Estado"),
-        default=1  # Estado predeterminado (activo)
+        verbose_name=_("Estado")
     )
     
     activa = models.BooleanField(
@@ -1357,16 +1356,19 @@ def pre_save_rol(sender, instance, **kwargs):
 @receiver(post_save, sender=Rol)
 def post_save_rol(sender, instance, created, **kwargs):
     """Acciones después de guardar un rol"""
-    # Crear configuración dinámica si no existe (asegurar campos por defecto)
-    ConfiguracionRol.objects.get_or_create(
-        rol=instance,
-        defaults={
-            'configuracion_ui': {},
-            'configuracion_seguridad': {},
-            'configuracion_notificaciones': {},
-            'configuracion_integraciones': {}
-        }
-    )
+    # Crear configuración dinámica solo si el rol es nuevo
+    if created:
+        try:
+            ConfiguracionRol.objects.create(
+                rol=instance,
+                configuracion_ui={},
+                configuracion_seguridad={},
+                configuracion_notificaciones={},
+                configuracion_integraciones={}
+            )
+        except IntegrityError:
+            # Ya existe, no hacer nada
+            pass
     
     # Limpiar cache
     cache.delete_many([
@@ -1382,21 +1384,28 @@ def post_save_asignacion_rol(sender, instance, created, **kwargs):
     # Actualizar estadísticas del rol
     instance.rol.actualizar_estadisticas()
     
-    # Crear auditoría
-    AuditoriaRol.objects.create(
-        rol=instance.rol,
-        usuario_afectado=instance.usuario,
-        accion='asignar_rol' if created else 'modificar_asignacion',
-        usuario_ejecutor=getattr(instance, 'modificado_por', None) or getattr(instance, 'creado_por', None),
-        detalles_anterior={},
-        detalles_nuevo={
-            'asignacion_id': instance.id,
-            'fecha_inicio': instance.fecha_inicio.isoformat() if instance.fecha_inicio else None,
-            'fecha_fin': instance.fecha_fin.isoformat() if instance.fecha_fin else None,
-            'activa': instance.activa
-        },
-        contexto_adicional={}
-    )    # Limpiar cache del usuario
+    # Crear auditoría solo si no estamos en el proceso de creación inicial
+    # (evitar problemas con validación de campos)
+    try:
+        AuditoriaRol.objects.create(
+            rol=instance.rol,
+            usuario_afectado=instance.usuario,
+            accion='asignar_rol' if created else 'modificar_asignacion',
+            usuario_ejecutor=getattr(instance, 'modificado_por', None) or getattr(instance, 'creado_por', None) or instance.asignado_por,
+            detalles_nuevo={
+                'asignacion_id': instance.id,
+                'fecha_inicio': instance.fecha_inicio.isoformat() if instance.fecha_inicio else None,
+                'fecha_fin': instance.fecha_fin.isoformat() if instance.fecha_fin else None,
+                'activa': instance.activa
+            }
+        )
+    except Exception as e:
+        # Log error but don't fail the asignación creation
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to create audit log for AsignacionRol {instance.id}: {e}")
+    
+    # Limpiar cache del usuario
     cache.delete_many([
         f'usuario_{instance.usuario.id}_roles',
         f'usuario_{instance.usuario.id}_permisos'

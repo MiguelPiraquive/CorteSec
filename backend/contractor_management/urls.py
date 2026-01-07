@@ -47,6 +47,8 @@ urlpatterns = [
     path('api/reportes/', include('reportes.api_urls')),
     path('api/documentacion/', include('documentacion.api_urls')),
     path('api/tipos-cantidad/', include('tipos_cantidad.api_urls')),
+    path('api/perfil/', include('perfil.api_urls')),
+    path('api/', include('usuarios.api_urls')),
 
     # App-level views (templates / non-API) used by tests
     path('roles/', include('roles.urls')),

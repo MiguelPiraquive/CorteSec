@@ -294,6 +294,7 @@ class Prestamo(TenantAwareModel):
     numero_prestamo = models.CharField(
         max_length=20,
         unique=True,
+        blank=True,
         verbose_name=_("Número de préstamo"),
         help_text=_("Número único del préstamo (se genera automáticamente)")
     )
@@ -348,7 +349,7 @@ class Prestamo(TenantAwareModel):
     )
     
     cuota_mensual = models.DecimalField(
-        max_digits=12,
+        max_digits=15,
         decimal_places=2,
         blank=True,
         null=True,
@@ -619,16 +620,21 @@ class Prestamo(TenantAwareModel):
     
     def calcular_cuota_mensual(self):
         """Calcula la cuota mensual del préstamo"""
-        monto = self.monto_aprobado or self.monto_solicitado
+        from decimal import Decimal, ROUND_HALF_UP
+        
+        monto = Decimal(str(self.monto_aprobado or self.monto_solicitado))
+        plazo = Decimal(str(self.plazo_meses))
         
         if self.tasa_interes == 0:
-            return monto / self.plazo_meses
+            cuota = monto / plazo
+        else:
+            tasa_anual = Decimal(str(self.tasa_interes))
+            tasa_mensual = tasa_anual / Decimal('100') / Decimal('12')
+            factor = (Decimal('1') + tasa_mensual) ** int(self.plazo_meses)
+            cuota = monto * (tasa_mensual * factor) / (factor - Decimal('1'))
         
-        tasa_mensual = self.tasa_interes / 100 / 12
-        factor = (1 + tasa_mensual) ** self.plazo_meses
-        cuota = monto * (tasa_mensual * factor) / (factor - 1)
-        
-        return round(cuota, 2)
+        # Redondear a 2 decimales
+        return cuota.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     
     def calcular_total_con_intereses(self):
         """Calcula el total a pagar con intereses"""
@@ -686,6 +692,11 @@ class Prestamo(TenantAwareModel):
         self.fecha_desembolso = fecha_desembolso or timezone.now().date()
         self.desembolsado_por = usuario
         self.saldo_pendiente = self.monto_aprobado
+        
+        # Calcular fecha del primer pago (un mes después del desembolso)
+        from dateutil.relativedelta import relativedelta
+        self.fecha_primer_pago = self.fecha_desembolso + relativedelta(months=1)
+        
         self.save()
     
     def activar(self):

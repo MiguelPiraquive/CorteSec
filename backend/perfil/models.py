@@ -277,11 +277,18 @@ class Perfil(TenantAwareModel):
         )]
     )
     
+    departamento_expedicion_cedula = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name=_("Departamento de expedición de cédula")
+    )
+    
     lugar_expedicion_cedula = models.CharField(
         max_length=100,
         blank=True,
         null=True,
-        verbose_name=_("Lugar de expedición de cédula")
+        verbose_name=_("Lugar de expedición de cédula (Municipio)")
     )
     
     # Preferencias de usuario
@@ -327,6 +334,9 @@ class Perfil(TenantAwareModel):
         auto_now_add=True,
         verbose_name=_("Fecha de creación")
     )
+    
+    # Manager adicional sin filtro de tenant para operaciones especiales
+    all_objects = models.Manager()  # Manager sin filtro de organización
 
     class Meta:
         verbose_name = _("Perfil de Usuario")
@@ -485,6 +495,7 @@ class ConfiguracionNotificaciones(models.Model):
     class Meta:
         verbose_name = _("Configuración de Notificaciones")
         verbose_name_plural = _("Configuraciones de Notificaciones")
+        ordering = ['-id']
 
     def __str__(self):
         return f"Notificaciones - {self.perfil.usuario.username}"

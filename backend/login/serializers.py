@@ -40,8 +40,8 @@ class UserSerializer(serializers.ModelSerializer):
             return None
         return {
             'id': str(org.pk),
-            'name': getattr(org, 'name', None),
-            'slug': getattr(org, 'slug', None)
+            'name': org.nombre,
+            'slug': org.codigo
         }
 
 
@@ -68,15 +68,16 @@ class LoginSerializer(serializers.Serializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """Serializer para registro de usuario"""
+    """Serializer para registro de usuario con soporte multitenant"""
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True)
+    tenant_code = serializers.CharField(write_only=True, required=True, help_text="Código de la organización")
     
     class Meta:
         model = CustomUser
         fields = [
             'username', 'email', 'password', 'password_confirm',
-            'first_name', 'last_name', 'full_name', 'phone'
+            'first_name', 'last_name', 'full_name', 'phone', 'tenant_code'
         ]
     
     def validate(self, attrs):
@@ -84,10 +85,32 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Las contraseñas no coinciden.")
         return attrs
     
+    def validate_tenant_code(self, value):
+        """Validar que el código de organización tenga formato válido"""
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("El código de organización es requerido.")
+        return value.strip().upper()
+    
     def create(self, validated_data):
+        from core.models import Organizacion
+        
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
+        tenant_code = validated_data.pop('tenant_code')
+        
+        # Buscar la organización
+        try:
+            organization = Organizacion.objects.get(codigo=tenant_code, activa=True)
+        except Organizacion.DoesNotExist:
+            raise serializers.ValidationError({
+                'tenant_code': f'La organización con código {tenant_code} no existe o no está activa.'
+            })
+        
+        # Crear usuario y asignar organización
         user = CustomUser.objects.create_user(password=password, **validated_data)
+        user.organization = organization
+        user.save()
+        
         return user
 
 

@@ -20,7 +20,8 @@ from .serializers import (
     DepartamentoSerializer,
     MunicipioSerializer,
     DepartamentoSimpleSerializer,
-    MunicipioSimpleSerializer
+    MunicipioSimpleSerializer,
+    MunicipioConDepartamentoSerializer
 )
 from core.mixins import MultiTenantViewSetMixin
 
@@ -89,32 +90,34 @@ class ImportLocationsExcelAPI(APIView):
                 if dep_nombre:
                     qs = Departamento.objects.filter(nombre=dep_nombre)
                     if org:
-                        qs = qs.filter(organizacion=org)
+                        qs = qs.filter(organization=org)
                     dep_obj = qs.first()
                     if not dep_obj:
                         dep_obj = Departamento.objects.create(
                             nombre=dep_nombre,
                             codigo=dep_codigo or None,
-                            organizacion=org if org else None,
+                            organization=org if org else None,
                         )
                         created_deptos += 1
 
                 if mun_nombre and dep_obj:
                     qs_m = Municipio.objects.filter(nombre=mun_nombre, departamento=dep_obj)
                     if org:
-                        qs_m = qs_m.filter(organizacion=org)
+                        qs_m = qs_m.filter(organization=org)
                     if qs_m.exists():
                         skipped += 1
                     else:
-                        Municipio.objects.create(
+                        mun = Municipio.objects.create(
                             nombre=mun_nombre,
                             codigo=mun_codigo or None,
                             departamento=dep_obj,
-                            organizacion=org if org else None,
+                            organization=org if org else None,
                         )
+                        print(f"✅ Municipio creado: {mun.nombre} -> Departamento: {mun.departamento.nombre}")
                         created_mpios += 1
                 elif mun_nombre and not dep_obj:
                     errores.append(f'Fila {idx+2}: municipio "{mun_nombre}" sin departamento asociado')
+                    print(f"⚠️ Fila {idx+2}: municipio '{mun_nombre}' sin departamento")
                 elif not dep_nombre and not mun_nombre:
                     skipped += 1
 
@@ -145,15 +148,13 @@ class DepartamentoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar por organización del usuario"""
-        queryset = Departamento.objects.annotate(
-            municipios_count=Count('municipios')
-        )
+        queryset = Departamento.objects.all()
         
         # Filtrar por organización si el usuario tiene una
-        if hasattr(self.request.user, 'organization') and self.request.user.organizacion:
+        if hasattr(self.request.user, 'organization') and self.request.user.organization:
             queryset = queryset.filter(
-                Q(organizacion=self.request.user.organizacion) |
-                Q(organizacion__isnull=True)  # Permitir departamentos sin organización (datos maestros)
+                Q(organization=self.request.user.organization) |
+                Q(organization__isnull=True)  # Permitir departamentos sin organización (datos maestros)
             )
         
         return queryset
@@ -161,7 +162,7 @@ class DepartamentoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Asignar organización al crear"""
         if hasattr(self.request.user, 'organization'):
-            serializer.save(organizacion=self.request.user.organizacion)
+            serializer.save(organization=self.request.user.organization)
         else:
             serializer.save()
     
@@ -192,15 +193,21 @@ class MunicipioViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     ordering_fields = ['nombre', 'departamento__nombre', 'created_at']
     ordering = ['departamento__nombre', 'nombre']
     
+    def get_serializer_class(self):
+        """Usar serializer con departamento completo para list/retrieve"""
+        if self.action in ['list', 'retrieve']:
+            return MunicipioConDepartamentoSerializer
+        return MunicipioSerializer
+    
     def get_queryset(self):
         """Filtrar por organización del usuario"""
         queryset = Municipio.objects.select_related('departamento')
         
         # Filtrar por organización si el usuario tiene una
-        if hasattr(self.request.user, 'organization') and self.request.user.organizacion:
+        if hasattr(self.request.user, 'organization') and self.request.user.organization:
             queryset = queryset.filter(
-                Q(organizacion=self.request.user.organizacion) |
-                Q(organizacion__isnull=True)  # Permitir municipios sin organización (datos maestros)
+                Q(organization=self.request.user.organization) |
+                Q(organization__isnull=True)  # Permitir municipios sin organización (datos maestros)
             )
         
         return queryset
@@ -208,7 +215,7 @@ class MunicipioViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Asignar organización al crear"""
         if hasattr(self.request.user, 'organization'):
-            serializer.save(organizacion=self.request.user.organizacion)
+            serializer.save(organization=self.request.user.organization)
         else:
             serializer.save()
     

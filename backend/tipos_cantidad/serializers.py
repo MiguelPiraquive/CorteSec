@@ -11,11 +11,11 @@ class TipoCantidadSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoCantidad
         fields = [
-            'id', 'codigo', 'descripcion', 'simbolo', 'activo', 
+            'id', 'organization', 'codigo', 'descripcion', 'simbolo', 'activo', 
             'es_sistema', 'orden', 'fecha_creacion', 'fecha_modificacion',
             'descripcion_completa', 'puede_eliminarse'
         ]
-        read_only_fields = ['fecha_creacion', 'fecha_modificacion']
+        read_only_fields = ['id', 'organization', 'fecha_creacion', 'fecha_modificacion']
 
     def validate_codigo(self, value):
         """Validar formato del código"""

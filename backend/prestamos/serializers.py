@@ -27,7 +27,7 @@ class TipoPrestamoSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoPrestamo
         fields = [
-            'id', 'codigo', 'nombre', 'descripcion',
+            'id', 'organization', 'codigo', 'nombre', 'descripcion',
             'monto_minimo', 'monto_maximo',
             'tasa_interes_defecto', 'tasa_interes_minima', 'tasa_interes_maxima',
             'plazo_minimo_meses', 'plazo_maximo_meses',
@@ -35,7 +35,7 @@ class TipoPrestamoSerializer(serializers.ModelSerializer):
             'configuracion_avanzada', 'activo', 'orden',
             'prestamos_activos_count', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'prestamos_activos_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'organization', 'prestamos_activos_count', 'created_at', 'updated_at']
     
     def validate(self, data):
         """Validaciones personalizadas"""
@@ -78,7 +78,14 @@ class TipoPrestamoListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = TipoPrestamo
-        fields = ['id', 'codigo', 'nombre', 'monto_minimo', 'monto_maximo', 'tasa_interes_defecto']
+        fields = [
+            'id', 'codigo', 'nombre', 'descripcion',
+            'monto_minimo', 'monto_maximo',
+            'tasa_interes_defecto', 'tasa_interes_minima', 'tasa_interes_maxima',
+            'plazo_minimo_meses', 'plazo_maximo_meses',
+            'requiere_garantia', 'requiere_aprobacion', 'permite_prepago',
+            'activo', 'orden'
+        ]
 
 
 class EmpleadoBasicSerializer(serializers.Serializer):
@@ -86,14 +93,14 @@ class EmpleadoBasicSerializer(serializers.Serializer):
     id = serializers.UUIDField(read_only=True)
     nombres = serializers.CharField(read_only=True)
     apellidos = serializers.CharField(read_only=True)
-    numero_identificacion = serializers.CharField(read_only=True)
+    documento = serializers.CharField(read_only=True)
     
     def to_representation(self, instance):
         return {
             'id': str(instance.id),
             'nombres': instance.nombres,
             'apellidos': instance.apellidos,
-            'numero_identificacion': instance.numero_identificacion,
+            'numero_identificacion': instance.documento,
             'nombre_completo': f"{instance.nombres} {instance.apellidos}"
         }
 
@@ -120,7 +127,7 @@ class PrestamoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Prestamo
         fields = [
-            'id', 'numero_prestamo', 'empleado', 'empleado_detail',
+            'id', 'organization', 'numero_prestamo', 'empleado', 'empleado_detail',
             'tipo_prestamo', 'tipo_prestamo_detail',
             'monto_solicitado', 'monto_aprobado', 'tasa_interes', 'plazo_meses',
             'cuota_mensual', 'fecha_solicitud', 'fecha_aprobacion',
@@ -137,9 +144,10 @@ class PrestamoSerializer(serializers.ModelSerializer):
             'estados_permitidos'
         ]
         read_only_fields = [
-            'id', 'numero_prestamo', 'cuota_mensual', 'saldo_pendiente',
+            'id', 'organization', 'numero_prestamo', 'cuota_mensual', 'saldo_pendiente',
             'total_pagado', 'total_intereses', 'created_at', 'updated_at',
-            'empleado_detail', 'tipo_prestamo_detail'
+            'empleado_detail', 'tipo_prestamo_detail',
+            'solicitado_por', 'aprobado_por', 'desembolsado_por', 'created_by', 'updated_by'
         ]
     
     def get_calcular_cuota_mensual(self, obj):
@@ -252,9 +260,13 @@ class PrestamoListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Prestamo
         fields = [
-            'id', 'numero_prestamo', 'empleado_nombre', 'tipo_prestamo_nombre',
+            'id', 'numero_prestamo', 
+            'empleado', 'empleado_nombre', 
+            'tipo_prestamo', 'tipo_prestamo_nombre',
             'monto_solicitado', 'monto_aprobado', 'monto_final',
+            'tasa_interes', 'plazo_meses',
             'estado', 'estado_display', 'fecha_solicitud',
+            'tipo_garantia', 'garantia_descripcion', 'observaciones',
             'saldo_pendiente', 'total_pagado', 'porcentaje_pagado'
         ]
     

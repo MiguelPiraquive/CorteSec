@@ -1,0 +1,57 @@
+# Core Django
+Django>=4.2,<5.0
+djangorestframework>=3.14,<4.0
+django-cors-headers>=4.0,<5.0
+django-filter>=23.0,<24.0
+
+# Database
+psycopg2-binary>=2.9,<3.0  # PostgreSQL adapter
+
+# Authentication
+djangorestframework-simplejwt>=5.2,<6.0
+PyJWT>=2.7,<3.0
+
+# API Documentation
+drf-spectacular>=0.26,<1.0
+
+# File handling
+Pillow>=10.0,<11.0
+python-magic>=0.4,<1.0
+
+# Excel/CSV
+openpyxl>=3.1,<4.0
+xlrd>=2.0,<3.0
+
+# PDF generation
+reportlab>=4.0,<5.0
+WeasyPrint>=59.0,<60.0
+
+# Nómina Electrónica - FASE 2B
+lxml>=4.9,<5.0  # XML processing y firma digital
+pyOpenSSL>=23.0,<24.0  # Certificados digitales
+cryptography>=41.0,<42.0  # Cryptografía adicional
+
+# Tareas asíncronas y notificaciones - FASE 3
+celery>=5.3,<6.0  # Task queue
+redis>=5.0,<6.0  # Message broker para Celery
+django-celery-results>=2.5,<3.0  # Almacenar resultados en DB
+django-celery-beat>=2.5,<3.0  # Tareas programadas
+qrcode>=7.4,<8.0  # Generación de QR codes para PDFs
+
+# Utilities
+python-dateutil>=2.8,<3.0
+pytz>=2023.3
+
+# Environment
+python-decouple>=3.8,<4.0
+
+# WSGI Server
+gunicorn>=21.0,<22.0
+whitenoise>=6.5,<7.0
+
+# Development
+pytest>=7.4,<8.0
+pytest-django>=4.5,<5.0
+pytest-cov>=4.1,<5.0
+black>=23.7,<24.0
+flake8>=6.1,<7.0

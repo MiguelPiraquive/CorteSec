@@ -67,7 +67,7 @@ class TipoPrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar por organización del usuario"""
-        return self.queryset.filter(organizacion=self.request.user.organizacion)
+        return self.queryset.filter(organization=self.request.user.organization)
     
     def get_serializer_class(self):
         """Usar serializador simplificado para listas"""
@@ -78,7 +78,7 @@ class TipoPrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Asignar organización y usuario al crear"""
         serializer.save(
-            organizacion=self.request.user.organizacion,
+            organization=self.request.user.organization,
             created_by=self.request.user
         )
     
@@ -189,7 +189,7 @@ class PrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar por organización del usuario"""
-        return self.queryset.filter(organizacion=self.request.user.organizacion)
+        return self.queryset.filter(organization=self.request.user.organization)
     
     def get_serializer_class(self):
         """Usar serializador simplificado para listas"""
@@ -199,11 +199,23 @@ class PrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Asignar organización y usuario al crear"""
-        serializer.save(
-            organizacion=self.request.user.organizacion,
-            solicitado_por=self.request.user,
-            created_by=self.request.user
-        )
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"🔍 Creating prestamo - User: {self.request.user.email}")
+        logger.info(f"🔍 Organization: {self.request.user.organization}")
+        logger.info(f"🔍 Data received: {self.request.data}")
+        
+        try:
+            serializer.save(
+                organization=self.request.user.organization,
+                solicitado_por=self.request.user,
+                created_by=self.request.user
+            )
+            logger.info(f"✅ Prestamo created successfully")
+        except Exception as e:
+            logger.error(f"❌ Error creating prestamo: {str(e)}")
+            raise
     
     def perform_update(self, serializer):
         """Asignar usuario al actualizar"""
@@ -391,7 +403,7 @@ class PrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         
         # Distribución por tipos
         distribucion_tipos = {}
-        for tipo in TipoPrestamo.objects.filter(organizacion=request.user.organizacion):
+        for tipo in TipoPrestamo.objects.filter(organization=request.user.organization):
             count = queryset.filter(tipo_prestamo=tipo).count()
             if count > 0:
                 distribucion_tipos[str(tipo.id)] = {
@@ -462,7 +474,7 @@ class PagoPrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar por organización del usuario"""
-        return self.queryset.filter(prestamo__organizacion=self.request.user.organizacion)
+        return self.queryset.filter(prestamo__organization=self.request.user.organization)
     
     def get_serializer_class(self):
         """Usar serializador simplificado para listas"""

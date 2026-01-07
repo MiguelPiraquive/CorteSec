@@ -48,13 +48,14 @@ class MunicipioSimpleSerializer(serializers.ModelSerializer):
 
 class MunicipioConDepartamentoSerializer(serializers.ModelSerializer):
     """Serializer para municipios que incluye información del departamento"""
-    departamento = DepartamentoSimpleSerializer(read_only=True)
+    departamento = DepartamentoSimpleSerializer(read_only=True, allow_null=True)
     nombre_completo = serializers.ReadOnlyField()
     
     class Meta:
         model = Municipio
         fields = [
-            'id', 'departamento', 'nombre', 'codigo', 'nombre_completo'
+            'id', 'departamento', 'nombre', 'codigo', 'nombre_completo',
+            'created_at', 'updated_at'
         ]
 
 

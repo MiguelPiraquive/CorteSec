@@ -8,6 +8,13 @@ router.register(r'api/empleados', views.EmpleadoViewSet)
 router.register(r'api/nominas', views.NominaViewSet)
 router.register(r'api/detalles-nomina', views.DetalleNominaViewSet)
 
+# Nuevos ViewSets para Nómina Electrónica
+router.register(r'api/nominas-electronicas', views.NominaElectronicaViewSet, basename='nomina-electronica')
+router.register(r'api/nominas-simples', views.NominaSimpleViewSet, basename='nomina-simple')
+router.register(r'api/periodos-nomina', views.PeriodoNominaViewSet, basename='periodo-nomina')
+router.register(r'api/contratos', views.ContratoEmpleadoViewSet, basename='contrato')
+router.register(r'api/conceptos-laborales', views.ConceptoLaboralViewSet, basename='concepto-laboral')
+
 app_name = "payroll"
 
 urlpatterns = [

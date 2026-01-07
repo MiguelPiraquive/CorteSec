@@ -17,10 +17,12 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .organization_views import OrganizationViewSet
 from .test_views import test_auth
+from .auditoria_views import AuditoriaViewSet
 
 # Router para ViewSets
 router = DefaultRouter()
 router.register(r'organizations', OrganizationViewSet, basename='organization')
+router.register(r'auditoria', AuditoriaViewSet, basename='auditoria')
 
 # Patterns URL
 urlpatterns = [

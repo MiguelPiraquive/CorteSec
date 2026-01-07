@@ -442,6 +442,8 @@ class LogAuditoria(TimestampedModel):
     
     objeto_id = models.CharField(
         max_length=100,
+        null=True,
+        blank=True,
         verbose_name=_("ID del objeto"),
         help_text=_("ID del objeto afectado")
     )

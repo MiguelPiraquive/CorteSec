@@ -196,7 +196,7 @@ class ComprobanteContable(TenantAwareModel):
     
     # Relaciones con otros módulos
     nomina_relacionada = models.ForeignKey(
-        'payroll.Nomina',
+        'payroll.NominaSimple',
         on_delete=models.SET_NULL,
         blank=True,
         null=True,
@@ -218,7 +218,8 @@ class ComprobanteContable(TenantAwareModel):
         'login.CustomUser',
         on_delete=models.PROTECT,
         related_name='comprobantes_creados',
-        verbose_name=_("Creado por")
+        verbose_name=_("Creado por"),
+        default=1  # Temporal para migración
     )
     
     fecha_creacion = models.DateTimeField(
@@ -274,14 +275,16 @@ class MovimientoContable(TenantAwareModel):
         ComprobanteContable,
         on_delete=models.CASCADE,
         related_name='movimientos',
-        verbose_name=_("Comprobante")
+        verbose_name=_("Comprobante"),
+        default=1  # Temporal para migración
     )
     
     cuenta = models.ForeignKey(
         PlanCuentas,
         on_delete=models.PROTECT,
         related_name='movimientos',
-        verbose_name=_("Cuenta")
+        verbose_name=_("Cuenta"),
+        default=1  # Temporal para migración
     )
     
     descripcion = models.CharField(
@@ -635,7 +638,8 @@ class BalanceComprobacion(TenantAwareModel):
     cuenta = models.ForeignKey(
         PlanCuentas,
         on_delete=models.CASCADE,
-        verbose_name=_("Cuenta")
+        verbose_name=_("Cuenta"),
+        default=1  # Temporal para migración - eliminar después
     )
     
     saldo_inicial_debito = models.DecimalField(
@@ -733,7 +737,7 @@ def crear_comprobante_pago_prestamo(sender, instance, created, **kwargs):
         # TODO: Implementar lógica para crear comprobante contable
         pass
 
-@receiver(post_save, sender='payroll.Nomina')
+@receiver(post_save, sender='payroll.NominaSimple')
 def crear_comprobante_nomina(sender, instance, created, **kwargs):
     """Crea automáticamente comprobante contable para nómina"""
     if created:

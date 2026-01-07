@@ -1,254 +1,246 @@
-import { api } from './api';
+import apiClient from './api'
 
-// Servicio de Autenticación
-export const authService = {
-  // ==================== AUTENTICACIÓN BÁSICA ====================
-  
-  /**
-   * Iniciar sesión
-   * @param {Object} credentials - Email y contraseña
-   * @returns {Promise} - Respuesta con token y datos del usuario
-   */
-  login: async (credentials) => {
-    console.log('🔐 Iniciando login con:', { email: credentials.email });
-    
-    // Clear any existing invalid token before login attempt
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    
-    // Import apiRequest directly to avoid automatic auth headers for login
-    const { apiRequest } = await import('./api');
-    
-    // Manual request for login WITHOUT auth token
-    const response = await apiRequest('/api/auth/login/', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-      excludeAuth: true, // Explicitly exclude Authorization header for login
-    });
-    
-    console.log('🔐 Respuesta del login:', response);
-    
-    if (response.success && response.token) {
-      // Guardar token en localStorage
-      localStorage.setItem('authToken', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      console.log('✅ Token guardado:', response.token.substring(0, 10) + '...');
-    } else {
-      console.error('❌ Login falló:', response);
-    }
-    return response;
-  },
+/**
+ * Authentication Service
+ * Handles all authentication-related API calls with multitenant support
+ */
 
+const authService = {
   /**
-   * Cerrar sesión
-   * @returns {Promise} - Confirmación de logout
+   * Login user
+   * @param {string} email - User email
+   * @param {string} password - User password
+   * @param {string} tenantCode - Organization code (REQUIRED for multitenant)
+   * @returns {Promise} Response with token and user data
    */
-  logout: async () => {
+  async login(email, password, tenantCode) {
     try {
-      const response = await api.post('/api/auth/logout/');
-      // Limpiar datos locales
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      return response;
+      // Store tenant code before making the request
+      if (tenantCode) {
+        localStorage.setItem('tenantCode', tenantCode)
+      }
+
+      const response = await apiClient.post('/api/auth/login/', {
+        email,
+        password,
+      })
+
+      if (response.data.success && response.data.token) {
+        // Store auth data
+        localStorage.setItem('authToken', response.data.token)
+        localStorage.setItem('user', JSON.stringify(response.data.user))
+        
+        // Store tenant information from response if available
+        if (response.data.user.organization) {
+          localStorage.setItem('tenantCode', response.data.user.organization.slug || tenantCode)
+          localStorage.setItem('tenantSlug', response.data.user.organization.slug || tenantCode)
+        }
+      }
+
+      return response.data
     } catch (error) {
-      // Limpiar datos locales aunque la API falle
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      throw error;
+      throw error.response?.data || { message: 'Error de conexión' }
     }
   },
 
   /**
-   * Registrar nuevo usuario
-   * @param {Object} userData - Datos del nuevo usuario
-   * @returns {Promise} - Respuesta con token y datos del usuario
+   * Register new user
+   * @param {Object} userData - User registration data
+   * @param {string} tenantCode - Organization code (REQUIRED for multitenant)
+   * @returns {Promise} Response with user data
    */
-  register: async (userData) => {
-    // Import apiRequest directly to avoid automatic auth headers for register
-    const { apiRequest } = await import('./api');
-    
-    const response = await apiRequest('/api/auth/register/', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      excludeAuth: true, // Explicitly exclude Authorization header for register
-    });
-    
-    if (response.success && response.token) {
-      // Guardar token en localStorage
-      localStorage.setItem('authToken', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-    }
-    return response;
-  },
-
-  // ==================== PERFIL DE USUARIO ====================
-
-  /**
-   * Obtener perfil del usuario actual
-   * @returns {Promise} - Datos del perfil
-   */
-  getProfile: async () => {
-    const response = await api.get('/api/auth/profile/');
-    return response; // api.get ya devuelve JSON parseado
-  },
-
-  /**
-   * Actualizar perfil del usuario
-   * @param {Object} profileData - Datos a actualizar
-   * @returns {Promise} - Usuario actualizado
-   */
-  updateProfile: async (profileData) => {
-    const response = await api.put('/api/auth/profile/update/', profileData);
-    if (response.success && response.user) {
-      // Actualizar datos del usuario en localStorage
-      localStorage.setItem('user', JSON.stringify(response.user));
-    }
-    return response;
-  },
-
-  /**
-   * Actualizar perfil parcialmente
-   * @param {Object} profileData - Datos a actualizar
-   * @returns {Promise} - Usuario actualizado
-   */
-  updateProfilePartial: async (profileData) => {
-    const response = await api.patch('/api/auth/profile/update/', profileData);
-    if (response.success && response.user) {
-      // Actualizar datos del usuario en localStorage
-      localStorage.setItem('user', JSON.stringify(response.user));
-    }
-    return response;
-  },
-
-  /**
-   * Cambiar contraseña
-   * @param {Object} passwordData - Contraseña actual y nueva
-   * @returns {Promise} - Confirmación del cambio
-   */
-  changePassword: async (passwordData) => {
-    const response = await api.post('/api/auth/change-password/', passwordData);
-    if (response.success && response.token) {
-      // Actualizar token después del cambio de contraseña
-      localStorage.setItem('authToken', response.token);
-    }
-    return response;
-  },
-
-  // ==================== VERIFICACIÓN DE EMAIL ====================
-
-  /**
-   * Verificar email del usuario
-   * @returns {Promise} - Confirmación de verificación
-   */
-  verifyEmail: async () => {
-    const response = await api.post('/api/auth/verify-email/');
-    return response;
-  },
-
-  // ==================== RECUPERACIÓN DE CONTRASEÑA ====================
-
-  /**
-   * Solicitar recuperación de contraseña
-   * @param {string} email - Email del usuario
-   * @returns {Promise} - Confirmación de envío
-   */
-  requestPasswordReset: async (email) => {
-    const response = await api.post('/api/auth/password-reset/', { email });
-    return response;
-  },
-
-  /**
-   * Confirmar recuperación de contraseña
-   * @param {Object} resetData - Token, UID y nueva contraseña
-   * @returns {Promise} - Confirmación del reset
-   */
-  confirmPasswordReset: async (resetData) => {
-    const response = await api.post('/api/auth/password-reset/confirm/', resetData);
-    return response;
-  },
-
-  // ==================== UTILIDADES ====================
-
-  /**
-   * Verificar si el usuario está autenticado
-   * @returns {boolean} - Estado de autenticación
-   */
-  isAuthenticated: () => {
-    const token = localStorage.getItem('authToken');
-    const user = localStorage.getItem('user');
-    return !!(token && user);
-  },
-
-  /**
-   * Obtener token de autenticación
-   * @returns {string|null} - Token o null
-   */
-  getToken: () => {
-    return localStorage.getItem('authToken');
-  },
-
-  /**
-   * Obtener datos del usuario actual
-   * @returns {Object|null} - Datos del usuario o null
-   */
-  getCurrentUser: () => {
-    const userStr = localStorage.getItem('user');
+  async register(userData, tenantCode) {
     try {
-      return userStr ? JSON.parse(userStr) : null;
-    } catch {
-      return null;
-    }
-  },
+      // Store tenant code before making the request
+      if (tenantCode) {
+        localStorage.setItem('tenantCode', tenantCode)
+      }
 
-  /**
-   * Limpiar datos de autenticación
-   */
-  clearAuth: () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-  },
-
-  /**
-   * Refrescar token de autenticación
-   * @returns {Promise} - Nuevo token
-   */
-  refreshToken: async () => {
-    // En caso de que implementes refresh tokens en el futuro
-    const response = await api.post('/api/auth/refresh/');
-    if (response.token) {
-      localStorage.setItem('authToken', response.token);
-    }
-    return response;
-  },
-
-  /**
-   * Asegurar que el token sea válido antes de hacer requests
-   * @returns {Promise} - Token válido o error
-   */
-  ensureValidToken: async () => {
-    const token = authService.getToken();
-    
-    if (!token) {
-      throw new Error('No hay token de autenticación');
-    }
-    
-    // En desarrollo, aceptar el token sin verificación adicional por ahora
-    if (import.meta.env.DEV) {
-      console.log('🚀 Modo desarrollo: aceptando token sin verificación completa');
-      return token;
-    }
-    
-    // Verificar que el token sea válido haciendo una request simple
-    try {
-      await api.get('/api/auth/profile/');
-      return token;
+      const response = await apiClient.post('/api/auth/register/', userData)
+      
+      return response.data
     } catch (error) {
-      // Si el token no es válido, limpiar auth y lanzar error
-      console.warn('Token inválido, limpiando autenticación:', error.message);
-      authService.clearAuth();
-      throw new Error('Token de autenticación inválido');
+      throw error.response?.data || { message: 'Error de conexión' }
     }
-  }
-};
+  },
 
-export default authService;
+  /**
+   * Logout user
+   * @returns {Promise} Logout confirmation
+   */
+  async logout() {
+    try {
+      const response = await apiClient.post('/api/auth/logout/')
+      
+      // Clear all auth and tenant data
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('user')
+      localStorage.removeItem('tenantCode')
+      localStorage.removeItem('tenantSlug')
+      
+      return response.data
+    } catch (error) {
+      // Clear data even if request fails
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('user')
+      localStorage.removeItem('tenantCode')
+      localStorage.removeItem('tenantSlug')
+      
+      throw error.response?.data || { message: 'Error al cerrar sesión' }
+    }
+  },
+
+  /**
+   * Get current user profile
+   * @returns {Promise} User profile data
+   */
+  async getProfile() {
+    try {
+      const response = await apiClient.get('/api/auth/profile/')
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Error al obtener perfil' }
+    }
+  },
+
+  /**
+   * Update user profile
+   * @param {Object} profileData - Updated profile data
+   * @returns {Promise} Updated user data
+   */
+  async updateProfile(profileData) {
+    try {
+      const response = await apiClient.put('/api/auth/profile/update/', profileData)
+      
+      if (response.data.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.user))
+      }
+      
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Error al actualizar perfil' }
+    }
+  },
+
+  /**
+   * Change password
+   * @param {string} oldPassword - Current password
+   * @param {string} newPassword - New password
+   * @param {string} newPasswordConfirm - New password confirmation
+   * @returns {Promise} Success confirmation
+   */
+  async changePassword(oldPassword, newPassword, newPasswordConfirm) {
+    try {
+      const response = await apiClient.post('/api/auth/change-password/', {
+        old_password: oldPassword,
+        new_password: newPassword,
+        new_password_confirm: newPasswordConfirm,
+      })
+      
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Error al cambiar contraseña' }
+    }
+  },
+
+  /**
+   * Request password reset
+   * @param {string} email - User email
+   * @param {string} tenantCode - Organization code
+   * @returns {Promise} Success confirmation
+   */
+  async requestPasswordReset(email, tenantCode) {
+    try {
+      // Temporarily store tenant code for the request
+      if (tenantCode) {
+        localStorage.setItem('tenantCode', tenantCode)
+      }
+
+      const response = await apiClient.post('/api/auth/password-reset/', {
+        email,
+      })
+      
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Error al solicitar recuperación' }
+    }
+  },
+
+  /**
+   * Confirm password reset
+   * @param {string} uid - User ID encoded
+   * @param {string} token - Reset token
+   * @param {string} newPassword - New password
+   * @param {string} newPasswordConfirm - New password confirmation
+   * @returns {Promise} Success confirmation
+   */
+  async confirmPasswordReset(uid, token, newPassword, newPasswordConfirm) {
+    try {
+      const response = await apiClient.post('/api/auth/password-reset/confirm/', {
+        uid,
+        token,
+        new_password: newPassword,
+        new_password_confirm: newPasswordConfirm,
+      })
+      
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Error al restablecer contraseña' }
+    }
+  },
+
+  /**
+   * Verify email with token
+   * @param {string} uid - User ID encoded
+   * @param {string} token - Verification token
+   * @returns {Promise} Success confirmation
+   */
+  async verifyEmail(uid, token) {
+    try {
+      const response = await apiClient.post(`/api/auth/verify-email/${uid}/${token}/`)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Error al verificar email' }
+    }
+  },
+
+  /**
+   * Resend verification email
+   * @returns {Promise} Success confirmation
+   */
+  async resendVerificationEmail() {
+    try {
+      const response = await apiClient.post('/api/auth/resend-verification/')
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Error al reenviar verificación' }
+    }
+  },
+
+  /**
+   * Check if user is authenticated
+   * @returns {boolean} Authentication status
+   */
+  isAuthenticated() {
+    return !!localStorage.getItem('authToken')
+  },
+
+  /**
+   * Get stored user data
+   * @returns {Object|null} User data or null
+   */
+  getCurrentUser() {
+    const userStr = localStorage.getItem('user')
+    return userStr ? JSON.parse(userStr) : null
+  },
+
+  /**
+   * Get stored tenant code
+   * @returns {string|null} Tenant code or null
+   */
+  getTenantCode() {
+    return localStorage.getItem('tenantCode')
+  },
+}
+
+export default authService

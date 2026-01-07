@@ -66,15 +66,16 @@ class OrganizacionSerializer(serializers.ModelSerializer):
 class LogSistemaSerializer(serializers.ModelSerializer):
     """Serializer para logs del sistema"""
     usuario_username = serializers.CharField(source='usuario.username', read_only=True)
-    fecha_formatted = serializers.DateTimeField(source='fecha', format='%d/%m/%Y %H:%M:%S', read_only=True)
+    fecha_formatted = serializers.DateTimeField(source='created_at', format='%d/%m/%Y %H:%M:%S', read_only=True)
     
     class Meta:
         model = LogAuditoria
         fields = [
-            'id', 'usuario', 'usuario_username', 'accion', 'descripcion',
-            'ip_address', 'user_agent', 'fecha', 'fecha_formatted'
+            'id', 'usuario', 'usuario_username', 'accion', 'modelo',
+            'objeto_id', 'ip_address', 'user_agent', 'datos_antes',
+            'datos_despues', 'metadata', 'created_at', 'fecha_formatted'
         ]
-        read_only_fields = ['fecha']
+        read_only_fields = ['created_at']
 
 
 class NotificacionSerializer(serializers.ModelSerializer):

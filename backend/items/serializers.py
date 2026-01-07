@@ -18,8 +18,8 @@ class ItemSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = [
-            'precio_formateado', 'descripcion_completa', 'tipo_cantidad_display',
-            'created_at', 'updated_at'
+            'id', 'organization', 'precio_formateado', 'descripcion_completa', 
+            'tipo_cantidad_display', 'created_at', 'updated_at'
         ]
     
     def validate_precio_unitario(self, value):

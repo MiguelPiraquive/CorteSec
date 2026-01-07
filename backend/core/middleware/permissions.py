@@ -44,6 +44,10 @@ class PermissionMiddleware(MiddlewareMixin):
         '/api/configuracion/parametros/',  # Endpoint público para parámetros
         '/api/configuracion/dashboard/',   # Endpoint público para dashboard
         '/api/cargos/',  # APIs de cargos (temporalmente excluido para debug)
+        '/api/auditoria/',  # APIs de auditoría del sistema - DRF maneja autenticación
+        '/api/roles/',  # APIs de roles - DRF maneja autenticación
+        '/api/permisos/',  # APIs de permisos - DRF maneja autenticación
+        '/api/usuarios/',  # APIs de usuarios - DRF maneja autenticación
         '/api/schema/',  # OpenAPI schema (público)
         '/api/docs/',    # Swagger UI (público)
         '/api/redoc/',   # ReDoc UI (público)
@@ -60,18 +64,40 @@ class PermissionMiddleware(MiddlewareMixin):
         super().__init__(get_response)
 
     def __call__(self, request):
+        # LOG DETALLADO PARA AUDITORÍA
+        if request.path.startswith('/api/auditoria/'):
+            logger.info(f"🔒 PERMISSIONS: Procesando request a auditoría")
+            logger.info(f"   Path: {request.path}")
+            logger.info(f"   User: {request.user}")
+            logger.info(f"   User type: {type(request.user)}")
+            logger.info(f"   Authenticated: {request.user.is_authenticated}")
+            logger.info(f"   Authorization header: {request.headers.get('Authorization', 'NO AUTH HEADER')}")
+            logger.info(f"   META HTTP_AUTHORIZATION: {request.META.get('HTTP_AUTHORIZATION', 'NO META AUTH')}")
+            logger.info(f"   All headers: {dict(request.headers)}")
+        
         # Verificar permisos antes de procesar la request
         permission_check = self._should_check_permissions(request)
         
+        # LOG del resultado de permission_check
+        if request.path.startswith('/api/auditoria/'):
+            logger.info(f"   Permission check result: {permission_check}")
+            logger.info(f"   Permission check type: {type(permission_check)}")
+        
         # Si retorna una JsonResponse, es un error que debemos devolver inmediatamente
         if isinstance(permission_check, JsonResponse):
+            if request.path.startswith('/api/auditoria/'):
+                logger.error(f"❌ PERMISSIONS: Retornando JsonResponse error")
             return permission_check
         
         # Si retorna False, no necesita verificación adicional
         if not permission_check:
+            if request.path.startswith('/api/auditoria/'):
+                logger.info(f"✅ PERMISSIONS: No requiere verificación, pasando al siguiente middleware")
             return self.get_response(request)
         
         if not request.user.is_authenticated:
+            if request.path.startswith('/api/auditoria/'):
+                logger.error(f"❌ PERMISSIONS: Usuario no autenticado, retornando 401")
             # Para APIs REST, retornar 401 en lugar de redirect
             if request.path.startswith('/api/'):
                 return JsonResponse({'error': 'Authentication required'}, status=401)
@@ -79,7 +105,12 @@ class PermissionMiddleware(MiddlewareMixin):
         
         # Verificar permisos específicos
         if not self._has_permission(request):
+            if request.path.startswith('/api/auditoria/'):
+                logger.error(f"❌ PERMISSIONS: Usuario no tiene permisos")
             return self._handle_permission_denied(request)
+        
+        if request.path.startswith('/api/auditoria/'):
+            logger.info(f"✅ PERMISSIONS: Todos los checks pasados, procesando request")
         
         # Procesar el request
         response = self.get_response(request)
@@ -148,13 +179,25 @@ class PermissionMiddleware(MiddlewareMixin):
         # APIs que NO requieren verificación adicional (DRF maneja su autenticación)
         api_excluded_paths = [
             '/api/auth/',           # Autenticación
+            '/api/auth',            # Autenticación (sin barra)
             '/api/organizations/',  # Organizaciones (ya tiene control en las vistas)
+            '/api/organizations',   # Organizaciones (sin barra)
             '/api/dashboard/',      # Dashboard público
+            '/api/dashboard',       # Dashboard público (sin barra)
             '/api/locations/',      # Ubicaciones públicas
+            '/api/locations',       # Ubicaciones públicas (sin barra)
             '/api/tipos-cantidad/', # Tipos de cantidad
+            '/api/tipos-cantidad',  # Tipos de cantidad (sin barra)
+            '/api/auditoria/',      # Auditoría del sistema - DRF maneja autenticación
+            '/api/auditoria',       # Auditoría del sistema (sin barra)
+            '/api/usuarios/',       # Gestión de usuarios - DRF maneja autenticación
+            '/api/usuarios',        # Gestión de usuarios (sin barra)
             '/api/schema/',         # OpenAPI schema (público)
+            '/api/schema',          # OpenAPI schema (sin barra)
             '/api/docs/',          # Swagger UI (público)
+            '/api/docs',           # Swagger UI (sin barra)
             '/api/redoc/',         # ReDoc UI (público)
+            '/api/redoc',          # ReDoc UI (sin barra)
         ]
         
         # APIs que SÍ requieren verificación adicional de permisos

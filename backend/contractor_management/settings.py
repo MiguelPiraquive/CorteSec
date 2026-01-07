@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'tipos_cantidad',
     'locations',
     'configuracion',
+    'usuarios',
     # Apps del proyecto - Contabilidad
     'contabilidad',
     # Apps del proyecto - Reportes
@@ -77,6 +78,8 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # DEBUG MIDDLEWARE
+    'core.debug_middleware.URLDebugMiddleware',          # Debug de URLs
     # Middleware Multi-Tenant
     'core.middleware.tenant.TenantMiddleware',           # Detección de organización
     'core.middleware.tenant.TenantRequiredMiddleware',   # Validación de tenant
@@ -88,6 +91,8 @@ MIDDLEWARE = [
     # Middleware del sistema de permisos
     'core.middleware.permissions.SecurityAuditMiddleware',  # Auditoría de seguridad
     'core.middleware.permissions.PermissionMiddleware',     # Control de permisos
+    # Middleware de verificación de roles
+    'core.middleware.role_verification.RoleVerificationMiddleware',  # Verificación automática de vigencia y horarios
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.locale.LocaleMiddleware',
@@ -222,24 +227,34 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ============================================
-# CONFIGURACIÓN EMAIL
+# CONFIGURACIÓN EMAIL SMTP
 # ============================================
+
+# Modo debug (True = emails en consola, False = envío real SMTP)
 DEBUG_EMAIL = os.environ.get('DEBUG_EMAIL', 'True').lower() == 'true'
 
 if DEBUG_EMAIL:
+    # Modo desarrollo: emails en consola del backend
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    print("📧 EMAIL MODE: Console (Development) - Emails se mostrarán en la consola")
 else:
+    # Modo producción: envío real por SMTP
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    print("📧 EMAIL MODE: SMTP (Production) - Emails se enviarán por Gmail")
 
+# Configuración SMTP (Gmail)
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  # App Password de Gmail
+EMAIL_TIMEOUT = 30  # Timeout en segundos
 
-DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER', 'CorteSec <no-reply@cortesec.com>')
+# Remitente por defecto
+DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER') or 'CorteSec <no-reply@cortesec.com>'
 
-# Frontend URL configuration
+# Frontend URL para enlaces en emails
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
 # ============================================
@@ -315,7 +330,6 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_FILTER_BACKENDS': [
-        'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
@@ -324,9 +338,9 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '50/hour',
-        'user': '500/hour',
-        'login': '5/min',
+        'anon': '100/hour',
+        'user': '10000/hour',  # Aumentado para desarrollo (antes 500/hour)
+        'login': '10/min',  # Aumentado para desarrollo (antes 5/min)
     },
     'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
@@ -599,4 +613,64 @@ LOGGING = {
 # ============================================
 SECURITY_AUDIT_ENABLED = True
 TOKEN_EXPIRE_HOURS = 24
+
+# ============================================
+# CELERY CONFIGURATION
+# ============================================
+from celery.schedules import crontab
+
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/Bogota'
+
+# Configuración de tareas programadas (Celery Beat)
+CELERY_BEAT_SCHEDULE = {
+    # ===== TAREAS DE NÓMINA (FASE 3) =====
+    # Verificar estado de nóminas enviadas cada 30 minutos
+    'verificar-estado-nominas-dian': {
+        'task': 'payroll.tasks.verificar_estado_nominas_dian',
+        'schedule': crontab(minute='*/30'),
+    },
+    # Generar nóminas pendientes cada hora
+    'procesar-nominas-pendientes': {
+        'task': 'payroll.tasks.procesar_nominas_pendientes',
+        'schedule': crontab(minute=0),
+    },
+    # Enviar recordatorios de nóminas sin firmar cada día a las 9 AM
+    'recordatorio-nominas-sin-firmar': {
+        'task': 'payroll.tasks.recordatorio_nominas_sin_firmar',
+        'schedule': crontab(hour=9, minute=0),
+    },
+    # Limpiar XMLs antiguos cada domingo a las 2 AM
+    'limpiar-xmls-antiguos': {
+        'task': 'payroll.tasks.limpiar_xmls_antiguos',
+        'schedule': crontab(hour=2, minute=0, day_of_week=0),
+    },
+    # Generar reporte de estadísticas semanal (lunes 8 AM)
+    'generar-reporte-semanal': {
+        'task': 'payroll.tasks.generar_reporte_semanal',
+        'schedule': crontab(hour=8, minute=0, day_of_week=1),
+    },
+    
+    # ===== TAREAS DE ROLES =====
+    # Verificar roles y asignaciones expiradas cada hora
+    'verificar-roles-expirados-cada-hora': {
+        'task': 'roles.tasks.verificar_roles_expirados',
+        'schedule': crontab(minute=0),  # Cada hora en punto
+    },
+    # Notificar roles próximos a expirar cada día a las 9 AM
+    'notificar-roles-proximos-expirar-diario': {
+        'task': 'roles.tasks.notificar_roles_proximos_expirar',
+        'schedule': crontab(hour=9, minute=0),  # 9:00 AM todos los días
+    },
+    # Actualizar estadísticas de roles cada noche a las 2 AM
+    'actualizar-estadisticas-roles-noche': {
+        'task': 'roles.tasks.actualizar_estadisticas_roles',
+        'schedule': crontab(hour=2, minute=0),  # 2:00 AM todos los días
+    },
+}
+
 SITE_NAME = 'CorteSec'

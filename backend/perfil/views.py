@@ -68,13 +68,38 @@ class PerfilViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='mi-perfil')
     def mi_perfil(self, request):
-        """Obtiene el perfil del usuario autenticado"""
+        """Obtiene el perfil del usuario autenticado, creándolo si no existe"""
         try:
-            perfil = get_object_or_404(Perfil, usuario=request.user)
+            # Usar all_objects para buscar sin filtro de organización
+            try:
+                perfil = Perfil.all_objects.select_related('usuario').get(usuario=request.user)
+                
+                # Actualizar organización si es necesaria
+                if hasattr(request.user, 'organization') and request.user.organization:
+                    if not perfil.organization or perfil.organization != request.user.organization:
+                        perfil.organization = request.user.organization
+                        perfil.save()
+                        
+            except Perfil.DoesNotExist:
+                # No existe, crearlo
+                perfil = Perfil(usuario=request.user)
+                
+                # Asignar organización si el usuario la tiene
+                if hasattr(request.user, 'organization') and request.user.organization:
+                    perfil.organization = request.user.organization
+                
+                perfil.save()
+                
+                # Crear también la configuración de notificaciones
+                ConfiguracionNotificaciones.objects.get_or_create(perfil=perfil)
+            
             serializer = PerfilSerializer(perfil)
             return Response(serializer.data)
+            
         except Exception as e:
             logger.error(f"Error obteniendo perfil del usuario {request.user.id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return Response(
                 {'error': 'Error al obtener el perfil'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -82,9 +107,27 @@ class PerfilViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['put', 'patch'], url_path='actualizar-mi-perfil')
     def actualizar_mi_perfil(self, request):
-        """Actualiza el perfil del usuario autenticado"""
+        """Actualiza el perfil del usuario autenticado, creándolo si no existe"""
         try:
-            perfil = get_object_or_404(Perfil, usuario=request.user)
+            # Usar all_objects para buscar sin filtro de organización
+            try:
+                perfil = Perfil.all_objects.get(usuario=request.user)
+            except Perfil.DoesNotExist:
+                # No existe, crearlo
+                perfil = Perfil(usuario=request.user)
+                
+                # Asignar organización si el usuario la tiene
+                if hasattr(request.user, 'organization') and request.user.organization:
+                    perfil.organization = request.user.organization
+                
+                perfil.save()
+                
+                # Crear también la configuración de notificaciones
+                try:
+                    ConfiguracionNotificaciones.objects.get_or_create(perfil=perfil)
+                except Exception as e:
+                    logger.warning(f"No se pudo crear configuración de notificaciones: {e}")
+            
             serializer = PerfilCreateUpdateSerializer(
                 perfil, 
                 data=request.data, 

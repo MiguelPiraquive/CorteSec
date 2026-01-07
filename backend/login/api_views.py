@@ -19,6 +19,8 @@ from .serializers import (
 from .auth_security import (
     AuthSecurityManager, SecurityAuditLogger, LoginRateThrottle
 )
+from core.models import LogAuditoria
+from core.decorators import get_client_ip
 
 logger = logging.getLogger('security')
 
@@ -105,10 +107,41 @@ def auth_api_index(request):
 @permission_classes([permissions.AllowAny])
 @throttle_classes([LoginRateThrottle])
 def login_api(request):
-    """API endpoint para login con seguridad avanzada"""
+    """API endpoint para login con seguridad avanzada y validación de organización"""
     try:
         # Obtener IP del cliente
         ip_address = AuthSecurityManager.get_client_ip(request)
+        
+        # IMPORTANTE: Obtener código de organización del header
+        tenant_codigo = request.META.get('HTTP_X_TENANT_CODIGO')
+        
+        if not tenant_codigo:
+            SecurityAuditLogger.log_login_attempt(
+                request.data.get('email', 'unknown'),
+                ip_address,
+                False,
+                'Missing organization code'
+            )
+            return Response({
+                'success': False,
+                'message': 'Código de organización requerido.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validar que la organización existe y está activa
+        from core.models import Organizacion
+        try:
+            organization = Organizacion.objects.get(codigo=tenant_codigo, activa=True)
+        except Organizacion.DoesNotExist:
+            SecurityAuditLogger.log_login_attempt(
+                request.data.get('email', 'unknown'),
+                ip_address,
+                False,
+                f'Invalid organization: {tenant_codigo}'
+            )
+            return Response({
+                'success': False,
+                'message': f'Organización "{tenant_codigo}" no encontrada o inactiva.'
+            }, status=status.HTTP_403_FORBIDDEN)
         
         serializer = LoginSerializer(data=request.data)
         
@@ -148,6 +181,24 @@ def login_api(request):
             
             return Response(response_data, status=status.HTTP_401_UNAUTHORIZED)
         
+        # CRÍTICO: Validar que el usuario pertenece a la organización especificada
+        if user.organization != organization:
+            SecurityAuditLogger.log_login_attempt(
+                email,
+                ip_address,
+                False,
+                f'User does not belong to organization {tenant_codigo}'
+            )
+            logger.warning(
+                f"Login attempt by {email} for wrong organization. "
+                f"User org: {user.organization.codigo if user.organization else 'None'}, "
+                f"Requested org: {tenant_codigo}"
+            )
+            return Response({
+                'success': False,
+                'message': 'No tienes acceso a esta organización.'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
         # Crear token seguro
         token = AuthSecurityManager.create_secure_token(user)
         if not token:
@@ -160,6 +211,21 @@ def login_api(request):
         # Log del login exitoso
         SecurityAuditLogger.log_login_attempt(email, ip_address, True)
         SecurityAuditLogger.log_token_activity(user, "CREATED", f"from IP {ip_address}")
+        
+        # CREAR LOG DE AUDITORÍA
+        LogAuditoria.objects.create(
+            usuario=user,
+            accion='login',
+            modelo='User',
+            objeto_id=user.id,
+            ip_address=ip_address,
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
+            metadata={
+                'organization': organization.nombre,
+                'organization_code': tenant_codigo,
+                'success': True
+            }
+        )
         
         # Serializar datos del usuario
         user_serializer = UserSerializer(user)
@@ -201,6 +267,17 @@ def logout_api(request):
         user = request.user
         ip_address = AuthSecurityManager.get_client_ip(request)
         
+        # CREAR LOG DE AUDITORÍA ANTES DE ELIMINAR TOKEN
+        LogAuditoria.objects.create(
+            usuario=user,
+            accion='logout',
+            modelo='User',
+            objeto_id=user.id,
+            ip_address=ip_address,
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
+            metadata={'success': True}
+        )
+        
         # Eliminar token del usuario de forma segura
         Token.objects.filter(user=user).delete()
         
@@ -224,8 +301,32 @@ def logout_api(request):
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def register_api(request):
-    """API endpoint para registro con verificación de email"""
-    serializer = RegisterSerializer(data=request.data)
+    """API endpoint para registro con verificación de email y validación multitenant"""
+    from core.models import Organizacion
+    
+    # Validar tenant desde header
+    tenant_codigo = request.META.get('HTTP_X_TENANT_CODIGO')
+    if not tenant_codigo:
+        return Response({
+            'success': False,
+            'message': 'Código de organización requerido en el header X-Tenant-Codigo.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Verificar que la organización existe y está activa
+    try:
+        organization = Organizacion.objects.get(codigo=tenant_codigo, activa=True)
+    except Organizacion.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': f'La organización con código {tenant_codigo} no existe o no está activa.'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Agregar tenant_code al request.data si no viene
+    data = request.data.copy()
+    if 'tenant_code' not in data:
+        data['tenant_code'] = tenant_codigo
+    
+    serializer = RegisterSerializer(data=data)
     
     if serializer.is_valid():
         try:
@@ -611,3 +712,22 @@ def password_reset_confirm_api(request):
         'message': 'Datos inválidos',
         'errors': serializer.errors
     }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def list_groups(request):
+    """Listar todos los grupos (roles) disponibles"""
+    from django.contrib.auth.models import Group
+    
+    groups = Group.objects.all()
+    groups_data = [
+        {
+            'id': group.id,
+            'name': group.name,
+            'permissions_count': group.permissions.count()
+        }
+        for group in groups
+    ]
+    
+    return Response(groups_data)

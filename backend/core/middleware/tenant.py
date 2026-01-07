@@ -189,6 +189,16 @@ class TenantRequiredMiddleware(MiddlewareMixin):
         🔍 Verifica tenant después de que Django resuelva la vista.
         Esto permite que DRF procese la autenticación primero.
         """
+        # LOG DETALLADO PARA AUDITORÍA
+        if request.path.startswith('/api/auditoria/'):
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"🏢 TENANT_REQUIRED: Procesando request a auditoría")
+            logger.info(f"   Path: {request.path}")
+            logger.info(f"   User: {request.user}")
+            logger.info(f"   Tenant: {get_current_tenant()}")
+            logger.info(f"   User Organization: {getattr(request.user, 'organization', 'NO ORG')}")
+        
         # Rutas que requieren tenant obligatorio
         required_paths = getattr(settings, 'TENANT_REQUIRED_PATHS', [
             '/api/',
@@ -201,6 +211,9 @@ class TenantRequiredMiddleware(MiddlewareMixin):
             '/api/auth/register/',
             '/api/auth/verify-email/',
             '/api/organizations/',  # Permitir a organizaciones sin tenant (se valida en el ViewSet)
+            '/api/auditoria/',  # DRF maneja autenticación y tenant
+            '/api/roles/',  # DRF maneja autenticación y tenant
+            '/api/permisos/',  # DRF maneja autenticación y tenant
             '/admin/',
             '/static/',
             '/media/',
@@ -215,6 +228,12 @@ class TenantRequiredMiddleware(MiddlewareMixin):
             tenant = get_current_tenant()
             
             if not tenant:
+                # LOG de error
+                if path.startswith('/api/auditoria/'):
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"❌ TENANT_REQUIRED: No tenant found para auditoría!")
+                
                 # Si es una API, devolver JSON
                 if path.startswith('/api/'):
                     import json

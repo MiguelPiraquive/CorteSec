@@ -37,6 +37,9 @@ urlpatterns = [
     path('password-reset/', api_views.password_reset_request_api, name='password_reset_request'),
     path('password-reset/confirm/', api_views.password_reset_confirm_api, name='password_reset_confirm'),
     
+    # ==================== GRUPOS (ROLES) ====================
+    path('groups/', api_views.list_groups, name='list_groups'),
+    
     # ==================== AUTENTICACIÓN DE DOS FACTORES (2FA) ====================
     path('2fa/enable/', api_2fa.enable_2fa, name='enable_2fa'),
     path('2fa/verify/', api_2fa.verify_2fa, name='verify_2fa'),

@@ -54,6 +54,10 @@ class APISecurityMiddleware(MiddlewareMixin):
         '/api/docs/',        # Swagger UI
         '/api/redoc/',       # ReDoc UI
         '/api/auth/login/',  # Login endpoint
+        '/api/auth/register/',  # Register endpoint
+        '/api/auth/verify-email/',  # Email verification
+        '/api/auth/password-reset/',  # Password reset request
+        '/api/auth/password-reset/confirm/',  # Password reset confirm
     ]
     
     def __init__(self, get_response):
@@ -64,6 +68,14 @@ class APISecurityMiddleware(MiddlewareMixin):
         # Solo procesar requests a APIs
         if not request.path.startswith('/api/'):
             return self.get_response(request)
+        
+        # LOG DETALLADO PARA AUDITORÍA
+        if request.path.startswith('/api/auditoria/'):
+            logger.info(f"🔍 API_SECURITY: Procesando request a auditoría")
+            logger.info(f"   Path: {request.path}")
+            logger.info(f"   User: {request.user}")
+            logger.info(f"   Authenticated: {request.user.is_authenticated}")
+            logger.info(f"   Auth Header: {request.headers.get('Authorization', 'NO HEADER')[:50]}")
         
         # Permitir acceso a APIs públicas sin validaciones
         for public_api in self.PUBLIC_APIS:
