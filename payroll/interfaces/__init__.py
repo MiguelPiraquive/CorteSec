@@ -1,3 +1,0 @@
-"""
-Interfaces Package - Adaptadores Externos
-"""
