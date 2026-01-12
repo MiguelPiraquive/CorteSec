@@ -1,6 +1,7 @@
 /**
  * Servicio para gestión de Conceptos Laborales
- * Maneja devengados, deducciones y aportes
+ * Conecta con /api/nomina/conceptos-laborales/
+ * Sistema CorteSec - Enero 2026
  */
 
 import api from './api';
@@ -13,7 +14,7 @@ const conceptosLaboralesService = {
    */
   getAll: async (params = {}) => {
     try {
-      const response = await api.get('/api/payroll/conceptos-laborales/', { params });
+      const response = await api.get('/api/nomina/conceptos-laborales/', { params });
       return response.data;
     } catch (error) {
       console.error('Error al obtener conceptos laborales:', error);
@@ -26,7 +27,7 @@ const conceptosLaboralesService = {
    */
   getById: async (id) => {
     try {
-      const response = await api.get(`/api/payroll/conceptos-laborales/${id}/`);
+      const response = await api.get(`/api/nomina/conceptos-laborales/${id}/`);
       return response.data;
     } catch (error) {
       console.error(`Error al obtener concepto laboral ${id}:`, error);
@@ -39,7 +40,7 @@ const conceptosLaboralesService = {
    */
   create: async (data) => {
     try {
-      const response = await api.post('/api/payroll/conceptos-laborales/', data);
+      const response = await api.post('/api/nomina/conceptos-laborales/', data);
       return response.data;
     } catch (error) {
       console.error('Error al crear concepto laboral:', error);
@@ -52,7 +53,7 @@ const conceptosLaboralesService = {
    */
   update: async (id, data) => {
     try {
-      const response = await api.put(`/api/payroll/conceptos-laborales/${id}/`, data);
+      const response = await api.put(`/api/nomina/conceptos-laborales/${id}/`, data);
       return response.data;
     } catch (error) {
       console.error(`Error al actualizar concepto laboral ${id}:`, error);
@@ -65,7 +66,7 @@ const conceptosLaboralesService = {
    */
   patch: async (id, data) => {
     try {
-      const response = await api.patch(`/api/payroll/conceptos-laborales/${id}/`, data);
+      const response = await api.patch(`/api/nomina/conceptos-laborales/${id}/`, data);
       return response.data;
     } catch (error) {
       console.error(`Error al actualizar parcialmente concepto laboral ${id}:`, error);
@@ -78,7 +79,7 @@ const conceptosLaboralesService = {
    */
   delete: async (id) => {
     try {
-      await api.delete(`/api/payroll/conceptos-laborales/${id}/`);
+      await api.delete(`/api/nomina/conceptos-laborales/${id}/`);
     } catch (error) {
       console.error(`Error al eliminar concepto laboral ${id}:`, error);
       throw error;
@@ -92,7 +93,7 @@ const conceptosLaboralesService = {
    */
   getDevengados: async (params = {}) => {
     try {
-      const response = await api.get('/api/payroll/conceptos-laborales/devengados/', { params });
+      const response = await api.get('/api/nomina/conceptos-laborales/devengados/', { params });
       return response.data;
     } catch (error) {
       console.error('Error al obtener devengados:', error);
@@ -105,23 +106,10 @@ const conceptosLaboralesService = {
    */
   getDeducciones: async (params = {}) => {
     try {
-      const response = await api.get('/api/payroll/conceptos-laborales/deducciones/', { params });
+      const response = await api.get('/api/nomina/conceptos-laborales/deducciones/', { params });
       return response.data;
     } catch (error) {
       console.error('Error al obtener deducciones:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Obtener solo conceptos salariales
-   */
-  getSalariales: async (params = {}) => {
-    try {
-      const response = await api.get('/api/payroll/conceptos-laborales/salariales/', { params });
-      return response.data;
-    } catch (error) {
-      console.error('Error al obtener conceptos salariales:', error);
       throw error;
     }
   },
@@ -131,7 +119,7 @@ const conceptosLaboralesService = {
    */
   getActivos: async () => {
     try {
-      const response = await api.get('/api/payroll/conceptos-laborales/', {
+      const response = await api.get('/api/nomina/conceptos-laborales/', {
         params: { activo: true }
       });
       return response.data;
@@ -148,7 +136,7 @@ const conceptosLaboralesService = {
    */
   toggleActivo: async (id) => {
     try {
-      const response = await api.post(`/api/payroll/conceptos-laborales/${id}/toggle_activo/`);
+      const response = await api.post(`/api/nomina/conceptos-laborales/${id}/toggle_activo/`);
       return response.data;
     } catch (error) {
       console.error(`Error al cambiar estado de concepto ${id}:`, error);
@@ -163,7 +151,7 @@ const conceptosLaboralesService = {
    */
   search: async (searchTerm) => {
     try {
-      const response = await api.get('/api/payroll/conceptos-laborales/', {
+      const response = await api.get('/api/nomina/conceptos-laborales/', {
         params: { search: searchTerm }
       });
       return response.data;
@@ -178,8 +166,8 @@ const conceptosLaboralesService = {
    */
   getByTipo: async (tipo) => {
     try {
-      const response = await api.get('/api/payroll/conceptos-laborales/', {
-        params: { tipo_concepto: tipo }
+      const response = await api.get('/api/nomina/conceptos-laborales/', {
+        params: { tipo: tipo }
       });
       return response.data;
     } catch (error) {
@@ -195,9 +183,7 @@ const conceptosLaboralesService = {
    */
   getDevengadosParaSelector: async () => {
     try {
-      const response = await api.get('/api/payroll/conceptos-laborales/devengados/', {
-        params: { activo: true }
-      });
+      const response = await api.get('/api/nomina/conceptos-laborales/devengados/');
       const data = response.data.results || response.data;
       return Array.isArray(data) ? data : [];
     } catch (error) {
@@ -211,9 +197,7 @@ const conceptosLaboralesService = {
    */
   getDeduccionesParaSelector: async () => {
     try {
-      const response = await api.get('/api/payroll/conceptos-laborales/deducciones/', {
-        params: { activo: true }
-      });
+      const response = await api.get('/api/nomina/conceptos-laborales/deducciones/');
       const data = response.data.results || response.data;
       return Array.isArray(data) ? data : [];
     } catch (error) {
@@ -227,19 +211,18 @@ const conceptosLaboralesService = {
    */
   getActivosAgrupados: async () => {
     try {
-      const response = await api.get('/api/payroll/conceptos-laborales/', {
+      const response = await api.get('/api/nomina/conceptos-laborales/', {
         params: { activo: true }
       });
-      const conceptos = response.data.results || response.data;
+      const conceptos = response.data.results || response.data || [];
       
       return {
-        devengados: conceptos.filter(c => c.tipo_concepto === 'DEV'),
-        deducciones: conceptos.filter(c => c.tipo_concepto === 'DED'),
-        aportes: conceptos.filter(c => c.tipo_concepto === 'APO')
+        devengados: conceptos.filter(c => c.tipo === 'DEVENGADO'),
+        deducciones: conceptos.filter(c => c.tipo === 'DEDUCCION')
       };
     } catch (error) {
       console.error('Error al obtener conceptos agrupados:', error);
-      return { devengados: [], deducciones: [], aportes: [] };
+      return { devengados: [], deducciones: [] };
     }
   }
 };

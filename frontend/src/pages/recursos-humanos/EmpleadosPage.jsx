@@ -38,19 +38,27 @@ const EmpleadosPage = () => {
   const [previewImage, setPreviewImage] = useState(null)
   
   const [formData, setFormData] = useState({
-    nombres: '',
-    apellidos: '',
-    documento: '',
-    correo: '',
+    tipo_documento: 'CC',
+    numero_documento: '',
+    primer_nombre: '',
+    segundo_nombre: '',
+    primer_apellido: '',
+    segundo_apellido: '',
+    fecha_nacimiento: '',
+    genero: '',
+    email: '',
     telefono: '',
     direccion: '',
-    fecha_nacimiento: '',
-    genero: 'M',
     departamento: '',
-    municipio: '',
-    cargo: '',
+    ciudad: '',
     foto: null,
-    activo: true,
+    estado: 'activo',
+    fecha_ingreso: '',
+    fecha_retiro: '',
+    banco: '',
+    tipo_cuenta: '',
+    numero_cuenta: '',
+    observaciones: '',
   })
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
@@ -106,23 +114,69 @@ const EmpleadosPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      const dataToSend = {
-        ...formData,
-        departamento: formData.departamento || null,
-        municipio: formData.municipio || null,
-        fecha_nacimiento: formData.fecha_nacimiento || null,
+      // Si hay foto, usar FormData, sino JSON normal
+      let dataToSend
+      
+      if (formData.foto && formData.foto instanceof File) {
+        // Crear FormData para enviar archivo
+        dataToSend = new FormData()
+        dataToSend.append('tipo_documento', formData.tipo_documento)
+        dataToSend.append('numero_documento', formData.numero_documento)
+        dataToSend.append('primer_nombre', formData.primer_nombre)
+        dataToSend.append('segundo_nombre', formData.segundo_nombre || '')
+        dataToSend.append('primer_apellido', formData.primer_apellido)
+        dataToSend.append('segundo_apellido', formData.segundo_apellido || '')
+        if (formData.fecha_nacimiento) dataToSend.append('fecha_nacimiento', formData.fecha_nacimiento)
+        dataToSend.append('genero', formData.genero || '')
+        dataToSend.append('email', formData.email || '')
+        dataToSend.append('telefono', formData.telefono || '')
+        dataToSend.append('direccion', formData.direccion || '')
+        if (formData.departamento) dataToSend.append('departamento', formData.departamento)
+        if (formData.ciudad) dataToSend.append('ciudad', formData.ciudad)
+        dataToSend.append('estado', formData.estado || 'activo')
+        dataToSend.append('fecha_ingreso', formData.fecha_ingreso || new Date().toISOString().split('T')[0])
+        if (formData.fecha_retiro) dataToSend.append('fecha_retiro', formData.fecha_retiro)
+        dataToSend.append('banco', formData.banco || '')
+        dataToSend.append('tipo_cuenta', formData.tipo_cuenta || '')
+        dataToSend.append('numero_cuenta', formData.numero_cuenta || '')
+        dataToSend.append('observaciones', formData.observaciones || '')
+        dataToSend.append('foto', formData.foto)
+      } else {
+        // JSON normal sin foto
+        dataToSend = {
+          tipo_documento: formData.tipo_documento,
+          numero_documento: formData.numero_documento,
+          primer_nombre: formData.primer_nombre,
+          segundo_nombre: formData.segundo_nombre || '',
+          primer_apellido: formData.primer_apellido,
+          segundo_apellido: formData.segundo_apellido || '',
+          fecha_nacimiento: formData.fecha_nacimiento || null,
+          genero: formData.genero || '',
+          email: formData.email || '',
+          telefono: formData.telefono || '',
+          direccion: formData.direccion || '',
+          departamento: formData.departamento || null,
+          ciudad: formData.ciudad || null,
+          estado: formData.estado || 'activo',
+          fecha_ingreso: formData.fecha_ingreso || new Date().toISOString().split('T')[0],
+          fecha_retiro: formData.fecha_retiro || null,
+          banco: formData.banco || '',
+          tipo_cuenta: formData.tipo_cuenta || '',
+          numero_cuenta: formData.numero_cuenta || '',
+          observaciones: formData.observaciones || '',
+        }
       }
 
-      console.log('💾 Guardando empleado:', dataToSend)
+      console.log('💾 Guardando empleado:', formData.foto ? 'Con foto (FormData)' : dataToSend)
 
       if (editingEmpleado) {
         await empleadosService.updateEmpleado(editingEmpleado.id, dataToSend)
-        audit.button('modificar_empleado', { empleado_id: editingEmpleado.id, documento: formData.documento });
+        audit.button('modificar_empleado', { empleado_id: editingEmpleado.id, documento: formData.numero_documento });
         showNotification('success', 'Empleado actualizado exitosamente')
       } else {
         const result = await empleadosService.createEmpleado(dataToSend)
         console.log('✅ Empleado creado:', result)
-        audit.button('crear_empleado', { documento: formData.documento, nombres: formData.nombres });
+        audit.button('crear_empleado', { documento: formData.numero_documento, nombres: formData.primer_nombre });
         showNotification('success', 'Empleado creado exitosamente')
       }
       setShowModal(false)
@@ -134,35 +188,45 @@ const EmpleadosPage = () => {
     }
   }
 
-  const handleEdit = (empleado) => {
-    audit.modalOpen('editar_empleado', { empleado_id: empleado.id, documento: empleado.documento });
+  const handleEdit = async (empleado) => {
+    audit.modalOpen('editar_empleado', { empleado_id: empleado.id, documento: empleado.numero_documento });
     setEditingEmpleado(empleado)
     
     console.log('📝 Editando empleado:', empleado)
-    console.log('   Cargo:', empleado.cargo, 'Tipo:', typeof empleado.cargo)
-    console.log('   Departamento:', empleado.departamento, 'Tipo:', typeof empleado.departamento)
-    console.log('   Municipio:', empleado.municipio, 'Tipo:', typeof empleado.municipio)
+    
+    // Extraer IDs correctamente (pueden venir como UUID string o como objeto {id: uuid})
+    const departamentoId = typeof empleado.departamento === 'object' ? empleado.departamento?.id : empleado.departamento
+    const ciudadId = typeof empleado.ciudad === 'object' ? empleado.ciudad?.id : empleado.ciudad
+    
+    console.log('🔍 Departamento ID:', departamentoId, 'Ciudad ID:', ciudadId)
     
     setFormData({
-      nombres: empleado.nombres,
-      apellidos: empleado.apellidos,
-      documento: empleado.documento,
-      correo: empleado.correo || '',
+      tipo_documento: empleado.tipo_documento || 'CC',
+      numero_documento: empleado.numero_documento || '',
+      primer_nombre: empleado.primer_nombre || '',
+      segundo_nombre: empleado.segundo_nombre || '',
+      primer_apellido: empleado.primer_apellido || '',
+      segundo_apellido: empleado.segundo_apellido || '',
+      fecha_nacimiento: empleado.fecha_nacimiento || '',
+      genero: empleado.genero || '',
+      email: empleado.email || '',
       telefono: empleado.telefono || '',
       direccion: empleado.direccion || '',
-      fecha_nacimiento: empleado.fecha_nacimiento || '',
-      genero: empleado.genero || 'M',
-      // Los campos ya vienen como IDs directos desde el backend
-      departamento: empleado.departamento || '',
-      municipio: empleado.municipio || '',
-      cargo: empleado.cargo ? String(empleado.cargo) : '', // Convertir a string para el select
+      departamento: departamentoId || '',
+      ciudad: ciudadId || '',
       foto: null,
-      activo: empleado.activo !== undefined ? empleado.activo : true,
+      estado: empleado.estado || 'activo',
+      fecha_ingreso: empleado.fecha_ingreso || '',
+      fecha_retiro: empleado.fecha_retiro || '',
+      banco: empleado.banco || '',
+      tipo_cuenta: empleado.tipo_cuenta || '',
+      numero_cuenta: empleado.numero_cuenta || '',
+      observaciones: empleado.observaciones || '',
     })
     
-    // Si tiene departamento, cargar los municipios
-    if (empleado.departamento) {
-      loadMunicipiosByDepartamento(empleado.departamento)
+    // Cargar municipios si hay departamento seleccionado
+    if (departamentoId) {
+      await loadMunicipiosByDepartamento(departamentoId)
     }
     
     if (empleado.foto) {
@@ -197,7 +261,7 @@ const EmpleadosPage = () => {
   const handleDepartamentoChange = (e) => {
     const depId = e.target.value
     console.log('🏛️ Departamento seleccionado:', depId)
-    setFormData({ ...formData, departamento: depId, municipio: '' })
+    setFormData({ ...formData, departamento: depId, ciudad: '' })
     setMunicipios([])
     
     if (depId && depId.trim() !== '') {
@@ -207,20 +271,29 @@ const EmpleadosPage = () => {
 
   const resetForm = () => {
     setFormData({
-      nombres: '',
-      apellidos: '',
-      documento: '',
-      correo: '',
+      tipo_documento: 'CC',
+      numero_documento: '',
+      primer_nombre: '',
+      segundo_nombre: '',
+      primer_apellido: '',
+      segundo_apellido: '',
+      fecha_nacimiento: '',
+      genero: '',
+      email: '',
       telefono: '',
       direccion: '',
-      fecha_nacimiento: '',
-      genero: 'M',
       departamento: '',
-      municipio: '',
-      cargo: '',
+      ciudad: '',
       foto: null,
-      activo: true,
+      estado: 'activo',
+      fecha_ingreso: '',
+      fecha_retiro: '',
+      banco: '',
+      tipo_cuenta: '',
+      numero_cuenta: '',
+      observaciones: '',
     })
+    setMunicipios([])
     setEditingEmpleado(null)
     setPreviewImage(null)
     setMunicipios([])
@@ -457,55 +530,84 @@ const EmpleadosPage = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Tipo de Documento */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Nombres *</label>
-                  <input type="text" value={formData.nombres} onChange={(e) => setFormData({...formData, nombres: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Documento *</label>
+                  <select value={formData.tipo_documento} onChange={(e) => setFormData({...formData, tipo_documento: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required>
+                    <option value="CC">Cédula de Ciudadanía</option>
+                    <option value="CE">Cédula de Extranjería</option>
+                    <option value="TI">Tarjeta de Identidad</option>
+                    <option value="PA">Pasaporte</option>
+                    <option value="NIT">NIT</option>
+                  </select>
                 </div>
 
+                {/* Número de Documento */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Apellidos *</label>
-                  <input type="text" value={formData.apellidos} onChange={(e) => setFormData({...formData, apellidos: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Documento *</label>
+                  <input type="text" value={formData.numero_documento} onChange={(e) => setFormData({...formData, numero_documento: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required />
                 </div>
 
+                {/* Primer Nombre */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Documento *</label>
-                  <input type="text" value={formData.documento} onChange={(e) => setFormData({...formData, documento: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Primer Nombre *</label>
+                  <input type="text" value={formData.primer_nombre} onChange={(e) => setFormData({...formData, primer_nombre: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required />
                 </div>
 
+                {/* Segundo Nombre */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico</label>
-                  <input type="email" value={formData.correo} onChange={(e) => setFormData({...formData, correo: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Segundo Nombre</label>
+                  <input type="text" value={formData.segundo_nombre} onChange={(e) => setFormData({...formData, segundo_nombre: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
                 </div>
 
+                {/* Primer Apellido */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono</label>
-                  <input type="text" value={formData.telefono} onChange={(e) => setFormData({...formData, telefono: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Primer Apellido *</label>
+                  <input type="text" value={formData.primer_apellido} onChange={(e) => setFormData({...formData, primer_apellido: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required />
                 </div>
 
+                {/* Segundo Apellido */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Segundo Apellido</label>
+                  <input type="text" value={formData.segundo_apellido} onChange={(e) => setFormData({...formData, segundo_apellido: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
+                </div>
+
+                {/* Fecha de Nacimiento */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Fecha de Nacimiento</label>
                   <input type="date" value={formData.fecha_nacimiento} onChange={(e) => setFormData({...formData, fecha_nacimiento: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
                 </div>
 
+                {/* Género */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Género *</label>
-                  <select value={formData.genero} onChange={(e) => setFormData({...formData, genero: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Género</label>
+                  <select value={formData.genero} onChange={(e) => setFormData({...formData, genero: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all">
+                    <option value="">Seleccione</option>
                     <option value="M">Masculino</option>
                     <option value="F">Femenino</option>
                     <option value="O">Otro</option>
                   </select>
                 </div>
 
+                {/* Email */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Cargo *</label>
-                  <select value={formData.cargo} onChange={(e) => setFormData({...formData, cargo: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required>
-                    <option value="">Seleccione un cargo</option>
-                    {cargos.map(cargo => (
-                      <option key={cargo.id} value={cargo.id}>{cargo.nombre}</option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico</label>
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
                 </div>
 
+                {/* Teléfono */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono</label>
+                  <input type="text" value={formData.telefono} onChange={(e) => setFormData({...formData, telefono: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
+                </div>
+
+                {/* Dirección */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Dirección</label>
+                  <input type="text" value={formData.direccion} onChange={(e) => setFormData({...formData, direccion: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
+                </div>
+
+                {/* Departamento */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Departamento</label>
                   <select value={formData.departamento} onChange={handleDepartamentoChange} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all">
@@ -516,26 +618,65 @@ const EmpleadosPage = () => {
                   </select>
                 </div>
 
+                {/* Ciudad/Municipio */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Municipio</label>
-                  <select value={formData.municipio} onChange={(e) => setFormData({...formData, municipio: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" disabled={!formData.departamento}>
-                    <option value="">Seleccione un municipio</option>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Ciudad/Municipio</label>
+                  <select value={formData.ciudad} onChange={(e) => setFormData({...formData, ciudad: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all disabled:opacity-50" disabled={!formData.departamento}>
+                    <option value="">Seleccione una ciudad</option>
                     {municipios.map(mun => (
                       <option key={mun.id} value={mun.id}>{mun.nombre}</option>
                     ))}
                   </select>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Dirección</label>
-                  <textarea value={formData.direccion} onChange={(e) => setFormData({...formData, direccion: e.target.value})} rows="2" className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all"></textarea>
+                {/* Estado */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Estado *</label>
+                  <select value={formData.estado} onChange={(e) => setFormData({...formData, estado: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" required>
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                    <option value="retirado">Retirado</option>
+                  </select>
                 </div>
 
+                {/* Fecha de Ingreso */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Fecha de Ingreso</label>
+                  <input type="date" value={formData.fecha_ingreso} onChange={(e) => setFormData({...formData, fecha_ingreso: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
+                </div>
+
+                {/* Fecha de Retiro */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Fecha de Retiro</label>
+                  <input type="date" value={formData.fecha_retiro} onChange={(e) => setFormData({...formData, fecha_retiro: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
+                </div>
+
+                {/* Banco */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Banco</label>
+                  <input type="text" value={formData.banco} onChange={(e) => setFormData({...formData, banco: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
+                </div>
+
+                {/* Tipo de Cuenta */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Cuenta</label>
+                  <select value={formData.tipo_cuenta} onChange={(e) => setFormData({...formData, tipo_cuenta: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all">
+                    <option value="">Seleccione</option>
+                    <option value="ahorros">Cuenta de Ahorros</option>
+                    <option value="corriente">Cuenta Corriente</option>
+                  </select>
+                </div>
+
+                {/* Número de Cuenta */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Cuenta</label>
+                  <input type="text" value={formData.numero_cuenta} onChange={(e) => setFormData({...formData, numero_cuenta: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all" />
+                </div>
+
+                {/* Observaciones */}
                 <div className="md:col-span-2">
-                  <label className="flex items-center space-x-3 cursor-pointer group">
-                    <input type="checkbox" checked={formData.activo} onChange={(e) => setFormData({...formData, activo: e.target.checked})} className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500" />
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-green-600 transition-colors">Empleado activo</span>
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Observaciones</label>
+                  <textarea value={formData.observaciones} onChange={(e) => setFormData({...formData, observaciones: e.target.value})} rows="3" className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 transition-all"></textarea>
                 </div>
               </div>
 

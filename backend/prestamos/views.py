@@ -843,7 +843,7 @@ def ajax_calcular_cuota(request):
 def ajax_empleado_prestamos(request, empleado_pk):
     """Obtener préstamos activos de un empleado via AJAX"""
     try:
-        from payroll.models import Empleado
+        from nomina.models import Empleado
         empleado = Empleado.objects.get(
             pk=empleado_pk,
             organizacion=request.user.organizacion

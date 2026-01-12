@@ -215,7 +215,8 @@ class PermissionMiddleware(MiddlewareMixin):
             '/api/cargos/',         # Gestión de cargos
             '/api/contabilidad/',   # Contabilidad
             '/api/prestamos/',      # Préstamos
-            '/api/payroll/',        # Nómina - CRÍTICO: requiere org
+            '/api/payroll/',        # Nómina electrónica - CRÍTICO: requiere org
+            '/api/nomina/',         # Nómina simple - CRÍTICO: requiere org
             '/api/reportes/',       # Reportes - CRÍTICO: requiere org
             '/api/items/',          # Gestión de items
             '/api/permisos/',       # Permisos dentro de org

@@ -300,7 +300,7 @@ class Prestamo(TenantAwareModel):
     )
     
     empleado = models.ForeignKey(
-        'payroll.Empleado',
+        'nomina.Empleado',
         on_delete=models.PROTECT,
         related_name='prestamos',
         verbose_name=_("Empleado"),

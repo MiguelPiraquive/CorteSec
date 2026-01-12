@@ -20,7 +20,7 @@ def dashboard_metrics(request):
         # Importaciones condicionales para evitar errores si los modelos no existen
         org = getattr(request.user, 'organization', None)
         try:
-            from payroll.models import Empleado
+            from nomina.models import Empleado
             total_empleados = Empleado.objects.filter(organizacion=org).count()
             empleados_activos = Empleado.objects.filter(activo=True, organizacion=org).count()
         except ImportError:

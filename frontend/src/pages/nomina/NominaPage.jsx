@@ -24,20 +24,21 @@ import {
 import useAudit from '../../hooks/useAudit';
 import nominaService from '../../services/nominaService';
 import empleadosService from '../../services/empleadosService';
+import contratosService from '../../services/contratosService';
+import conceptosLaboralesService from '../../services/conceptosLaboralesService';
 import itemsService from '../../services/itemsService';
-import { periodosAPI, conceptosLaboralesAPI } from '../../services/payrollService';
 
 export default function NominaPage() {
   const audit = useAudit('Nomina');
   
   const [nominas, setNominas] = useState([]);
   const [empleados, setEmpleados] = useState([]);
+  const [contratos, setContratos] = useState([]);
   const [items, setItems] = useState([]);
-  const [periodos, setPeriodos] = useState([]);
   const [conceptosLaborales, setConceptosLaborales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterEmpleado, setFilterEmpleado] = useState('');
+  const [filterContrato, setFilterContrato] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showDetalleModal, setShowDetalleModal] = useState(false);
   const [editingNomina, setEditingNomina] = useState(null);
@@ -47,16 +48,13 @@ export default function NominaPage() {
   const [estadisticas, setEstadisticas] = useState(null);
 
   const [formData, setFormData] = useState({
-    empleado: '',
-    periodo: '',
+    contrato: '',
     periodo_inicio: '',
     periodo_fin: '',
-    dias_trabajados: 30,
-    salario_base_contrato: '',
-    estado: 'BOR',
+    fecha_pago: '',
+    estado: 'borrador',
     observaciones: '',
-    detalles_items: [],
-    detalles_conceptos: []
+    items: []
   });
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
@@ -68,37 +66,46 @@ export default function NominaPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterEmpleado]);
+  }, [searchTerm, filterContrato]);
 
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [nominasData, empleadosData, itemsData, periodosData, conceptosData, statsData] = await Promise.all([
+      
+      // Cargar datos principales desde /api/nomina/
+      const [nominasData, empleadosData, contratosData, itemsData, conceptosData] = await Promise.all([
         nominaService.getAllNominas(),
         empleadosService.getAllEmpleados(),
+        contratosService.getActivos(),
         itemsService.getAllItems(),
-        periodosAPI.list(),
-        conceptosLaboralesAPI.list(),
-        nominaService.getEstadisticas()
+        conceptosLaboralesService.getActivos()
       ]);
+
+      // Cargar estadísticas por separado para no bloquear si falla
+      let statsData = null;
+      try {
+        statsData = await nominaService.getEstadisticas();
+      } catch (statsError) {
+        console.warn('⚠️ No se pudieron cargar estadísticas:', statsError);
+      }
 
       console.log('📊 Nóminas recibidas:', nominasData);
       
       // Extraer el array correcto de la respuesta
-      const nominasArray = nominasData?.data?.results || nominasData?.results || nominasData?.data || nominasData || [];
-      const empleadosArray = empleadosData?.data?.results || empleadosData?.results || empleadosData?.data || empleadosData || [];
-      const itemsArray = itemsData?.data?.results || itemsData?.results || itemsData?.data || itemsData || [];
-      const periodosArray = periodosData?.data?.results || periodosData?.results || periodosData?.data || periodosData || [];
-      const conceptosArray = conceptosData?.data?.results || conceptosData?.results || conceptosData?.data || conceptosData || [];
+      const nominasArray = nominasData?.results || nominasData || [];
+      const empleadosArray = empleadosData?.results || empleadosData || [];
+      const contratosArray = contratosData?.results || contratosData || [];
+      const itemsArray = itemsData?.results || itemsData || [];
+      const conceptosArray = conceptosData?.results || conceptosData || [];
       
       setNominas(Array.isArray(nominasArray) ? nominasArray : []);
-      setEmpleados(Array.isArray(empleadosArray) ? empleadosArray.filter(e => e.activo) : []);
-      setItems(Array.isArray(itemsArray) ? itemsArray.filter(i => i.activo) : []);
-      setPeriodos(Array.isArray(periodosArray) ? periodosArray : []);
-      setConceptosLaborales(Array.isArray(conceptosArray) ? conceptosArray.filter(c => c.activo) : []);
+      setEmpleados(Array.isArray(empleadosArray) ? empleadosArray : []);
+      setContratos(Array.isArray(contratosArray) ? contratosArray : []);
+      setItems(Array.isArray(itemsArray) ? itemsArray : []);
+      setConceptosLaborales(Array.isArray(conceptosArray) ? conceptosArray : []);
       setEstadisticas(statsData);
       
-      console.log(`✅ ${nominasArray.length} nóminas cargadas`);
+      console.log(`✅ ${nominasArray.length} nóminas, ${contratosArray.length} contratos cargados`);
     } catch (error) {
       showNotification('error', 'Error al cargar datos');
       console.error('Error completo:', error);
@@ -122,22 +129,15 @@ export default function NominaPage() {
 
     try {
       const dataToSend = {
-        empleado: parseInt(formData.empleado),
-        periodo: parseInt(formData.periodo),
+        contrato: formData.contrato,
         periodo_inicio: formData.periodo_inicio,
         periodo_fin: formData.periodo_fin,
-        dias_trabajados: parseInt(formData.dias_trabajados),
-        salario_base_contrato: parseFloat(formData.salario_base_contrato),
-        estado: formData.estado || 'BOR',
+        fecha_pago: formData.fecha_pago || null,
         observaciones: formData.observaciones || '',
-        detalles_items: formData.detalles_items.map(d => ({
-          item: parseInt(d.item),
-          cantidad: parseFloat(d.cantidad),
-          valor_unitario: parseFloat(d.valor_unitario)
-        })),
-        detalles_conceptos: formData.detalles_conceptos.map(c => ({
-          concepto: parseInt(c.concepto),
-          valor_total: parseFloat(c.valor_total)
+        items: formData.items.map(item => ({
+          item: item.item,
+          cantidad: parseFloat(item.cantidad),
+          valor_total: parseFloat(item.valor_total || 0)
         }))
       };
 
@@ -147,7 +147,7 @@ export default function NominaPage() {
         showNotification('success', 'Nómina actualizada exitosamente');
       } else {
         await nominaService.createNomina(dataToSend);
-        audit.button('crear_nomina', { empleado_id: formData.empleado });
+        audit.button('crear_nomina', { contrato_id: formData.contrato });
         showNotification('success', 'Nómina creada exitosamente');
       }
 
@@ -168,12 +168,8 @@ export default function NominaPage() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.empleado) {
-      newErrors.empleado = 'El empleado es requerido';
-    }
-
-    if (!formData.periodo) {
-      newErrors.periodo = 'El período es requerido';
+    if (!formData.contrato) {
+      newErrors.contrato = 'El contrato es requerido';
     }
 
     if (!formData.periodo_inicio) {
@@ -184,22 +180,10 @@ export default function NominaPage() {
       newErrors.periodo_fin = 'La fecha fin es requerida';
     }
 
-    if (!formData.dias_trabajados || formData.dias_trabajados <= 0) {
-      newErrors.dias_trabajados = 'Los días trabajados deben ser mayor a 0';
-    }
-
-    if (!formData.salario_base_contrato || formData.salario_base_contrato <= 0) {
-      newErrors.salario_base_contrato = 'El salario base es requerido';
-    }
-
     if (formData.periodo_inicio && formData.periodo_fin) {
       if (new Date(formData.periodo_inicio) > new Date(formData.periodo_fin)) {
         newErrors.periodo_fin = 'La fecha fin debe ser posterior a la fecha de inicio';
       }
-    }
-
-    if (formData.detalles_items.length === 0 && formData.detalles_conceptos.length === 0) {
-      newErrors.detalles = 'Debe agregar al menos un item o concepto';
     }
 
     setErrors(newErrors);
@@ -210,22 +194,16 @@ export default function NominaPage() {
     audit.modalOpen('editar_nomina', { nomina_id: nomina.id });
     setEditingNomina(nomina);
     setFormData({
-      empleado: nomina.empleado.toString(),
-      periodo: nomina.periodo?.toString() || '',
+      contrato: nomina.contrato?.id || nomina.contrato,
       periodo_inicio: nomina.periodo_inicio,
       periodo_fin: nomina.periodo_fin,
-      dias_trabajados: nomina.dias_trabajados || 30,
-      salario_base_contrato: nomina.salario_base_contrato?.toString() || '',
-      estado: nomina.estado || 'BOR',
+      fecha_pago: nomina.fecha_pago || '',
+      estado: nomina.estado || 'borrador',
       observaciones: nomina.observaciones || '',
-      detalles_items: (nomina.detalles_items || []).map(d => ({
-        item: d.item.toString(),
-        cantidad: d.cantidad.toString(),
-        valor_unitario: d.valor_unitario.toString()
-      })),
-      detalles_conceptos: (nomina.detalles_conceptos || []).map(c => ({
-        concepto: c.concepto.toString(),
-        valor_total: c.valor_total.toString()
+      items: (nomina.items || []).map(item => ({
+        item: item.item?.id || item.item,
+        cantidad: item.cantidad?.toString() || '',
+        valor_total: item.valor_total?.toString() || ''
       }))
     });
     setShowModal(true);
@@ -242,6 +220,41 @@ export default function NominaPage() {
       loadInitialData();
     } catch (error) {
       showNotification('error', 'Error al eliminar nómina');
+    }
+  };
+
+  const handleCalcular = async (nominaId) => {
+    try {
+      await nominaService.calcularNomina(nominaId);
+      audit.button('calcular_nomina', { nomina_id: nominaId });
+      showNotification('success', 'Nómina calculada exitosamente');
+      loadInitialData();
+    } catch (error) {
+      showNotification('error', 'Error al calcular nómina');
+    }
+  };
+
+  const handleAprobar = async (nominaId) => {
+    if (!window.confirm('¿Está seguro de aprobar esta nómina?')) return;
+    try {
+      await nominaService.aprobarNomina(nominaId);
+      audit.button('aprobar_nomina', { nomina_id: nominaId });
+      showNotification('success', 'Nómina aprobada exitosamente');
+      loadInitialData();
+    } catch (error) {
+      showNotification('error', 'Error al aprobar nómina');
+    }
+  };
+
+  const handlePagar = async (nominaId) => {
+    if (!window.confirm('¿Está seguro de marcar esta nómina como pagada?')) return;
+    try {
+      await nominaService.pagarNomina(nominaId);
+      audit.button('pagar_nomina', { nomina_id: nominaId });
+      showNotification('success', 'Nómina marcada como pagada');
+      loadInitialData();
+    } catch (error) {
+      showNotification('error', 'Error al marcar como pagada');
     }
   };
 
@@ -264,7 +277,7 @@ export default function NominaPage() {
   const handleExportarExcel = async () => {
     try {
       audit.button('exportar_nominas_excel');
-      await nominaService.exportarExcel({ search: searchTerm, empleado: filterEmpleado });
+      await nominaService.exportarExcel({ search: searchTerm, contrato: filterContrato });
       showNotification('success', 'Archivo exportado exitosamente');
     } catch (error) {
       showNotification('error', 'Error al exportar archivo');
@@ -273,95 +286,43 @@ export default function NominaPage() {
 
   const resetForm = () => {
     setFormData({
-      empleado: '',
-      periodo: '',
+      contrato: '',
       periodo_inicio: '',
       periodo_fin: '',
-      dias_trabajados: 30,
-      salario_base_contrato: '',
-      estado: 'BOR',
+      fecha_pago: '',
+      estado: 'borrador',
       observaciones: '',
-      detalles_items: [],
-      detalles_conceptos: []
+      items: []
     });
     setErrors({});
     setEditingNomina(null);
   };
 
-  const agregarDetalleItem = () => {
+  const agregarItem = () => {
     setFormData({
       ...formData,
-      detalles_items: [...formData.detalles_items, { item: '', cantidad: '', valor_unitario: '' }]
+      items: [...formData.items, { item: '', cantidad: '', valor_total: '' }]
     });
   };
 
-  const removerDetalleItem = (index) => {
-    const nuevosDetalles = formData.detalles_items.filter((_, i) => i !== index);
-    setFormData({ ...formData, detalles_items: nuevosDetalles });
+  const removerItem = (index) => {
+    const nuevosItems = formData.items.filter((_, i) => i !== index);
+    setFormData({ ...formData, items: nuevosItems });
   };
 
-  const actualizarDetalleItem = (index, field, value) => {
-    const nuevosDetalles = [...formData.detalles_items];
-    nuevosDetalles[index][field] = value;
-    
-    // Auto-calcular valor_unitario si se selecciona un item
-    if (field === 'item' && value) {
-      const item = items.find(i => i.id === parseInt(value));
-      if (item) {
-        nuevosDetalles[index].valor_unitario = item.precio_unitario.toString();
-      }
-    }
-    
-    setFormData({ ...formData, detalles_items: nuevosDetalles });
-  };
-
-  const agregarDetalleConcepto = () => {
-    setFormData({
-      ...formData,
-      detalles_conceptos: [...formData.detalles_conceptos, { concepto: '', valor_total: '' }]
-    });
-  };
-
-  const removerDetalleConcepto = (index) => {
-    const nuevosDetalles = formData.detalles_conceptos.filter((_, i) => i !== index);
-    setFormData({ ...formData, detalles_conceptos: nuevosDetalles });
-  };
-
-  const actualizarDetalleConcepto = (index, field, value) => {
-    const nuevosDetalles = [...formData.detalles_conceptos];
-    nuevosDetalles[index][field] = value;
-    
-    // Auto-calcular valor_total si se selecciona un concepto
-    if (field === 'concepto' && value) {
-      const concepto = conceptosLaborales.find(c => c.id === parseInt(value));
-      if (concepto) {
-        nuevosDetalles[index].valor_total = concepto.valor_por_defecto?.toString() || '';
-      }
-    }
-    
-    setFormData({ ...formData, detalles_conceptos: nuevosDetalles });
+  const actualizarItem = (index, field, value) => {
+    const nuevosItems = [...formData.items];
+    nuevosItems[index][field] = value;
+    setFormData({ ...formData, items: nuevosItems });
   };
 
   const calcularTotalItems = () => {
-    return formData.detalles_items.reduce((sum, detalle) => {
-      if (detalle.item && detalle.cantidad && detalle.valor_unitario) {
-        return sum + (parseFloat(detalle.valor_unitario) * parseFloat(detalle.cantidad));
+    return formData.items.reduce((sum, item) => {
+      if (item.valor_total) {
+        return sum + parseFloat(item.valor_total);
       }
       return sum;
     }, 0);
-  };
-
-  const calcularTotalConceptos = () => {
-    return formData.detalles_conceptos.reduce((sum, detalle) => {
-      if (detalle.concepto && detalle.valor_total) {
-        return sum + parseFloat(detalle.valor_total);
-      }
-      return sum;
-    }, 0);
-  };
-
-  const calcularTotal = () => {
-    return calcularTotalItems() + calcularTotalConceptos();
   };
 
   const formatMoney = (amount) => {
@@ -372,15 +333,39 @@ export default function NominaPage() {
     }).format(amount || 0);
   };
 
+  // Helper para obtener info del contrato
+  const getContratoInfo = (nomina) => {
+    const contratoId = nomina.contrato?.id || nomina.contrato;
+    const contrato = contratos.find(c => c.id === contratoId);
+    if (contrato) {
+      const empleado = empleados.find(e => e.id === contrato.empleado?.id || e.id === contrato.empleado);
+      return {
+        empleadoNombre: empleado?.nombre_completo || empleado?.nombre || 'Sin empleado',
+        salario: contrato.salario,
+        tipoContrato: contrato.tipo_contrato?.nombre || ''
+      };
+    }
+    // Si viene info anidada del backend
+    if (nomina.contrato?.empleado) {
+      return {
+        empleadoNombre: nomina.contrato.empleado.nombre_completo || nomina.contrato.empleado.nombre,
+        salario: nomina.contrato.salario,
+        tipoContrato: nomina.contrato.tipo_contrato?.nombre || ''
+      };
+    }
+    return { empleadoNombre: 'Sin información', salario: 0, tipoContrato: '' };
+  };
+
   // Filtrar nóminas
   const filteredNominas = nominas.filter(nomina => {
+    const info = getContratoInfo(nomina);
     const matchSearch = 
-      nomina.empleado_info?.nombre_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      nomina.empleado_info?.documento?.toLowerCase().includes(searchTerm.toLowerCase());
+      info.empleadoNombre.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchEmpleado = filterEmpleado === '' || nomina.empleado === parseInt(filterEmpleado);
+    const matchContrato = filterContrato === '' || 
+      (nomina.contrato?.id || nomina.contrato) === filterContrato;
     
-    return matchSearch && matchEmpleado;
+    return matchSearch && matchContrato;
   });
 
   // Paginación
@@ -498,7 +483,7 @@ export default function NominaPage() {
                   audit.search('nominas', { termino: e.target.value });
                 }
               }}
-              placeholder="Buscar por empleado o documento..."
+              placeholder="Buscar por empleado..."
               className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all"
             />
           </div>
@@ -506,19 +491,22 @@ export default function NominaPage() {
             <div className="relative flex-1">
               <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <select
-                value={filterEmpleado}
+                value={filterContrato}
                 onChange={(e) => {
-                  setFilterEmpleado(e.target.value);
-                  audit.filter('nominas_empleado', { empleado_id: e.target.value });
+                  setFilterContrato(e.target.value);
+                  audit.filter('nominas_contrato', { contrato_id: e.target.value });
                 }}
                 className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all"
               >
-                <option value="">Todos los empleados</option>
-                {empleados.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.nombre_completo} ({emp.documento})
-                  </option>
-                ))}
+                <option value="">Todos los contratos</option>
+                {contratos.map(contrato => {
+                  const empleado = empleados.find(e => e.id === contrato.empleado?.id || e.id === contrato.empleado);
+                  return (
+                    <option key={contrato.id} value={contrato.id}>
+                      {empleado?.nombre_completo || empleado?.nombre || 'Empleado'} - {contrato.tipo_contrato?.nombre || 'Contrato'}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <button
@@ -539,11 +527,11 @@ export default function NominaPage() {
             <thead className="bg-gradient-to-r from-teal-600 to-cyan-700 text-white">
               <tr>
                 <th className="px-6 py-4 text-left font-semibold">Empleado</th>
-                <th className="px-6 py-4 text-left font-semibold">Documento</th>
                 <th className="px-6 py-4 text-left font-semibold">Período</th>
-                <th className="px-6 py-4 text-right font-semibold">Producción</th>
-                <th className="px-6 py-4 text-right font-semibold">Descuentos</th>
-                <th className="px-6 py-4 text-right font-semibold">Total</th>
+                <th className="px-6 py-4 text-right font-semibold">Devengado</th>
+                <th className="px-6 py-4 text-right font-semibold">Deducciones</th>
+                <th className="px-6 py-4 text-right font-semibold">Neto a Pagar</th>
+                <th className="px-6 py-4 text-center font-semibold">Estado</th>
                 <th className="px-6 py-4 text-center font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -557,7 +545,9 @@ export default function NominaPage() {
                   </td>
                 </tr>
               ) : (
-                currentNominas.map((nomina, index) => (
+                currentNominas.map((nomina, index) => {
+                  const info = getContratoInfo(nomina);
+                  return (
                   <tr
                     key={nomina.id}
                     className={`${
@@ -566,38 +556,46 @@ export default function NominaPage() {
                   >
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">
-                        {nomina.empleado_info?.nombre_completo}
+                        {info.empleadoNombre}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {nomina.empleado_info?.cargo_info?.nombre}
+                        {info.tipoContrato}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-700">
-                      {nomina.empleado_info?.documento}
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm">
                         <div className="text-gray-900 font-medium">
-                          {new Date(nomina.periodo_inicio).toLocaleDateString('es-CO')}
+                          {nomina.periodo_inicio ? new Date(nomina.periodo_inicio).toLocaleDateString('es-CO') : '-'}
                         </div>
                         <div className="text-gray-500">
-                          {new Date(nomina.periodo_fin).toLocaleDateString('es-CO')}
+                          {nomina.periodo_fin ? new Date(nomina.periodo_fin).toLocaleDateString('es-CO') : '-'}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right font-medium text-green-600">
-                      {formatMoney(nomina.produccion)}
+                      {formatMoney(nomina.total_devengado || 0)}
                     </td>
                     <td className="px-6 py-4 text-right font-medium text-red-600">
-                      {formatMoney(parseFloat(nomina.seguridad) + parseFloat(nomina.prestamos) + parseFloat(nomina.restaurante))}
+                      {formatMoney(nomina.total_deducciones || 0)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className="font-bold text-lg text-teal-600">
-                        {formatMoney(nomina.total)}
+                        {formatMoney(nomina.total_pagar || 0)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        nomina.estado === 'pagada' ? 'bg-green-100 text-green-800' :
+                        nomina.estado === 'aprobada' ? 'bg-blue-100 text-blue-800' :
+                        nomina.estado === 'calculada' ? 'bg-yellow-100 text-yellow-800' :
+                        nomina.estado === 'anulada' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {nomina.estado_display || nomina.estado || 'Borrador'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-center space-x-2">
+                      <div className="flex items-center justify-center space-x-1">
                         <button
                           onClick={() => handleVerDetalle(nomina)}
                           className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
@@ -605,31 +603,65 @@ export default function NominaPage() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => handleDescargarDesprendible(nomina.id)}
-                          className="p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
-                          title="Descargar desprendible"
-                        >
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(nomina)}
-                          className="p-2 bg-yellow-100 text-yellow-600 rounded-lg hover:bg-yellow-200 transition-colors"
-                          title="Editar"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(nomina.id)}
-                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {nomina.estado === 'borrador' && (
+                          <button
+                            onClick={() => handleCalcular(nomina.id)}
+                            className="p-2 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors"
+                            title="Calcular nómina"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                          </button>
+                        )}
+                        {nomina.estado === 'calculada' && (
+                          <button
+                            onClick={() => handleAprobar(nomina.id)}
+                            className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                            title="Aprobar nómina"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(nomina.estado === 'aprobada' || nomina.estado === 'pagada') && (
+                          <button
+                            onClick={() => handleDescargarDesprendible(nomina.id)}
+                            className="p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
+                            title="Descargar desprendible"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        )}
+                        {nomina.estado === 'aprobada' && (
+                          <button
+                            onClick={() => handlePagar(nomina.id)}
+                            className="p-2 bg-teal-100 text-teal-600 rounded-lg hover:bg-teal-200 transition-colors"
+                            title="Marcar como pagada"
+                          >
+                            <Wallet className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(nomina.estado === 'borrador' || nomina.estado === 'calculada') && (
+                          <>
+                            <button
+                              onClick={() => handleEdit(nomina)}
+                              className="p-2 bg-yellow-100 text-yellow-600 rounded-lg hover:bg-yellow-200 transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(nomina.id)}
+                              className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -666,12 +698,10 @@ export default function NominaPage() {
         )}
       </div>
 
-      {/* TODO: Continuar con los modales... */}
-
       {/* Modal Crear/Editar Nómina */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-teal-600 to-cyan-700 p-6 rounded-t-2xl">
               <h2 className="text-2xl font-bold text-white">
                 {editingNomina ? 'Editar Nómina' : 'Nueva Nómina'}
@@ -679,73 +709,37 @@ export default function NominaPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Información básica */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Empleado *
-                  </label>
-                  <select
-                    value={formData.empleado}
-                    onChange={(e) => {
-                      const empleado = empleados.find(emp => emp.id === parseInt(e.target.value));
-                      setFormData({ 
-                        ...formData, 
-                        empleado: e.target.value,
-                        salario_base_contrato: empleado?.salario_base || ''
-                      });
-                    }}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-teal-500 transition-colors ${
-                      errors.empleado ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    required
-                  >
-                    <option value="">Seleccione un empleado</option>
-                    {empleados.map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.nombre_completo} ({emp.documento})
+              {/* Selección de Contrato */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Contrato (Empleado) *
+                </label>
+                <select
+                  value={formData.contrato}
+                  onChange={(e) => setFormData({ ...formData, contrato: e.target.value })}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-teal-500 transition-colors ${
+                    errors.contrato ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  required
+                >
+                  <option value="">Seleccione un contrato</option>
+                  {contratos.map(contrato => {
+                    const empleado = empleados.find(e => e.id === contrato.empleado?.id || e.id === contrato.empleado);
+                    return (
+                      <option key={contrato.id} value={contrato.id}>
+                        {empleado?.nombre_completo || empleado?.nombre || 'Empleado'} - {contrato.tipo_contrato?.nombre || 'Contrato'} ({formatMoney(contrato.salario)})
                       </option>
-                    ))}
-                  </select>
-                  {errors.empleado && <p className="text-red-500 text-sm mt-1">{errors.empleado}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Período *
-                  </label>
-                  <select
-                    value={formData.periodo}
-                    onChange={(e) => {
-                      const periodo = periodos.find(p => p.id === parseInt(e.target.value));
-                      setFormData({ 
-                        ...formData, 
-                        periodo: e.target.value,
-                        periodo_inicio: periodo?.fecha_inicio || '',
-                        periodo_fin: periodo?.fecha_fin || ''
-                      });
-                    }}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-teal-500 transition-colors ${
-                      errors.periodo ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    required
-                  >
-                    <option value="">Seleccione un período</option>
-                    {periodos.map(per => (
-                      <option key={per.id} value={per.id}>
-                        {per.nombre} ({new Date(per.fecha_inicio).toLocaleDateString('es-CO')} - {new Date(per.fecha_fin).toLocaleDateString('es-CO')})
-                      </option>
-                    ))}
-                  </select>
-                  {errors.periodo && <p className="text-red-500 text-sm mt-1">{errors.periodo}</p>}
-                </div>
+                    );
+                  })}
+                </select>
+                {errors.contrato && <p className="text-red-500 text-sm mt-1">{errors.contrato}</p>}
               </div>
 
-              {/* Segunda fila: Fechas, días y salario */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Fechas del período */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Fecha Inicio *
+                    Fecha Inicio Período *
                   </label>
                   <input
                     type="date"
@@ -761,7 +755,7 @@ export default function NominaPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Fecha Fin *
+                    Fecha Fin Período *
                   </label>
                   <input
                     type="date"
@@ -777,178 +771,83 @@ export default function NominaPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Días Trabajados *
+                    Fecha de Pago
                   </label>
                   <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={formData.dias_trabajados}
-                    onChange={(e) => setFormData({ ...formData, dias_trabajados: e.target.value })}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-teal-500 transition-colors ${
-                      errors.dias_trabajados ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    required
+                    type="date"
+                    value={formData.fecha_pago}
+                    onChange={(e) => setFormData({ ...formData, fecha_pago: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-teal-500 transition-colors"
                   />
-                  {errors.dias_trabajados && <p className="text-red-500 text-sm mt-1">{errors.dias_trabajados}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Salario Base *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.salario_base_contrato}
-                    onChange={(e) => setFormData({ ...formData, salario_base_contrato: e.target.value })}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-teal-500 transition-colors ${
-                      errors.salario_base_contrato ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    required
-                  />
-                  {errors.salario_base_contrato && <p className="text-red-500 text-sm mt-1">{errors.salario_base_contrato}</p>}
                 </div>
               </div>
 
-              {/* Detalles de Producción (Items) */}
+              {/* Items de Trabajo */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">Items de Producción</h3>
+                  <h3 className="text-lg font-bold text-gray-900">Items de Trabajo (Opcional)</h3>
                   <button
                     type="button"
-                    onClick={agregarDetalleItem}
-                    className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                    onClick={agregarItem}
+                    className="flex items-center space-x-2 px-4 py-2 bg-teal-100 text-teal-600 rounded-lg hover:bg-teal-200 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Agregar Item</span>
                   </button>
                 </div>
 
-                <div className="space-y-3">
-                  {formData.detalles_items.map((detalle, index) => {
-                    const subtotal = detalle.cantidad && detalle.valor_unitario
-                      ? parseFloat(detalle.valor_unitario) * parseFloat(detalle.cantidad)
-                      : 0;
-
-                    return (
-                      <div key={index} className="flex gap-3 items-start p-4 bg-gray-50 rounded-xl">
-                        <div className="flex-1">
+                {formData.items.length > 0 && (
+                  <div className="space-y-3">
+                    {formData.items.map((item, index) => (
+                      <div key={index} className="grid grid-cols-12 gap-2 items-center bg-gray-50 p-3 rounded-lg">
+                        <div className="col-span-5">
                           <select
-                            value={detalle.item}
-                            onChange={(e) => actualizarDetalleItem(index, 'item', e.target.value)}
-                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-teal-500"
-                            required
+                            value={item.item}
+                            onChange={(e) => actualizarItem(index, 'item', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500"
                           >
-                            <option value="">Seleccione un item</option>
-                            {items.map(item => (
-                              <option key={item.id} value={item.id}>
-                                {item.nombre} - {formatMoney(item.precio_unitario)}
-                              </option>
+                            <option value="">Seleccione item</option>
+                            {items.map(i => (
+                              <option key={i.id} value={i.id}>{i.nombre}</option>
                             ))}
                           </select>
                         </div>
-                        <div className="w-32">
+                        <div className="col-span-2">
                           <input
                             type="number"
                             step="0.01"
-                            min="0"
-                            value={detalle.cantidad}
-                            onChange={(e) => actualizarDetalleItem(index, 'cantidad', e.target.value)}
                             placeholder="Cantidad"
-                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-teal-500"
-                            required
+                            value={item.cantidad}
+                            onChange={(e) => actualizarItem(index, 'cantidad', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500"
                           />
                         </div>
-                        <div className="w-32">
+                        <div className="col-span-3">
                           <input
                             type="number"
                             step="0.01"
-                            min="0"
-                            value={detalle.valor_unitario}
-                            onChange={(e) => actualizarDetalleItem(index, 'valor_unitario', e.target.value)}
-                            placeholder="Valor Unit."
-                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-teal-500"
-                            required
-                          />
-                        </div>
-                        <div className="w-32 px-3 py-2 bg-teal-50 rounded-lg text-right font-medium text-teal-700">
-                          {formatMoney(subtotal)}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removerDetalleItem(index)}
-                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-                {errors.detalles && <p className="text-red-500 text-sm mt-2">{errors.detalles}</p>}
-              </div>
-
-              {/* Conceptos Laborales */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">Conceptos Laborales</h3>
-                  <button
-                    type="button"
-                    onClick={agregarDetalleConcepto}
-                    className="flex items-center space-x-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Agregar Concepto</span>
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {formData.detalles_conceptos.map((detalle, index) => {
-                    return (
-                      <div key={index} className="flex gap-3 items-start p-4 bg-cyan-50 rounded-xl">
-                        <div className="flex-1">
-                          <select
-                            value={detalle.concepto}
-                            onChange={(e) => actualizarDetalleConcepto(index, 'concepto', e.target.value)}
-                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-cyan-500"
-                            required
-                          >
-                            <option value="">Seleccione un concepto</option>
-                            {conceptosLaborales.map(concepto => (
-                              <option key={concepto.id} value={concepto.id}>
-                                {concepto.nombre} {concepto.tipo_concepto === 'descuento' ? '(-)' : '(+)'}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="w-48">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={detalle.valor_total}
-                            onChange={(e) => actualizarDetalleConcepto(index, 'valor_total', e.target.value)}
                             placeholder="Valor Total"
-                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-cyan-500"
-                            required
+                            value={item.valor_total}
+                            onChange={(e) => actualizarItem(index, 'valor_total', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500"
                           />
                         </div>
-                        <div className="w-40 px-3 py-2 bg-cyan-100 rounded-lg text-right font-medium text-cyan-700">
-                          {formatMoney(detalle.valor_total || 0)}
+                        <div className="col-span-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => removerItem(index)}
+                            className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removerDetalleConcepto(index)}
-                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                    <div className="text-right text-lg font-bold text-teal-600">
+                      Total Items: {formatMoney(calcularTotalItems())}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Observaciones */}
@@ -960,47 +859,37 @@ export default function NominaPage() {
                   value={formData.observaciones}
                   onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
                   rows="3"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-teal-500"
-                  placeholder="Notas adicionales sobre esta nómina..."
-                ></textarea>
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-teal-500 transition-colors"
+                  placeholder="Notas u observaciones sobre esta nómina..."
+                />
               </div>
 
-              {/* Resumen */}
-              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 rounded-xl">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Resumen</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-gray-700">
-                    <span>Total Items:</span>
-                    <span className="font-semibold text-green-600">{formatMoney(calcularTotalItems())}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-700">
-                    <span>Total Conceptos:</span>
-                    <span className="font-semibold text-blue-600">{formatMoney(calcularTotalConceptos())}</span>
-                  </div>
-                  <div className="border-t-2 border-teal-300 pt-2 mt-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xl font-bold text-gray-900">TOTAL NÓMINA:</span>
-                      <span className="text-2xl font-bold text-teal-600">{formatMoney(calcularTotal())}</span>
-                    </div>
+              {/* Nota informativa */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5" />
+                  <div className="text-sm text-blue-700">
+                    <p className="font-semibold">Nota:</p>
+                    <p>Los valores de seguridad social (salud, pensión, ARL) y parafiscales se calculan automáticamente al hacer clic en "Calcular Nómina" después de guardar.</p>
                   </div>
                 </div>
               </div>
 
               {/* Botones */}
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold"
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-semibold"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-700 text-white rounded-xl hover:from-teal-700 hover:to-cyan-800 transition-all transform hover:scale-105 font-semibold shadow-lg"
+                  className="px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-700 text-white rounded-xl hover:from-teal-700 hover:to-cyan-800 transition-all font-semibold shadow-lg"
                 >
                   {editingNomina ? 'Actualizar' : 'Crear'} Nómina
                 </button>
@@ -1019,89 +908,156 @@ export default function NominaPage() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Información del Empleado */}
+              {/* Información del Contrato/Empleado */}
               <div className="bg-gray-50 p-6 rounded-xl">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Información del Empleado</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="text-sm text-gray-600">Nombre:</span>
-                    <p className="font-semibold text-gray-900">{selectedNomina.empleado_info?.nombre_completo}</p>
+                    <span className="text-sm text-gray-600">Empleado:</span>
+                    <p className="font-semibold text-gray-900">
+                      {getContratoInfo(selectedNomina).empleadoNombre}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">Documento:</span>
-                    <p className="font-semibold text-gray-900">{selectedNomina.empleado_info?.documento}</p>
+                    <span className="text-sm text-gray-600">Tipo Contrato:</span>
+                    <p className="font-semibold text-gray-900">
+                      {getContratoInfo(selectedNomina).tipoContrato}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">Cargo:</span>
-                    <p className="font-semibold text-gray-900">{selectedNomina.empleado_info?.cargo_info?.nombre}</p>
+                    <span className="text-sm text-gray-600">Salario Base:</span>
+                    <p className="font-semibold text-gray-900">
+                      {formatMoney(getContratoInfo(selectedNomina).salario)}
+                    </p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Período:</span>
                     <p className="font-semibold text-gray-900">
-                      {new Date(selectedNomina.periodo_inicio).toLocaleDateString('es-CO')} al{' '}
-                      {new Date(selectedNomina.periodo_fin).toLocaleDateString('es-CO')}
+                      {selectedNomina.periodo_inicio ? new Date(selectedNomina.periodo_inicio).toLocaleDateString('es-CO') : '-'} al{' '}
+                      {selectedNomina.periodo_fin ? new Date(selectedNomina.periodo_fin).toLocaleDateString('es-CO') : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Estado:</span>
+                    <p className={`font-semibold ${
+                      selectedNomina.estado === 'pagada' ? 'text-green-600' :
+                      selectedNomina.estado === 'aprobada' ? 'text-blue-600' :
+                      selectedNomina.estado === 'calculada' ? 'text-yellow-600' :
+                      selectedNomina.estado === 'anulada' ? 'text-red-600' :
+                      'text-gray-600'
+                    }`}>
+                      {selectedNomina.estado_display || selectedNomina.estado || 'Borrador'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Fecha de Pago:</span>
+                    <p className="font-semibold text-gray-900">
+                      {selectedNomina.fecha_pago ? new Date(selectedNomina.fecha_pago).toLocaleDateString('es-CO') : 'Pendiente'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Detalle de Producción */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Detalle de Producción</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-teal-600 text-white">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Item</th>
-                        <th className="px-4 py-3 text-right">Cantidad</th>
-                        <th className="px-4 py-3 text-right">Precio Unit.</th>
-                        <th className="px-4 py-3 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedNomina.detalles?.map((detalle, index) => (
-                        <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                          <td className="px-4 py-3">{detalle.item_nombre}</td>
-                          <td className="px-4 py-3 text-right">{parseFloat(detalle.cantidad).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-right">{formatMoney(detalle.item_precio)}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-green-600">
-                            {formatMoney(detalle.total)}
-                          </td>
+              {/* Detalle de Items */}
+              {selectedNomina.items && selectedNomina.items.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Items de Trabajo</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-teal-600 text-white">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Item</th>
+                          <th className="px-4 py-3 text-right">Cantidad</th>
+                          <th className="px-4 py-3 text-right">Total</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {selectedNomina.items.map((item, index) => (
+                          <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                            <td className="px-4 py-3">{item.item?.nombre || item.item_nombre || 'Item'}</td>
+                            <td className="px-4 py-3 text-right">{parseFloat(item.cantidad || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-green-600">
+                              {formatMoney(item.valor_total)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Detalle de Conceptos */}
+              {selectedNomina.conceptos && selectedNomina.conceptos.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Conceptos Aplicados</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-cyan-600 text-white">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Concepto</th>
+                          <th className="px-4 py-3 text-center">Tipo</th>
+                          <th className="px-4 py-3 text-right">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedNomina.conceptos.map((concepto, index) => (
+                          <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                            <td className="px-4 py-3">{concepto.concepto?.nombre || concepto.concepto_nombre || 'Concepto'}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                (concepto.concepto?.tipo || concepto.tipo) === 'DEVENGADO' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {(concepto.concepto?.tipo || concepto.tipo) === 'DEVENGADO' ? 'Devengado' : 'Deducción'}
+                              </span>
+                            </td>
+                            <td className={`px-4 py-3 text-right font-semibold ${
+                              (concepto.concepto?.tipo || concepto.tipo) === 'DEVENGADO' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {formatMoney(concepto.valor)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Resumen Financiero */}
               <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 rounded-xl">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Resumen Financiero</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-gray-700">
-                    <span>Subtotal Producción:</span>
-                    <span className="font-semibold text-green-600">{formatMoney(selectedNomina.produccion)}</span>
+                    <span>IBC (Base de Cotización):</span>
+                    <span className="font-semibold">{formatMoney(selectedNomina.ibc)}</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
-                    <span>(-) Seguridad Social:</span>
-                    <span className="font-semibold text-red-600">{formatMoney(selectedNomina.seguridad)}</span>
+                    <span>Total Devengado:</span>
+                    <span className="font-semibold text-green-600">{formatMoney(selectedNomina.total_devengado)}</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
-                    <span>(-) Préstamos:</span>
-                    <span className="font-semibold text-red-600">{formatMoney(selectedNomina.prestamos)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-700">
-                    <span>(-) Restaurante:</span>
-                    <span className="font-semibold text-red-600">{formatMoney(selectedNomina.restaurante)}</span>
+                    <span>(-) Total Deducciones:</span>
+                    <span className="font-semibold text-red-600">{formatMoney(selectedNomina.total_deducciones)}</span>
                   </div>
                   <div className="border-t-2 border-teal-300 pt-3 mt-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-xl font-bold text-gray-900">TOTAL A PAGAR:</span>
-                      <span className="text-2xl font-bold text-teal-600">{formatMoney(selectedNomina.total)}</span>
+                      <span className="text-xl font-bold text-gray-900">NETO A PAGAR:</span>
+                      <span className="text-2xl font-bold text-teal-600">{formatMoney(selectedNomina.total_pagar)}</span>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Observaciones */}
+              {selectedNomina.observaciones && (
+                <div className="bg-yellow-50 p-4 rounded-xl">
+                  <h4 className="font-semibold text-yellow-800 mb-2">Observaciones:</h4>
+                  <p className="text-yellow-700">{selectedNomina.observaciones}</p>
+                </div>
+              )}
 
               {/* Botones */}
               <div className="flex justify-between">

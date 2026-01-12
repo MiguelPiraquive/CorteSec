@@ -9,7 +9,8 @@ import { itemsAPI } from '../../services/payrollService';
 
 const ItemSelector = ({ 
   value, 
-  onChange, 
+  onChange,
+  onItemSelect, // Nueva prop: callback que devuelve el item completo
   label,
   required = false,
   disabled = false 
@@ -115,6 +116,10 @@ const ItemSelector = ({
                     type="button"
                     onClick={() => {
                       onChange(item.id);
+                      // Devolver el item completo si hay callback
+                      if (onItemSelect) {
+                        onItemSelect(item);
+                      }
                       setIsOpen(false);
                       setSearch('');
                     }}

@@ -67,6 +67,14 @@ const CargosPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // DEBUG: Verificar tenant en localStorage
+    console.log('=== DEBUG TENANT ===')
+    console.log('tenantCode:', localStorage.getItem('tenantCode'))
+    console.log('tenantSlug:', localStorage.getItem('tenantSlug'))
+    console.log('authToken:', localStorage.getItem('authToken') ? 'EXISTS' : 'MISSING')
+    console.log('==================')
+    
     try {
       const dataToSend = {
         ...formData,
@@ -88,8 +96,11 @@ const CargosPage = () => {
       resetForm()
       loadCargos()
     } catch (error) {
-      showNotification('error', error.response?.data?.message || 'Error al guardar cargo')
-      console.error(error)
+      console.error('Error completo:', error)
+      console.error('Respuesta del servidor:', error.response?.data)
+      console.error('Status:', error.response?.status)
+      console.error('Headers enviados:', error.config?.headers)
+      showNotification('error', error.response?.data?.message || error.response?.data?.error || 'Error al guardar cargo')
     }
   }
 

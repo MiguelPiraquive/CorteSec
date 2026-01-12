@@ -39,7 +39,7 @@ urlpatterns = [
     path('api/configuracion/', include('configuracion.api_urls')),
     path('api/ayuda/', include('ayuda.api_urls')),
     path('api/locations/', include('locations.api_urls')),
-    path('api/payroll/', include('payroll.api_urls')),
+    path('api/nomina/', include('nomina.urls')),
     path('api/items/', include('items.api_urls')),
     path('api/prestamos/', include('prestamos.api_urls')),
     path('api/roles/', include('roles.api_urls')),

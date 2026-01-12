@@ -196,7 +196,7 @@ class ComprobanteContable(TenantAwareModel):
     
     # Relaciones con otros módulos
     nomina_relacionada = models.ForeignKey(
-        'payroll.NominaSimple',
+        'nomina.NominaSimple',
         on_delete=models.SET_NULL,
         blank=True,
         null=True,
@@ -737,7 +737,7 @@ def crear_comprobante_pago_prestamo(sender, instance, created, **kwargs):
         # TODO: Implementar lógica para crear comprobante contable
         pass
 
-@receiver(post_save, sender='payroll.NominaSimple')
+@receiver(post_save, sender='nomina.NominaSimple')
 def crear_comprobante_nomina(sender, instance, created, **kwargs):
     """Crea automáticamente comprobante contable para nómina"""
     if created:

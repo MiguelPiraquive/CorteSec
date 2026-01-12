@@ -12,14 +12,12 @@ class Cargo(TenantAwareModel):
     
     nombre = models.CharField(
         max_length=150,
-        unique=True,
         verbose_name=_("Nombre del cargo"),
         help_text=_("Nombre único del cargo")
     )
     
     codigo = models.CharField(
         max_length=20,
-        unique=True,
         verbose_name=_("Código"),
         help_text=_("Código único del cargo")
     )
@@ -125,6 +123,10 @@ class Cargo(TenantAwareModel):
         verbose_name = _("Cargo")
         verbose_name_plural = _("Cargos")
         ordering = ['nivel_jerarquico', 'nombre']
+        unique_together = [
+            ('organization', 'nombre'),
+            ('organization', 'codigo'),
+        ]
         indexes = [
             models.Index(fields=['activo']),
             models.Index(fields=['nivel_jerarquico']),
@@ -206,12 +208,10 @@ class Cargo(TenantAwareModel):
     def get_empleados_count(self):
         """Retorna el número de empleados asignados a este cargo"""
         try:
-            from payroll.models import Empleado, Cargo as PayrollCargo
-            # Buscar el cargo equivalente en payroll por nombre
-            payroll_cargo = PayrollCargo.objects.filter(nombre=self.nombre).first()
-            if payroll_cargo:
-                return Empleado.objects.filter(cargo=payroll_cargo).count()
-            return 0
+            from nomina.models import Contrato
+            # Buscar contratos activos con este cargo (CharField en nomina.Contrato)
+            # Comparar por nombre del cargo ya que cargo es CharField
+            return Contrato.objects.filter(cargo__icontains=self.nombre, activo=True).count()
         except ImportError:
             return 0
 
@@ -227,7 +227,7 @@ class HistorialCargo(models.Model):
     """
     
     empleado = models.ForeignKey(
-        'payroll.Empleado',
+        'nomina.Empleado',
         on_delete=models.CASCADE,
         related_name='historial_cargos',
         verbose_name=_("Empleado")

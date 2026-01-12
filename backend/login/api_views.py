@@ -127,10 +127,10 @@ def login_api(request):
                 'message': 'Código de organización requerido.'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Validar que la organización existe y está activa
+        # Validar que la organización existe y está activa (case-insensitive)
         from core.models import Organizacion
         try:
-            organization = Organizacion.objects.get(codigo=tenant_codigo, activa=True)
+            organization = Organizacion.objects.get(codigo__iexact=tenant_codigo, activa=True)
         except Organizacion.DoesNotExist:
             SecurityAuditLogger.log_login_attempt(
                 request.data.get('email', 'unknown'),
@@ -312,9 +312,9 @@ def register_api(request):
             'message': 'Código de organización requerido en el header X-Tenant-Codigo.'
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    # Verificar que la organización existe y está activa
+    # Verificar que la organización existe y está activa (case-insensitive)
     try:
-        organization = Organizacion.objects.get(codigo=tenant_codigo, activa=True)
+        organization = Organizacion.objects.get(codigo__iexact=tenant_codigo, activa=True)
     except Organizacion.DoesNotExist:
         return Response({
             'success': False,

@@ -44,7 +44,7 @@ class APISecurityMiddleware(MiddlewareMixin):
         '/api/cargos/',
         '/api/contabilidad/',
         '/api/prestamos/',
-        '/api/payroll/',
+        '/api/nomina/',       # Nómina (reemplaza payroll)
         '/api/reportes/',
     ]
     

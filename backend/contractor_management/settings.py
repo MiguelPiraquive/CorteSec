@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'dashboard',
     # Apps del proyecto - Gestión empresarial
     'perfil',
-    'payroll',  # Nómina (incluye empleados)
+    'nomina',  # Sistema de Nómina - Empleados, Contratos, Nóminas
     'prestamos',
     'cargos',
     'roles',
@@ -628,32 +628,9 @@ CELERY_TIMEZONE = 'America/Bogota'
 
 # Configuración de tareas programadas (Celery Beat)
 CELERY_BEAT_SCHEDULE = {
-    # ===== TAREAS DE NÓMINA (FASE 3) =====
-    # Verificar estado de nóminas enviadas cada 30 minutos
-    'verificar-estado-nominas-dian': {
-        'task': 'payroll.tasks.verificar_estado_nominas_dian',
-        'schedule': crontab(minute='*/30'),
-    },
-    # Generar nóminas pendientes cada hora
-    'procesar-nominas-pendientes': {
-        'task': 'payroll.tasks.procesar_nominas_pendientes',
-        'schedule': crontab(minute=0),
-    },
-    # Enviar recordatorios de nóminas sin firmar cada día a las 9 AM
-    'recordatorio-nominas-sin-firmar': {
-        'task': 'payroll.tasks.recordatorio_nominas_sin_firmar',
-        'schedule': crontab(hour=9, minute=0),
-    },
-    # Limpiar XMLs antiguos cada domingo a las 2 AM
-    'limpiar-xmls-antiguos': {
-        'task': 'payroll.tasks.limpiar_xmls_antiguos',
-        'schedule': crontab(hour=2, minute=0, day_of_week=0),
-    },
-    # Generar reporte de estadísticas semanal (lunes 8 AM)
-    'generar-reporte-semanal': {
-        'task': 'payroll.tasks.generar_reporte_semanal',
-        'schedule': crontab(hour=8, minute=0, day_of_week=1),
-    },
+    # ===== TAREAS DE NÓMINA =====
+    # TODO: Implementar tareas de nómina cuando sea necesario
+    # Por ahora el sistema de nómina es manual (sin Celery)
     
     # ===== TAREAS DE ROLES =====
     # Verificar roles y asignaciones expiradas cada hora

@@ -297,7 +297,7 @@ class PrestamoForm(BasePrestamoForm, forms.ModelForm):
         # Filtrar empleados por organización
         if self.organizacion:
             try:
-                from payroll.models import Empleado
+                from nomina.models import Empleado
                 self.fields['empleado'].queryset = Empleado.objects.filter(
                     organizacion=self.organizacion,
                     activo=True

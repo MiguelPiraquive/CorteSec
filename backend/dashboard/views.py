@@ -49,7 +49,8 @@ logger = logging.getLogger(__name__)
 # === IMPORTACIONES DINÁMICAS DE APPS ===
 
 try:
-    from payroll.models import Empleado, Nomina, DetalleNomina, Cargo
+    from nomina.models import Empleado, NominaSimple as Nomina, NominaItem as DetalleNomina
+    from cargos.models import Cargo
     PAYROLL_AVAILABLE = True
 except ImportError:
     PAYROLL_AVAILABLE = False

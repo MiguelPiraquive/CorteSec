@@ -121,7 +121,7 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         
         # Total de empleados (si existe el modelo)
         try:
-            from payroll.models import Empleado
+            from nomina.models import Empleado
             total_empleados = Empleado.objects.count()
         except ImportError:
             total_empleados = 0

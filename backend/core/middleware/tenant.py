@@ -16,12 +16,16 @@ Fecha: 2025-08-17
 """
 
 import threading
+import logging
 from django.http import HttpResponseForbidden, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.deprecation import MiddlewareMixin
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from core.models import Organizacion
+
+# Logger para debugging
+logger = logging.getLogger(__name__)
 
 # Thread-local storage para el tenant actual
 _thread_locals = threading.local()
@@ -73,22 +77,41 @@ class TenantMiddleware(MiddlewareMixin):
         🔍 Detecta y establece el tenant actual al inicio de cada request.
         """
         tenant = None
+        detection_method = None
+        
+        # DEBUG: Log del request
+        if request.path.startswith('/api/cargos/'):
+            logger.info(f"🔍 TenantMiddleware - Path: {request.path}")
+            logger.info(f"   User authenticated: {request.user.is_authenticated}")
+            logger.info(f"   User: {request.user}")
+            logger.info(f"   X-Tenant-Codigo header: {request.META.get('HTTP_X_TENANT_CODIGO')}")
         
         # 1. Si el usuario está autenticado y tiene organización, usar esa
         if request.user.is_authenticated and hasattr(request.user, 'organization'):
             tenant = request.user.organization
+            detection_method = "authenticated_user"
         
         # 2. Detección por subdominio
         if not tenant:
             tenant = self._detect_tenant_by_subdomain(request)
+            if tenant:
+                detection_method = "subdomain"
         
         # 3. Detección por parámetro de URL
         if not tenant:
             tenant = self._detect_tenant_by_url_param(request)
+            if tenant:
+                detection_method = "url_param"
         
         # 4. Detección por header HTTP
         if not tenant:
             tenant = self._detect_tenant_by_header(request)
+            if tenant:
+                detection_method = "http_header"
+        
+        # DEBUG: Log del resultado
+        if request.path.startswith('/api/cargos/'):
+            logger.info(f"   ✅ Tenant detected: {tenant} (method: {detection_method})")
         
         # Establecer tenant en el contexto
         set_current_tenant(tenant)
@@ -133,7 +156,7 @@ class TenantMiddleware(MiddlewareMixin):
                 subdomain = host.replace(f'.{main_domain}', '')
                 
                 try:
-                    return Organizacion.objects.get(codigo=subdomain, activa=True)
+                    return Organizacion.objects.get(codigo__iexact=subdomain, activa=True)
                 except Organizacion.DoesNotExist:
                     continue
         
@@ -149,7 +172,7 @@ class TenantMiddleware(MiddlewareMixin):
         
         if tenant_codigo:
             try:
-                return Organizacion.objects.get(codigo=tenant_codigo, activa=True)
+                return Organizacion.objects.get(codigo__iexact=tenant_codigo, activa=True)
             except Organizacion.DoesNotExist:
                 pass
         
@@ -159,14 +182,19 @@ class TenantMiddleware(MiddlewareMixin):
         """
         📡 Detecta tenant por header HTTP.
         
-        Header: X-Tenant-Codigo: empresa
+        Header: X-Tenant-Codigo: empresa (case-insensitive)
         """
         tenant_codigo = request.META.get('HTTP_X_TENANT_CODIGO')
         
+        logger.debug(f"🔍 _detect_tenant_by_header: tenant_codigo={tenant_codigo}")
+        
         if tenant_codigo:
             try:
-                return Organizacion.objects.get(codigo=tenant_codigo, activa=True)
+                org = Organizacion.objects.get(codigo__iexact=tenant_codigo, activa=True)
+                logger.debug(f"✅ Found organization: {org}")
+                return org
             except Organizacion.DoesNotExist:
+                logger.warning(f"❌ Organization not found: {tenant_codigo}")
                 pass
         
         return None

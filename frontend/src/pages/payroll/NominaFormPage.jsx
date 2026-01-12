@@ -416,11 +416,19 @@ const NominaFormPage = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Agregar Item de Construcción
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <ItemSelector
                   label="Item"
                   value={nuevoDetalleItem.item}
                   onChange={(itemId) => setNuevoDetalleItem(prev => ({ ...prev, item: itemId }))}
+                  onItemSelect={(item) => {
+                    // Auto-asignar el precio unitario del item seleccionado
+                    setNuevoDetalleItem(prev => ({ 
+                      ...prev, 
+                      item: item.id,
+                      valor_unitario: item.precio_unitario || '0'
+                    }));
+                  }}
                   required
                 />
 
@@ -430,16 +438,6 @@ const NominaFormPage = () => {
                   step="0.01"
                   value={nuevoDetalleItem.cantidad}
                   onChange={(e) => setNuevoDetalleItem(prev => ({ ...prev, cantidad: e.target.value }))}
-                  placeholder="0.00"
-                  required
-                />
-
-                <FormField
-                  label="Valor Unitario"
-                  type="number"
-                  step="0.01"
-                  value={nuevoDetalleItem.valor_unitario}
-                  onChange={(e) => setNuevoDetalleItem(prev => ({ ...prev, valor_unitario: e.target.value }))}
                   placeholder="0.00"
                   required
                 />
@@ -456,6 +454,26 @@ const NominaFormPage = () => {
                   </Button>
                 </div>
               </div>
+
+              {/* Precio unitario del item seleccionado (informativo) */}
+              {nuevoDetalleItem.valor_unitario && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm text-gray-600">Precio unitario del item: </span>
+                  <span className="font-bold text-blue-600">
+                    {formatCurrency(nuevoDetalleItem.valor_unitario)}
+                  </span>
+                  {nuevoDetalleItem.cantidad && parseFloat(nuevoDetalleItem.cantidad) > 0 && (
+                    <>
+                      <span className="text-gray-400 mx-2">×</span>
+                      <span className="text-gray-600">{nuevoDetalleItem.cantidad}</span>
+                      <span className="text-gray-400 mx-2">=</span>
+                      <span className="font-bold text-green-600">
+                        {formatCurrency(parseFloat(nuevoDetalleItem.valor_unitario) * parseFloat(nuevoDetalleItem.cantidad))}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Lista de Items */}
               {formData.detalles_items.length > 0 && (
