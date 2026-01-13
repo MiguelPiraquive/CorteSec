@@ -12,8 +12,12 @@ urlpatterns = [
     # Métricas básicas del dashboard
     path('metrics/', api_views_new.dashboard_metrics, name='dashboard_metrics'),
     
+    # Actividad reciente del sistema
+    path('activity/', api_views_new.dashboard_recent_activity, name='dashboard_activity'),
+    
+    # Estadísticas y gráficas avanzadas
+    path('charts/', api_views_new.dashboard_charts, name='dashboard_charts'),
+    
     # Estadísticas generales
     path('stats/', api_views_new.dashboard_stats, name='dashboard_stats'),
-    
-    # TODO: Agregar más endpoints según sea necesario
 ]

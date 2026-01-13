@@ -34,6 +34,10 @@ import {
   ReceiptIcon,
   FileSignatureIcon,
   ScaleIcon,
+  MailIcon,
+  DatabaseIcon,
+  SlidersHorizontalIcon,
+  LockIcon,
 } from 'lucide-react'
 
 const DashboardLayout = () => {
@@ -44,6 +48,7 @@ const DashboardLayout = () => {
   const [finanzasOpen, setFinanzasOpen] = useState(false)
   const [controlAccesoOpen, setControlAccesoOpen] = useState(false)
   const [nominaElectronicaOpen, setNominaElectronicaOpen] = useState(false)
+  const [configuracionOpen, setConfiguracionOpen] = useState(false)
   const { user, logout } = useAuth()
   const { tenant } = useTenant()
   const navigate = useNavigate()
@@ -146,9 +151,15 @@ const DashboardLayout = () => {
     },
     { 
       name: 'Configuración', 
-      icon: SettingsIcon, 
-      path: '/dashboard/configuracion', 
-      color: 'text-gray-600' 
+      icon: SettingsIcon,
+      color: 'text-purple-600',
+      submenu: [
+        { name: 'General', path: '/dashboard/configuracion', icon: Building2Icon },
+        { name: 'Parámetros del Sistema', path: '/dashboard/parametros', icon: DatabaseIcon },
+        { name: 'Módulos', path: '/dashboard/modulos', icon: SlidersHorizontalIcon },
+        { name: 'Seguridad', path: '/dashboard/seguridad', icon: LockIcon },
+        { name: 'Email', path: '/dashboard/email', icon: MailIcon },
+      ]
     },
   ]
 
@@ -241,6 +252,9 @@ const DashboardLayout = () => {
               } else if (item.name === 'Nómina Electrónica') {
                 isSubmenuOpen = nominaElectronicaOpen
                 toggleSubmenu = () => setNominaElectronicaOpen(!nominaElectronicaOpen)
+              } else if (item.name === 'Configuración') {
+                isSubmenuOpen = configuracionOpen
+                toggleSubmenu = () => setConfiguracionOpen(!configuracionOpen)
               }
               
               if (hasSubmenu) {

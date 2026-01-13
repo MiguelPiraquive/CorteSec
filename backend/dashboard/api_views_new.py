@@ -1,32 +1,52 @@
 # dashboard/api_views_new.py
 """
 APIs adicionales para el Dashboard React
+Actualizado con datos reales del sistema
 """
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from django.db.models import Count
+from django.db.models import Count, Sum, Q, Avg
 from django.utils import timezone
 from django.conf import settings
 from datetime import datetime, timedelta
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])  # Siempre requerir autenticación
+@permission_classes([IsAuthenticated])
 def dashboard_metrics(request):
-    """API para obtener métricas básicas del dashboard - Solo usuarios autenticados"""
+    """API para obtener métricas básicas del dashboard con datos reales"""
     try:
-        # Importaciones condicionales para evitar errores si los modelos no existen
-        org = getattr(request.user, 'organization', None)
+        org = getattr(request.user, 'organizacion', None)
+        today = timezone.now()
+        current_month_start = today.replace(day=1)
+        last_month_start = (current_month_start - timedelta(days=1)).replace(day=1)
+        
+        # EMPLEADOS
         try:
             from nomina.models import Empleado
             total_empleados = Empleado.objects.filter(organizacion=org).count()
             empleados_activos = Empleado.objects.filter(activo=True, organizacion=org).count()
+            empleados_mes = Empleado.objects.filter(
+                fecha_creacion__gte=current_month_start,
+                organizacion=org
+            ).count()
+            empleados_mes_anterior = Empleado.objects.filter(
+                fecha_creacion__gte=last_month_start,
+                fecha_creacion__lt=current_month_start,
+                organizacion=org
+            ).count()
+            
+            cambio_empleados = 0
+            if empleados_mes_anterior > 0:
+                cambio_empleados = ((empleados_mes - empleados_mes_anterior) / empleados_mes_anterior) * 100
         except ImportError:
             total_empleados = 0
             empleados_activos = 0
+            cambio_empleados = 0
 
+        # CARGOS
         try:
             from cargos.models import Cargo
             total_cargos = Cargo.objects.filter(organizacion=org).count()
@@ -35,38 +55,295 @@ def dashboard_metrics(request):
             total_cargos = 0
             cargos_activos = 0
 
+        # NÓMINAS
         try:
-            from contabilidad.models import RegistroContable
-            registros_mes = RegistroContable.objects.filter(
-                fecha_creacion__month=timezone.now().month,
-                fecha_creacion__year=timezone.now().year,
+            from nomina.models import Nomina
+            nominas_mes = Nomina.objects.filter(
+                fecha_pago__gte=current_month_start,
+                organizacion=org
+            ).count()
+            total_nomina_mes = Nomina.objects.filter(
+                fecha_pago__gte=current_month_start,
+                organizacion=org
+            ).aggregate(total=Sum('total_pagar'))['total'] or 0
+            
+            nominas_mes_anterior = Nomina.objects.filter(
+                fecha_pago__gte=last_month_start,
+                fecha_pago__lt=current_month_start,
+                organizacion=org
+            ).count()
+            
+            cambio_nominas = 0
+            if nominas_mes_anterior > 0:
+                cambio_nominas = ((nominas_mes - nominas_mes_anterior) / nominas_mes_anterior) * 100
+        except ImportError:
+            nominas_mes = 0
+            total_nomina_mes = 0
+            cambio_nominas = 0
+
+        # PRÉSTAMOS
+        try:
+            from prestamos.models import Prestamo
+            prestamos_activos = Prestamo.objects.filter(
+                estado='activo',
+                organizacion=org
+            ).count()
+            prestamos_pendientes = Prestamo.objects.filter(
+                estado='pendiente',
+                organizacion=org
+            ).count()
+            total_prestamos = prestamos_activos + prestamos_pendientes
+        except ImportError:
+            total_prestamos = 0
+            prestamos_pendientes = 0
+
+        # CONTRATOS
+        try:
+            from cargos.models import Contrato
+            contratos_activos = Contrato.objects.filter(
+                activo=True,
+                organizacion=org
+            ).count()
+            contratos_por_vencer = Contrato.objects.filter(
+                fecha_fin__lte=today + timedelta(days=30),
+                fecha_fin__gte=today,
+                activo=True,
                 organizacion=org
             ).count()
         except ImportError:
+            contratos_activos = 0
+            contratos_por_vencer = 0
+
+        # ACTIVIDAD RECIENTE
+        try:
+            from core.models import LogAuditoria
+            registros_hoy = LogAuditoria.objects.filter(
+                fecha_accion__date=today.date(),
+                organizacion=org
+            ).count()
+            registros_mes = LogAuditoria.objects.filter(
+                fecha_accion__gte=current_month_start,
+                organizacion=org
+            ).count()
+        except ImportError:
+            registros_hoy = 0
             registros_mes = 0
 
         return Response({
             'empleados': {
                 'total': total_empleados,
                 'activos': empleados_activos,
-                'inactivos': total_empleados - empleados_activos
+                'inactivos': total_empleados - empleados_activos,
+                'cambio_porcentual': round(cambio_empleados, 1)
             },
             'cargos': {
                 'total': total_cargos,
                 'activos': cargos_activos,
                 'inactivos': total_cargos - cargos_activos
             },
+            'nominas': {
+                'procesadas_mes': nominas_mes,
+                'total_pagado_mes': float(total_nomina_mes),
+                'cambio_porcentual': round(cambio_nominas, 1)
+            },
+            'prestamos': {
+                'total': total_prestamos,
+                'activos': prestamos_activos,
+                'pendientes': prestamos_pendientes
+            },
+            'contratos': {
+                'activos': contratos_activos,
+                'por_vencer': contratos_por_vencer
+            },
             'actividad': {
+                'registros_hoy': registros_hoy,
                 'registros_mes': registros_mes,
                 'ultimo_update': timezone.now().isoformat()
             },
             'status': 'success'
         })
     except Exception as e:
+        import traceback
+        print(f"Error en dashboard_metrics: {str(e)}")
+        print(traceback.format_exc())
         return Response({
-            'empleados': {'total': 0, 'activos': 0, 'inactivos': 0},
+            'error': str(e),
+            'status': 'error',
+            'empleados': {'total': 0, 'activos': 0, 'inactivos': 0, 'cambio_porcentual': 0},
             'cargos': {'total': 0, 'activos': 0, 'inactivos': 0},
-            'actividad': {'registros_mes': 0, 'ultimo_update': timezone.now().isoformat()},
+            'nominas': {'procesadas_mes': 0, 'total_pagado_mes': 0, 'cambio_porcentual': 0},
+            'prestamos': {'total': 0, 'activos': 0, 'pendientes': 0},
+            'contratos': {'activos': 0, 'por_vencer': 0},
+            'actividad': {'registros_hoy': 0, 'registros_mes': 0, 'ultimo_update': timezone.now().isoformat()}
+        })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_recent_activity(request):
+    """API para obtener actividad reciente del sistema"""
+    try:
+        org = getattr(request.user, 'organizacion', None)
+        
+        try:
+            from core.models import LogAuditoria
+            # Obtener últimas 20 acciones
+            logs = LogAuditoria.objects.filter(
+                organizacion=org
+            ).select_related('usuario').order_by('-fecha_accion')[:20]
+            
+            actividades = []
+            for log in logs:
+                tipo_accion = 'info'
+                if 'crear' in log.accion.lower() or 'registr' in log.accion.lower():
+                    tipo_accion = 'success'
+                elif 'elimin' in log.accion.lower() or 'error' in log.accion.lower():
+                    tipo_accion = 'warning'
+                elif 'actualiz' in log.accion.lower() or 'modific' in log.accion.lower():
+                    tipo_accion = 'info'
+                
+                # Calcular tiempo relativo
+                diff = timezone.now() - log.fecha_accion
+                if diff.days > 0:
+                    tiempo = f"Hace {diff.days} día{'s' if diff.days > 1 else ''}"
+                elif diff.seconds >= 3600:
+                    horas = diff.seconds // 3600
+                    tiempo = f"Hace {horas} hora{'s' if horas > 1 else ''}"
+                elif diff.seconds >= 60:
+                    minutos = diff.seconds // 60
+                    tiempo = f"Hace {minutos} minuto{'s' if minutos > 1 else ''}"
+                else:
+                    tiempo = "Justo ahora"
+                
+                actividades.append({
+                    'id': log.id,
+                    'tipo': tipo_accion,
+                    'mensaje': f"{log.accion} - {log.modulo}",
+                    'detalle': log.descripcion or '',
+                    'usuario': log.usuario.get_full_name() if log.usuario else 'Sistema',
+                    'tiempo': tiempo,
+                    'fecha': log.fecha_accion.isoformat()
+                })
+            
+            return Response({
+                'actividades': actividades,
+                'total': len(actividades),
+                'status': 'success'
+            })
+        except ImportError:
+            return Response({
+                'actividades': [],
+                'total': 0,
+                'status': 'success'
+            })
+    except Exception as e:
+        return Response({
+            'actividades': [],
+            'total': 0,
+            'status': 'error',
+            'message': str(e)
+        })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_charts(request):
+    """API para obtener datos de gráficas avanzadas"""
+    try:
+        org = getattr(request.user, 'organizacion', None)
+        today = timezone.now()
+        
+        # Últimos 6 meses de datos
+        meses = []
+        empleados_data = []
+        nominas_data = []
+        prestamos_data = []
+        
+        for i in range(5, -1, -1):
+            mes_actual = (today - timedelta(days=30*i)).replace(day=1)
+            mes_siguiente = (mes_actual + timedelta(days=32)).replace(day=1)
+            
+            mes_nombre = mes_actual.strftime('%b')
+            meses.append(mes_nombre)
+            
+            # Empleados activos ese mes
+            try:
+                from nomina.models import Empleado
+                empleados_mes = Empleado.objects.filter(
+                    fecha_creacion__lt=mes_siguiente,
+                    activo=True,
+                    organizacion=org
+                ).count()
+                empleados_data.append(empleados_mes)
+            except ImportError:
+                empleados_data.append(0)
+            
+            # Nóminas pagadas ese mes
+            try:
+                from nomina.models import Nomina
+                nominas_mes = Nomina.objects.filter(
+                    fecha_pago__gte=mes_actual,
+                    fecha_pago__lt=mes_siguiente,
+                    organizacion=org
+                ).aggregate(total=Sum('total_pagar'))['total'] or 0
+                nominas_data.append(float(nominas_mes))
+            except ImportError:
+                nominas_data.append(0)
+            
+            # Préstamos activos ese mes
+            try:
+                from prestamos.models import Prestamo
+                prestamos_mes = Prestamo.objects.filter(
+                    fecha_solicitud__lt=mes_siguiente,
+                    estado__in=['activo', 'aprobado'],
+                    organizacion=org
+                ).count()
+                prestamos_data.append(prestamos_mes)
+            except ImportError:
+                prestamos_data.append(0)
+        
+        # Distribución por departamento
+        departamentos_data = []
+        try:
+            from nomina.models import Empleado
+            from cargos.models import Cargo
+            
+            cargos_con_empleados = Cargo.objects.filter(
+                organizacion=org
+            ).annotate(
+                num_empleados=Count('empleado')
+            ).order_by('-num_empleados')[:5]
+            
+            for cargo in cargos_con_empleados:
+                departamentos_data.append({
+                    'nombre': cargo.nombre,
+                    'empleados': cargo.num_empleados
+                })
+        except ImportError:
+            pass
+        
+        return Response({
+            'tendencias': {
+                'meses': meses,
+                'empleados': empleados_data,
+                'nominas': nominas_data,
+                'prestamos': prestamos_data
+            },
+            'departamentos': departamentos_data,
+            'status': 'success'
+        })
+    except Exception as e:
+        import traceback
+        print(f"Error en dashboard_charts: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'tendencias': {
+                'meses': [],
+                'empleados': [],
+                'nominas': [],
+                'prestamos': []
+            },
+            'departamentos': [],
             'status': 'error',
             'message': str(e)
         })

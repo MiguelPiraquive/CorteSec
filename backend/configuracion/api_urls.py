@@ -4,8 +4,11 @@ from . import api_views
 
 # Router para ViewSets
 router = DefaultRouter()
+router.register(r'general', api_views.ConfiguracionGeneralViewSet, basename='configuracion-general')
 router.register(r'parametros', api_views.ParametroSistemaViewSet)
 router.register(r'modulos', api_views.ConfiguracionModuloViewSet)
+router.register(r'seguridad', api_views.ConfiguracionSeguridadViewSet, basename='configuracion-seguridad')
+router.register(r'email', api_views.ConfiguracionEmailViewSet, basename='configuracion-email')
 
 urlpatterns = [
     # ViewSets rutas

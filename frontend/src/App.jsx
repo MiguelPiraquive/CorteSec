@@ -53,6 +53,13 @@ import PerfilPage from './pages/perfil/PerfilPage'
 // Usuarios
 import UsuariosPage from './pages/usuarios/UsuariosPage'
 
+// Configuración
+import ConfiguracionGeneralPage from './pages/configuracion/ConfiguracionGeneralPage'
+import ParametrosSistemaPage from './pages/configuracion/ParametrosSistemaPage'
+import ConfiguracionModulosPage from './pages/configuracion/ConfiguracionModulosPage'
+import ConfiguracionSeguridadPage from './pages/configuracion/ConfiguracionSeguridadPage'
+import ConfiguracionEmailPage from './pages/configuracion/ConfiguracionEmailPage'
+
 // Nómina Electrónica - COMENTADO TEMPORALMENTE
 // import { PayrollRoutes } from './routes/PayrollRoutes'
 
@@ -120,13 +127,17 @@ function App() {
                 <Route path="conceptos-laborales" element={<ConceptosLaboralesPage />} />
                 <Route path="perfil" element={<PerfilPage />} />
                 <Route path="usuarios" element={<UsuariosPage />} />
+                <Route path="configuracion" element={<ConfiguracionGeneralPage />} />
+                <Route path="parametros" element={<ParametrosSistemaPage />} />
+                <Route path="modulos" element={<ConfiguracionModulosPage />} />
+                <Route path="seguridad" element={<ConfiguracionSeguridadPage />} />
+                <Route path="email" element={<ConfiguracionEmailPage />} />
                 
                 {/* Nómina Electrónica - COMENTADO TEMPORALMENTE
                 <Route path="nomina-electronica/*" element={<PayrollRoutes />} />
                 */}
                 
                 <Route path="reportes" element={<div className="p-6"><h1 className="text-2xl font-bold">Módulo de Reportes</h1></div>} />
-                <Route path="configuracion" element={<div className="p-6"><h1 className="text-2xl font-bold">Configuración</h1></div>} />
               </Route>
 
               {/* Default Route */}

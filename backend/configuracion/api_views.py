@@ -22,17 +22,98 @@ from .models import (
     ConfiguracionGeneral,
     ParametroSistema,
     ConfiguracionModulo,
-    LogConfiguracion
+    LogConfiguracion,
+    ConfiguracionSeguridad,
+    ConfiguracionEmail
 )
 from .serializers import (
     ConfiguracionGeneralSerializer,
     ParametroSistemaSerializer,
     ConfiguracionModuloSerializer,
-    LogConfiguracionSerializer
+    LogConfiguracionSerializer,
+    ConfiguracionSeguridadSerializer,
+    ConfiguracionEmailSerializer,
+    TestEmailSerializer
 )
 from core.mixins import MultiTenantViewSetMixin
 
 logger = logging.getLogger(__name__)
+
+
+class ConfiguracionGeneralViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestionar configuración general del sistema (Singleton)"""
+    serializer_class = ConfiguracionGeneralSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'put', 'patch']  # Solo lectura y actualización (no delete ni create)
+    
+    def get_queryset(self):
+        # Siempre retorna el singleton
+        return ConfiguracionGeneral.objects.all()
+    
+    def get_object(self):
+        # Obtiene o crea el singleton
+        config, created = ConfiguracionGeneral.objects.get_or_create(pk=1, defaults={
+            'nombre_empresa': 'Mi Empresa',
+            'nit': '123456789-0',
+            'direccion': 'Dirección de la empresa',
+            'telefono': '123-456-7890',
+            'email': 'info@miempresa.com',
+        })
+        return config
+    
+    def list(self, request, *args, **kwargs):
+        """Retorna la configuración actual (siempre un único objeto)"""
+        config = self.get_object()
+        serializer = self.get_serializer(config)
+        return Response(serializer.data)
+    
+    def update(self, request, *args, **kwargs):
+        """Actualiza la configuración general"""
+        config = self.get_object()
+        serializer = self.get_serializer(config, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            # Guardar el usuario que modifica
+            serializer.save(modificado_por=request.user)
+            
+            # Log de la acción
+            LogConfiguracion.objects.create(
+                tipo_cambio='general',
+                nivel='success',
+                item_modificado='Configuración General',
+                descripcion='Configuración general actualizada',
+                usuario=request.user
+            )
+            
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['post'])
+    def test_email(self, request):
+        """Probar configuración de email"""
+        try:
+            destinatario = request.data.get('email')
+            if not destinatario:
+                return Response(
+                    {'error': 'Email destinatario requerido'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            send_mail(
+                'Test de Configuración de Email',
+                'Este es un correo de prueba desde CorteSec.',
+                settings.DEFAULT_FROM_EMAIL,
+                [destinatario],
+                fail_silently=False,
+            )
+            
+            return Response({'success': True, 'message': 'Email de prueba enviado exitosamente'})
+        except Exception as e:
+            logger.error(f"Error al enviar email de prueba: {e}")
+            return Response(
+                {'error': f'Error al enviar email: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class ParametroSistemaViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
@@ -99,6 +180,196 @@ class ConfiguracionModuloViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet)
         )
         
         return Response({'status': 'success', 'activo': modulo.activo})
+
+
+class ConfiguracionSeguridadViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestionar configuración de seguridad del sistema (Singleton)"""
+    serializer_class = ConfiguracionSeguridadSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'put', 'patch']  # Solo lectura y actualización
+    
+    def get_queryset(self):
+        return ConfiguracionSeguridad.objects.all()
+    
+    def get_object(self):
+        # Obtiene o crea el singleton
+        config, created = ConfiguracionSeguridad.objects.get_or_create(pk=1)
+        if created:
+            logger.info("ConfiguracionSeguridad creada automáticamente")
+        return config
+    
+    def list(self, request):
+        """Retorna la configuración de seguridad (singleton)"""
+        config = self.get_object()
+        serializer = self.get_serializer(config)
+        return Response(serializer.data)
+    
+    def update(self, request, *args, **kwargs):
+        """Actualizar configuración de seguridad"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # Guardar usuario que modifica
+        if request.user:
+            request.data['modificado_por'] = request.user.id
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        # Log de la acción
+        try:
+            LogConfiguracion.objects.create(
+                tipo_cambio='sistema',
+                nivel='info',
+                item_modificado='Configuración de Seguridad',
+                descripcion='Configuración de seguridad actualizada',
+                usuario=request.user
+            )
+        except Exception as e:
+            logger.warning(f"No se pudo crear log: {e}")
+        
+        return Response(serializer.data)
+
+
+class ConfiguracionEmailViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestionar configuración de email del sistema (Singleton)"""
+    serializer_class = ConfiguracionEmailSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'put', 'patch']  # Solo lectura y actualización
+    
+    def get_queryset(self):
+        return ConfiguracionEmail.objects.all()
+    
+    def get_object(self):
+        # Obtiene o crea el singleton
+        config, created = ConfiguracionEmail.objects.get_or_create(
+            pk=1,
+            defaults={
+                'servidor_smtp': 'smtp.gmail.com',
+                'puerto_smtp': 587,
+                'usuario_smtp': '',
+                'password_smtp': '',
+                'email_remitente': 'noreply@empresa.com',
+                'nombre_remitente': 'Sistema CorteSec',
+            }
+        )
+        if created:
+            logger.info("ConfiguracionEmail creada automáticamente")
+        return config
+    
+    def list(self, request):
+        """Retorna la configuración de email (singleton)"""
+        config = self.get_object()
+        serializer = self.get_serializer(config)
+        return Response(serializer.data)
+    
+    def update(self, request, *args, **kwargs):
+        """Actualizar configuración de email"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # Guardar usuario que modifica
+        if request.user:
+            request.data['modificado_por'] = request.user.id
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        # Log de la acción
+        try:
+            LogConfiguracion.objects.create(
+                tipo_cambio='sistema',
+                nivel='info',
+                item_modificado='Configuración de Email',
+                descripcion='Configuración de email actualizada',
+                usuario=request.user
+            )
+        except Exception as e:
+            logger.warning(f"No se pudo crear log: {e}")
+        
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def test_email(self, request):
+        """Envía un email de prueba con la configuración actual"""
+        config = self.get_object()
+        serializer = TestEmailSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        email_destino = serializer.validated_data['email_destino']
+        
+        try:
+            # Configurar email temporalmente
+            from django.core.mail import get_connection, EmailMessage
+            
+            connection = get_connection(
+                host=config.servidor_smtp,
+                port=config.puerto_smtp,
+                username=config.usuario_smtp,
+                password=config.password_smtp,
+                use_tls=config.usar_tls,
+                use_ssl=config.usar_ssl,
+                fail_silently=False,
+            )
+            
+            # Crear mensaje
+            subject = 'Email de Prueba - Sistema CorteSec'
+            message = f'''
+            Este es un email de prueba desde el Sistema CorteSec.
+            
+            Configuración utilizada:
+            - Servidor SMTP: {config.servidor_smtp}
+            - Puerto: {config.puerto_smtp}
+            - Usuario: {config.usuario_smtp}
+            - Remitente: {config.nombre_remitente} <{config.email_remitente}>
+            
+            Si recibes este mensaje, la configuración de email está funcionando correctamente.
+            '''
+            
+            email = EmailMessage(
+                subject=subject,
+                body=message,
+                from_email=f"{config.nombre_remitente} <{config.email_remitente}>",
+                to=[email_destino],
+                connection=connection,
+            )
+            
+            email.send()
+            
+            # Log del envío
+            LogConfiguracion.objects.create(
+                tipo_cambio='sistema',
+                nivel='success',
+                item_modificado='Test Email',
+                descripcion=f'Email de prueba enviado a {email_destino}',
+                usuario=request.user
+            )
+            
+            return Response({
+                'status': 'success',
+                'message': f'Email de prueba enviado exitosamente a {email_destino}'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error al enviar email de prueba: {str(e)}")
+            
+            # Log del error
+            LogConfiguracion.objects.create(
+                tipo_cambio='sistema',
+                nivel='error',
+                item_modificado='Test Email',
+                descripcion=f'Error al enviar email de prueba: {str(e)}',
+                usuario=request.user
+            )
+            
+            return Response({
+                'status': 'error',
+                'message': f'Error al enviar email: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])

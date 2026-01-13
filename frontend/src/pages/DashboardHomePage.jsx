@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTenant } from '../context/TenantContext'
+import dashboardService from '../services/dashboardService'
 import {
   UsersIcon,
   CreditCardIcon,
@@ -14,13 +15,47 @@ import {
   BarChart3Icon,
   ShieldCheckIcon,
   BuildingIcon,
+  BriefcaseIcon,
+  FileTextIcon,
+  Loader2Icon,
 } from 'lucide-react'
 
 const DashboardHomePage = () => {
   const { user } = useAuth()
   const { tenant } = useTenant()
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [loading, setLoading] = useState(true)
+  const [metrics, setMetrics] = useState(null)
+  const [recentActivities, setRecentActivities] = useState([])
+  const [chartData, setChartData] = useState(null)
 
+  // Cargar datos del dashboard
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true)
+        
+        // Cargar métricas, actividad reciente y datos de gráficas en paralelo
+        const [metricsData, activityData, chartsData] = await Promise.all([
+          dashboardService.getMetrics(),
+          dashboardService.getRecentActivity(10),
+          dashboardService.getCharts(),
+        ])
+
+        setMetrics(metricsData)
+        setRecentActivities(activityData.actividades || [])
+        setChartData(chartsData)
+      } catch (error) {
+        console.error('Error al cargar datos del dashboard:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDashboardData()
+  }, [])
+
+  // Actualizar reloj cada segundo
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date())
@@ -28,22 +63,77 @@ const DashboardHomePage = () => {
     return () => clearInterval(timer)
   }, [])
 
-  const stats = [
-    { title: 'Total Empleados', value: '245', change: '+12%', changeType: 'positive', icon: UsersIcon, color: 'blue', bgColor: 'bg-blue-100', iconColor: 'text-blue-600' },
-    { title: 'Nómina del Mes', value: '$125,430', change: '+8%', changeType: 'positive', icon: DollarSignIcon, color: 'green', bgColor: 'bg-green-100', iconColor: 'text-green-600' },
-    { title: 'Pagos Pendientes', value: '12', change: '-5%', changeType: 'negative', icon: ClockIcon, color: 'orange', bgColor: 'bg-orange-100', iconColor: 'text-orange-600' },
-    { title: 'Activos Hoy', value: '198', change: '+2%', changeType: 'positive', icon: ActivityIcon, color: 'purple', bgColor: 'bg-purple-100', iconColor: 'text-purple-600' },
-  ]
-
-  const recentActivities = [
-    { id: 1, type: 'success', message: 'Nómina procesada exitosamente', time: 'Hace 2 horas', icon: CheckCircleIcon },
-    { id: 2, type: 'warning', message: 'Revisión de prestaciones pendiente', time: 'Hace 4 horas', icon: AlertCircleIcon },
-    { id: 3, type: 'success', message: 'Nuevo empleado registrado: Juan Pérez', time: 'Hace 6 horas', icon: CheckCircleIcon },
-    { id: 4, type: 'info', message: 'Reporte mensual generado', time: 'Ayer', icon: TrendingUpIcon },
-  ]
-
   const formatTime = (date) => date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   const formatDate = (date) => date.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
+  const formatNumber = (num) => {
+    if (num === null || num === undefined) return '0'
+    return num.toLocaleString('es-ES')
+  }
+
+  const formatCurrency = (num) => {
+    if (num === null || num === undefined) return '$0'
+    return `$${num.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+  }
+
+  // Mapear iconos para las actividades
+  const getActivityIcon = (tipo) => {
+    if (tipo === 'success') return CheckCircleIcon
+    if (tipo === 'warning') return AlertCircleIcon
+    return ActivityIcon
+  }
+
+  // Construir stats desde las métricas reales
+  const stats = metrics ? [
+    { 
+      title: 'Total Empleados', 
+      value: formatNumber(metrics.empleados?.total || 0), 
+      change: metrics.empleados?.cambio_porcentual ? `${metrics.empleados.cambio_porcentual > 0 ? '+' : ''}${metrics.empleados.cambio_porcentual.toFixed(1)}%` : '0%',
+      changeType: (metrics.empleados?.cambio_porcentual || 0) >= 0 ? 'positive' : 'negative', 
+      icon: UsersIcon, 
+      bgColor: 'bg-blue-100', 
+      iconColor: 'text-blue-600' 
+    },
+    { 
+      title: 'Nómina del Mes', 
+      value: formatCurrency(metrics.nominas?.total_pagado_mes || 0), 
+      change: metrics.nominas?.cambio_porcentual ? `${metrics.nominas.cambio_porcentual > 0 ? '+' : ''}${metrics.nominas.cambio_porcentual.toFixed(1)}%` : '0%',
+      changeType: (metrics.nominas?.cambio_porcentual || 0) >= 0 ? 'positive' : 'negative', 
+      icon: DollarSignIcon, 
+      bgColor: 'bg-green-100', 
+      iconColor: 'text-green-600' 
+    },
+    { 
+      title: 'Préstamos Activos', 
+      value: formatNumber(metrics.prestamos?.activos || 0), 
+      change: `${formatNumber(metrics.prestamos?.pendientes || 0)} pendientes`,
+      changeType: 'neutral', 
+      icon: CreditCardIcon, 
+      bgColor: 'bg-orange-100', 
+      iconColor: 'text-orange-600' 
+    },
+    { 
+      title: 'Contratos Activos', 
+      value: formatNumber(metrics.contratos?.activos || 0), 
+      change: `${formatNumber(metrics.contratos?.por_vencer || 0)} por vencer`,
+      changeType: (metrics.contratos?.por_vencer || 0) > 0 ? 'warning' : 'positive', 
+      icon: FileTextIcon, 
+      bgColor: 'bg-purple-100', 
+      iconColor: 'text-purple-600' 
+    },
+  ] : []
+
+  // Si está cargando, mostrar indicador
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <Loader2Icon className="w-16 h-16 text-primary-600 animate-spin mx-auto mb-4" />
+          <p className="text-lg font-semibold text-gray-600">Cargando dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
@@ -72,6 +162,7 @@ const DashboardHomePage = () => {
         </div>
       </div>
 
+      {/* Cards de estadísticas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => {
           const Icon = stat.icon
@@ -84,7 +175,15 @@ const DashboardHomePage = () => {
                   <div className={`${stat.bgColor} p-3.5 rounded-xl shadow-lg transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300`}>
                     <Icon className={`w-7 h-7 ${stat.iconColor}`} />
                   </div>
-                  <span className={`text-sm font-bold px-3 py-1.5 rounded-full shadow-md ${stat.changeType === 'positive' ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' : 'bg-gradient-to-r from-red-400 to-rose-500 text-white'}`}>
+                  <span className={`text-sm font-bold px-3 py-1.5 rounded-full shadow-md ${
+                    stat.changeType === 'positive' 
+                      ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' 
+                      : stat.changeType === 'negative'
+                      ? 'bg-gradient-to-r from-red-400 to-rose-500 text-white'
+                      : stat.changeType === 'warning'
+                      ? 'bg-gradient-to-r from-orange-400 to-amber-500 text-white'
+                      : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white'
+                  }`}>
                     {stat.change}
                   </span>
                 </div>
@@ -96,6 +195,7 @@ const DashboardHomePage = () => {
         })}
       </div>
 
+      {/* Actividad reciente y acciones rápidas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-xl p-7 border border-gray-200/50">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
@@ -105,20 +205,44 @@ const DashboardHomePage = () => {
             Actividad Reciente
           </h2>
           <div className="space-y-3">
-            {recentActivities.map((activity) => {
-              const Icon = activity.icon
-              return (
-                <div key={activity.id} className="group flex items-start space-x-4 p-4 rounded-xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all duration-300 border border-transparent hover:border-gray-200/50 hover:shadow-md cursor-pointer">
-                  <div className={`p-2.5 rounded-xl shadow-md transform group-hover:scale-110 transition-transform ${activity.type === 'success' ? 'bg-gradient-to-br from-green-400 to-emerald-500' : activity.type === 'warning' ? 'bg-gradient-to-br from-orange-400 to-amber-500' : 'bg-gradient-to-br from-blue-400 to-cyan-500'}`}>
-                    <Icon className="w-5 h-5 text-white" />
+            {recentActivities.length > 0 ? (
+              recentActivities.map((activity) => {
+                const Icon = getActivityIcon(activity.tipo)
+                return (
+                  <div key={activity.id} className="group flex items-start space-x-4 p-4 rounded-xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all duration-300 border border-transparent hover:border-gray-200/50 hover:shadow-md cursor-pointer">
+                    <div className={`p-2.5 rounded-xl shadow-md transform group-hover:scale-110 transition-transform ${
+                      activity.tipo === 'success' 
+                        ? 'bg-gradient-to-br from-green-400 to-emerald-500' 
+                        : activity.tipo === 'warning' 
+                        ? 'bg-gradient-to-br from-orange-400 to-amber-500' 
+                        : 'bg-gradient-to-br from-blue-400 to-cyan-500'
+                    }`}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">{activity.mensaje}</p>
+                      {activity.detalle && (
+                        <p className="text-xs text-gray-600 mt-1">{activity.detalle}</p>
+                      )}
+                      <div className="flex items-center space-x-2 mt-1.5">
+                        <p className="text-xs text-gray-500 font-medium">{activity.tiempo}</p>
+                        {activity.usuario && (
+                          <>
+                            <span className="text-gray-400">•</span>
+                            <p className="text-xs text-gray-500 font-medium">{activity.usuario}</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">{activity.message}</p>
-                    <p className="text-xs text-gray-500 mt-1.5 font-medium">{activity.time}</p>
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })
+            ) : (
+              <div className="text-center py-8">
+                <ActivityIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">No hay actividad reciente</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -177,6 +301,60 @@ const DashboardHomePage = () => {
         </div>
       </div>
 
+      {/* Estadísticas adicionales */}
+      {metrics && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg p-6 border border-gray-200/50">
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-blue-100 p-3.5 rounded-xl shadow-lg">
+                <BriefcaseIcon className="w-7 h-7 text-blue-600" />
+              </div>
+            </div>
+            <h3 className="text-gray-600 text-sm font-semibold mb-2">Total Cargos</h3>
+            <p className="text-3xl font-bold text-gray-900">{formatNumber(metrics.cargos?.total || 0)}</p>
+            <p className="text-sm text-gray-500 mt-2">
+              <span className="font-semibold text-green-600">{formatNumber(metrics.cargos?.activos || 0)}</span> activos
+            </p>
+          </div>
+
+          <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg p-6 border border-gray-200/50">
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-green-100 p-3.5 rounded-xl shadow-lg">
+                <FileTextIcon className="w-7 h-7 text-green-600" />
+              </div>
+            </div>
+            <h3 className="text-gray-600 text-sm font-semibold mb-2">Nóminas Procesadas</h3>
+            <p className="text-3xl font-bold text-gray-900">{formatNumber(metrics.nominas?.procesadas_mes || 0)}</p>
+            <p className="text-sm text-gray-500 mt-2">Este mes</p>
+          </div>
+
+          <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg p-6 border border-gray-200/50">
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-orange-100 p-3.5 rounded-xl shadow-lg">
+                <DollarSignIcon className="w-7 h-7 text-orange-600" />
+              </div>
+            </div>
+            <h3 className="text-gray-600 text-sm font-semibold mb-2">Préstamos Totales</h3>
+            <p className="text-3xl font-bold text-gray-900">{formatNumber(metrics.prestamos?.total || 0)}</p>
+            <p className="text-sm text-gray-500 mt-2">
+              <span className="font-semibold text-orange-600">{formatNumber(metrics.prestamos?.pendientes || 0)}</span> pendientes
+            </p>
+          </div>
+
+          <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg p-6 border border-gray-200/50">
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-purple-100 p-3.5 rounded-xl shadow-lg">
+                <ActivityIcon className="w-7 h-7 text-purple-600" />
+              </div>
+            </div>
+            <h3 className="text-gray-600 text-sm font-semibold mb-2">Actividad del Sistema</h3>
+            <p className="text-3xl font-bold text-gray-900">{formatNumber(metrics.actividad?.registros_hoy || 0)}</p>
+            <p className="text-sm text-gray-500 mt-2">Registros hoy</p>
+          </div>
+        </div>
+      )}
+
+      {/* Cards de información del sistema */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="group relative overflow-hidden backdrop-blur-xl bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-600 rounded-2xl shadow-xl p-7 text-white border border-white/20 hover:scale-105 hover:shadow-2xl transition-all duration-500 cursor-pointer">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
