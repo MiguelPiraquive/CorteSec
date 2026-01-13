@@ -63,6 +63,12 @@ class EmpleadoListSerializer(serializers.ModelSerializer):
     contrato_activo = serializers.SerializerMethodField()
     cargo_actual = serializers.SerializerMethodField()
     
+    # Información de usuario vinculado
+    tiene_usuario = serializers.SerializerMethodField()
+    usuario_id = serializers.PrimaryKeyRelatedField(source='usuario', read_only=True)
+    email_usuario = serializers.SerializerMethodField()
+    username_usuario = serializers.SerializerMethodField()
+    
     # Campos anidados para departamento y ciudad
     departamento_detail = DepartamentoSerializer(source='departamento', read_only=True)
     ciudad_detail = MunicipioSerializer(source='ciudad', read_only=True)
@@ -78,11 +84,15 @@ class EmpleadoListSerializer(serializers.ModelSerializer):
         model = Empleado
         fields = [
             'id', 'tipo_documento', 'numero_documento',
-            'nombre_completo', 'primer_nombre', 'primer_apellido',
-            'email', 'telefono', 'estado', 'fecha_ingreso',
+            'nombre_completo', 'primer_nombre', 'segundo_nombre', 
+            'primer_apellido', 'segundo_apellido',
+            'email', 'telefono', 'direccion', 'estado', 'fecha_ingreso', 'fecha_retiro',
             'genero', 'fecha_nacimiento', 'departamento', 'ciudad', 'foto',
+            'banco', 'tipo_cuenta', 'numero_cuenta', 'observaciones',
             'departamento_detail', 'ciudad_detail',
             'contrato_activo', 'cargo_actual',
+            # Usuario vinculado
+            'usuario', 'tiene_usuario', 'usuario_id', 'email_usuario', 'username_usuario',
             # Aliases
             'nombres', 'apellidos', 'documento', 'correo', 'municipio',
         ]
@@ -105,6 +115,18 @@ class EmpleadoListSerializer(serializers.ModelSerializer):
                 'cargo': contrato.cargo,
             }
         return None
+    
+    def get_tiene_usuario(self, obj):
+        """Indica si el empleado tiene usuario vinculado"""
+        return obj.tiene_acceso_sistema
+    
+    def get_email_usuario(self, obj):
+        """Retorna el email del usuario vinculado"""
+        return obj.usuario.email if obj.usuario else None
+    
+    def get_username_usuario(self, obj):
+        """Retorna el username del usuario vinculado"""
+        return obj.usuario.username if obj.usuario else None
 
 
 class EmpleadoDetailSerializer(serializers.ModelSerializer):
@@ -113,6 +135,13 @@ class EmpleadoDetailSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.CharField(read_only=True)
     contrato_activo = serializers.SerializerMethodField()
     cargo_actual = serializers.SerializerMethodField()
+    
+    # Información de usuario vinculado
+    tiene_usuario = serializers.SerializerMethodField()
+    usuario_id = serializers.PrimaryKeyRelatedField(source='usuario', read_only=True)
+    email_usuario = serializers.SerializerMethodField()
+    username_usuario = serializers.SerializerMethodField()
+    perfil_datos = serializers.SerializerMethodField()
     
     # Campos anidados para departamento y ciudad
     departamento_detail = DepartamentoSerializer(source='departamento', read_only=True)
@@ -137,6 +166,8 @@ class EmpleadoDetailSerializer(serializers.ModelSerializer):
             'banco', 'tipo_cuenta', 'numero_cuenta',
             'foto', 'observaciones', 'contrato_activo', 'cargo_actual',
             'created_at', 'updated_at',
+            # Usuario vinculado
+            'usuario', 'tiene_usuario', 'usuario_id', 'email_usuario', 'username_usuario', 'perfil_datos',
             # Aliases
             'nombres', 'apellidos', 'documento', 'correo', 'municipio',
         ]
@@ -155,6 +186,34 @@ class EmpleadoDetailSerializer(serializers.ModelSerializer):
         if contrato:
             return ContratoSerializer(contrato).data
         return None
+    
+    def get_tiene_usuario(self, obj):
+        """Indica si el empleado tiene usuario vinculado"""
+        return obj.tiene_acceso_sistema
+    
+    def get_email_usuario(self, obj):
+        """Retorna el email del usuario vinculado"""
+        return obj.usuario.email if obj.usuario else None
+    
+    def get_username_usuario(self, obj):
+        """Retorna el username del usuario vinculado"""
+        return obj.usuario.username if obj.usuario else None
+    
+    def get_perfil_datos(self, obj):
+        """Retorna datos básicos del perfil del usuario si existe"""
+        if obj.perfil:
+            return {
+                'telefono': obj.perfil.telefono,
+                'direccion_residencia': obj.perfil.direccion_residencia,
+                'ciudad_residencia': obj.perfil.ciudad_residencia,
+                'banco': obj.perfil.banco,
+                'tipo_cuenta': obj.perfil.tipo_cuenta,
+                'numero_cuenta': obj.perfil.numero_cuenta,
+                'numero_cedula': obj.perfil.numero_cedula,
+                'fecha_nacimiento': obj.perfil.fecha_nacimiento,
+                'profesion': obj.perfil.profesion,
+            }
+        return None
 
 
 class EmpleadoCreateSerializer(serializers.ModelSerializer):
@@ -170,6 +229,8 @@ class EmpleadoCreateSerializer(serializers.ModelSerializer):
             'estado', 'fecha_ingreso', 'fecha_retiro',
             'banco', 'tipo_cuenta', 'numero_cuenta',
             'foto', 'observaciones',
+            # Usuario vinculado (opcional)
+            'usuario',
         ]
     
     def validate_numero_documento(self, value):

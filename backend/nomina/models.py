@@ -21,6 +21,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator, RegexVa
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
+from django.conf import settings
 from decimal import Decimal, ROUND_HALF_UP
 import uuid
 
@@ -64,6 +65,17 @@ class Empleado(TenantAwareModel):
         primary_key=True,
         default=uuid.uuid4,
         editable=False
+    )
+    
+    # Relación opcional con usuario del sistema
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='empleado',
+        verbose_name='Usuario del Sistema',
+        help_text='Si el empleado tiene acceso al sistema, enlazar con su usuario'
     )
     
     # Identificación
@@ -198,6 +210,23 @@ class Empleado(TenantAwareModel):
     def contrato_activo(self):
         """Retorna el contrato activo del empleado"""
         return self.contratos.filter(activo=True).first()
+    
+    @property
+    def perfil(self):
+        """
+        Acceso al perfil del usuario si está vinculado.
+        
+        Returns:
+            Perfil o None
+        """
+        if self.usuario and hasattr(self.usuario, 'perfil'):
+            return self.usuario.perfil
+        return None
+    
+    @property
+    def tiene_acceso_sistema(self):
+        """Indica si el empleado tiene acceso al sistema"""
+        return self.usuario is not None
 
 
 # ══════════════════════════════════════════════════════════════════════════════

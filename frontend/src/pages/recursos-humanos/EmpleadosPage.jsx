@@ -3,6 +3,7 @@ import useAudit from '../../hooks/useAudit'
 import empleadosService from '../../services/empleadosService'
 import cargosService from '../../services/cargosService'
 import locationsService from '../../services/locationsService'
+import usuariosService from '../../services/usuariosService'
 import {
   UsersIcon,
   PlusIcon,
@@ -27,6 +28,7 @@ const EmpleadosPage = () => {
   const [cargos, setCargos] = useState([])
   const [departamentos, setDepartamentos] = useState([])
   const [municipios, setMunicipios] = useState([])
+  const [usuarios, setUsuarios] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCargo, setFilterCargo] = useState('')
@@ -59,6 +61,7 @@ const EmpleadosPage = () => {
     tipo_cuenta: '',
     numero_cuenta: '',
     observaciones: '',
+    usuario: '', // Usuario vinculado opcional
   })
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
@@ -75,16 +78,18 @@ const EmpleadosPage = () => {
     try {
       setLoading(true)
       console.log('🔄 Recargando datos...')
-      const [empleadosData, cargosData, departamentosData] = await Promise.all([
+      const [empleadosData, cargosData, departamentosData, usuariosData] = await Promise.all([
         empleadosService.getAllEmpleados(),
         cargosService.getAllCargos(),
         locationsService.getSimpleDepartamentos(),
+        usuariosService.getUsuarios({ is_active: true }).catch(() => []),
       ])
       console.log('👥 Empleados recibidos:', empleadosData)
       console.log('📊 Cantidad:', Array.isArray(empleadosData) ? empleadosData.length : 'No es array')
       setEmpleados(empleadosData)
       setCargos(cargosData.filter(c => c.activo))
       setDepartamentos(departamentosData)
+      setUsuarios(Array.isArray(usuariosData) ? usuariosData : usuariosData.results || [])
     } catch (error) {
       showNotification('error', 'Error al cargar datos')
       console.error('❌ Error:', error)
@@ -114,6 +119,10 @@ const EmpleadosPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      console.log('🔎 FormData actual antes de enviar:', formData)
+      console.log('🔎 formData.foto:', formData.foto)
+      console.log('🔎 Es File?:', formData.foto instanceof File)
+      
       // Si hay foto, usar FormData, sino JSON normal
       let dataToSend
       
@@ -140,9 +149,10 @@ const EmpleadosPage = () => {
         dataToSend.append('tipo_cuenta', formData.tipo_cuenta || '')
         dataToSend.append('numero_cuenta', formData.numero_cuenta || '')
         dataToSend.append('observaciones', formData.observaciones || '')
+        if (formData.usuario) dataToSend.append('usuario', formData.usuario)
         dataToSend.append('foto', formData.foto)
       } else {
-        // JSON normal sin foto
+        // JSON normal sin foto nueva - NO incluir campo foto
         dataToSend = {
           tipo_documento: formData.tipo_documento,
           numero_documento: formData.numero_documento,
@@ -164,6 +174,8 @@ const EmpleadosPage = () => {
           tipo_cuenta: formData.tipo_cuenta || '',
           numero_cuenta: formData.numero_cuenta || '',
           observaciones: formData.observaciones || '',
+          usuario: formData.usuario || null,
+          // NO enviar foto: null - backend lo rechaza
         }
       }
 
@@ -183,8 +195,9 @@ const EmpleadosPage = () => {
       resetForm()
       await loadInitialData()
     } catch (error) {
-      showNotification('error', error.response?.data?.message || 'Error al guardar empleado')
       console.error('❌ Error guardando:', error)
+      console.error('📋 Detalle del error:', error.response?.data)
+      showNotification('error', error.response?.data?.message || 'Error al guardar empleado')
     }
   }
 
@@ -269,6 +282,101 @@ const EmpleadosPage = () => {
     }
   }
 
+  const handleUsuarioChange = async (e) => {
+    const usuarioId = e.target.value
+    
+    if (!usuarioId) {
+      setFormData({ ...formData, usuario: '' })
+      return
+    }
+    
+    try {
+      // Obtener datos del usuario con su perfil
+      const usuario = await usuariosService.getUsuario(usuarioId)
+      console.log('👤 Usuario seleccionado:', usuario)
+      
+      // Autocompletar datos desde el perfil si existen
+      if (usuario.perfil_detalle) {
+        const perfil = usuario.perfil_detalle
+        const newFormData = { ...formData, usuario: usuarioId }
+        
+        // Autocompletar nombres y apellidos desde el usuario
+        if (!formData.primer_nombre && perfil.first_name) {
+          const nombres = perfil.first_name.trim().split(' ')
+          newFormData.primer_nombre = nombres[0] || ''
+          newFormData.segundo_nombre = nombres.slice(1).join(' ') || ''
+        }
+        
+        if (!formData.primer_apellido && perfil.last_name) {
+          const apellidos = perfil.last_name.trim().split(' ')
+          newFormData.primer_apellido = apellidos[0] || ''
+          newFormData.segundo_apellido = apellidos.slice(1).join(' ') || ''
+        }
+        
+        // Autocompletar género
+        if (!formData.genero && perfil.genero) {
+          // Convertir género del perfil al formato del empleado
+          const generoMap = {
+            'masculino': 'M',
+            'femenino': 'F',
+            'otro': 'O'
+          }
+          newFormData.genero = generoMap[perfil.genero.toLowerCase()] || ''
+        }
+        
+        // Autocompletar otros campos del perfil
+        if (!formData.email && usuario.email) newFormData.email = usuario.email
+        if (!formData.telefono && perfil.telefono) newFormData.telefono = perfil.telefono
+        if (!formData.direccion && perfil.direccion_residencia) newFormData.direccion = perfil.direccion_residencia
+        if (!formData.fecha_nacimiento && perfil.fecha_nacimiento) newFormData.fecha_nacimiento = perfil.fecha_nacimiento
+        if (!formData.numero_documento && perfil.numero_cedula) newFormData.numero_documento = perfil.numero_cedula
+        if (!formData.banco && perfil.banco) newFormData.banco = perfil.banco
+        if (!formData.tipo_cuenta && perfil.tipo_cuenta) newFormData.tipo_cuenta = perfil.tipo_cuenta
+        if (!formData.numero_cuenta && perfil.numero_cuenta) newFormData.numero_cuenta = perfil.numero_cuenta
+        
+        // Autocompletar departamento y ciudad por nombre
+        if (!formData.departamento && perfil.departamento_residencia) {
+          const depNombre = perfil.departamento_residencia.toUpperCase()
+          const depEncontrado = departamentos.find(d => d.nombre.toUpperCase() === depNombre)
+          if (depEncontrado) {
+            newFormData.departamento = depEncontrado.id
+            
+            // Cargar municipios del departamento
+            try {
+              const municipiosData = await locationsService.getMunicipiosByDepartamento(depEncontrado.id)
+              setMunicipios(municipiosData)
+              
+              // Buscar ciudad
+              if (perfil.ciudad_residencia) {
+                const ciudadNombre = perfil.ciudad_residencia.toUpperCase()
+                const ciudadEncontrada = municipiosData.find(m => m.nombre.toUpperCase() === ciudadNombre)
+                if (ciudadEncontrada) {
+                  newFormData.ciudad = ciudadEncontrada.id
+                }
+              }
+            } catch (error) {
+              console.error('Error cargando municipios:', error)
+            }
+          }
+        }
+        
+        console.log('📋 FormData antes:', formData)
+        console.log('✨ FormData después:', newFormData)
+        
+        setFormData(newFormData)
+        showNotification('success', '✨ Datos autocompletados desde el perfil del usuario')
+      } else {
+        // Solo actualizar el usuario si no hay perfil
+        setFormData({ ...formData, usuario: usuarioId })
+        console.log('⚠️ Usuario sin perfil detallado')
+      }
+    } catch (error) {
+      console.error('❌ Error al cargar usuario:', error)
+      showNotification('error', 'Error al cargar datos del usuario')
+      setFormData({ ...formData, usuario: usuarioId })
+    }
+  }
+
   const resetForm = () => {
     setFormData({
       tipo_documento: 'CC',
@@ -292,6 +400,7 @@ const EmpleadosPage = () => {
       tipo_cuenta: '',
       numero_cuenta: '',
       observaciones: '',
+      usuario: '',
     })
     setMunicipios([])
     setEditingEmpleado(null)
@@ -300,10 +409,9 @@ const EmpleadosPage = () => {
   }
 
   const filteredEmpleados = empleados.filter(emp => {
-    const matchSearch = emp.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.documento.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchCargo = !filterCargo || emp.cargo?.id === filterCargo
+    const matchSearch = (emp.nombre_completo?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (emp.numero_documento?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+    const matchCargo = !filterCargo || emp.cargo_actual === filterCargo
     const matchGenero = !filterGenero || emp.genero === filterGenero
     return matchSearch && matchCargo && matchGenero
   })
@@ -432,18 +540,30 @@ const EmpleadosPage = () => {
                   <CalendarIcon className="w-4 h-4 text-orange-600" />
                   <span className="text-gray-700">{getGeneroLabel(empleado.genero)}</span>
                 </div>
-                <div className="pt-2 mt-2 border-t border-gray-200 flex justify-between items-center">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${empleado.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {empleado.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                  <div className="flex space-x-1">
-                    <button onClick={() => handleEdit(empleado)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all">
-                      <EditIcon className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleDelete(empleado.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all">
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
+                <div className="pt-2 mt-2 border-t border-gray-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
+                      empleado.estado === 'activo' ? 'bg-green-100 text-green-700' : 
+                      empleado.estado === 'retirado' ? 'bg-gray-100 text-gray-700' : 
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {empleado.estado === 'activo' ? 'Activo' : empleado.estado === 'inactivo' ? 'Inactivo' : 'Retirado'}
+                    </span>
+                    <div className="flex space-x-1">
+                      <button onClick={() => handleEdit(empleado)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all">
+                        <EditIcon className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(empleado.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all">
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
+                  {empleado.tiene_usuario && (
+                    <div className="flex items-center justify-center space-x-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">
+                      <CheckIcon className="w-3 h-3" />
+                      <span>Acceso al Sistema</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -527,6 +647,35 @@ const EmpleadosPage = () => {
                   </label>
                 </div>
                 <p className="text-sm text-gray-600">Click para cargar foto del empleado</p>
+              </div>
+
+              {/* Vinculación con Usuario del Sistema */}
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <UserCircleIcon className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-semibold text-blue-900">Vinculación con Usuario del Sistema (Opcional)</h3>
+                </div>
+                <p className="text-sm text-blue-700 mb-3">
+                  Si el empleado necesita acceso al sistema, vincúlalo con un usuario existente. Los datos del perfil se autocompletarán automáticamente.
+                </p>
+                <select 
+                  value={formData.usuario} 
+                  onChange={handleUsuarioChange}
+                  className="w-full px-4 py-3 bg-white border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 transition-all"
+                >
+                  <option value="">Seleccionar usuario (opcional)</option>
+                  {usuarios.map(usuario => (
+                    <option key={usuario.id} value={usuario.id}>
+                      {usuario.first_name} {usuario.last_name} ({usuario.email})
+                    </option>
+                  ))}
+                </select>
+                {formData.usuario && (
+                  <div className="mt-3 flex items-center space-x-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold">
+                    <CheckIcon className="w-4 h-4" />
+                    <span>✨ Este empleado tendrá acceso al sistema</span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

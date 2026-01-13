@@ -137,14 +137,24 @@ class UserDetailSerializer(serializers.ModelSerializer):
         return permisos
     
     def get_tiene_perfil(self, obj):
-        return hasattr(obj, 'profile') and obj.profile is not None
+        return hasattr(obj, 'perfil') and obj.perfil is not None
     
     def get_perfil_detalle(self, obj):
-        if hasattr(obj, 'profile') and obj.profile:
+        """Obtener datos completos del perfil para autocompletar empleados"""
+        if hasattr(obj, 'perfil') and obj.perfil:
+            perfil = obj.perfil
             return {
-                'id': obj.profile.id,
-                'numero_asociado': getattr(obj.profile, 'numero_asociado', None),
-                'tipo_asociado': getattr(obj.profile, 'tipo_asociado', None)
+                'id': perfil.id,
+                'telefono': perfil.telefono or '',
+                'direccion_residencia': perfil.direccion_residencia or '',
+                'ciudad_residencia': perfil.ciudad_residencia or '',
+                'banco': perfil.banco or '',
+                'tipo_cuenta': perfil.tipo_cuenta or '',
+                'numero_cuenta': perfil.numero_cuenta or '',
+                'numero_cedula': perfil.numero_cedula or '',
+                'fecha_nacimiento': perfil.fecha_nacimiento.isoformat() if perfil.fecha_nacimiento else '',
+                'profesion': perfil.profesion or '',
+                'foto': perfil.foto.url if perfil.foto else None,
             }
         return None
     

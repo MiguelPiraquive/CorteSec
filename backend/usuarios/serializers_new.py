@@ -49,6 +49,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.SerializerMethodField()
     roles = serializers.SerializerMethodField()
     permisos = serializers.SerializerMethodField()
+    perfil_detalle = serializers.SerializerMethodField()
     organization_name = serializers.CharField(source='organization.nombre', read_only=True)
     
     class Meta:
@@ -60,7 +61,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'is_active', 'is_staff', 'is_superuser',
             'email_verified', 'two_factor_enabled',
             'organization', 'organization_name', 'organization_role',
-            'roles', 'permisos',
+            'roles', 'permisos', 'perfil_detalle',
             'last_login', 'date_joined', 'updated_at',
             'last_ip', 'last_location', 'failed_login_attempts'
         ]
@@ -101,6 +102,30 @@ class UserDetailSerializer(serializers.ModelSerializer):
                     })
         
         return permisos
+    
+    def get_perfil_detalle(self, obj):
+        """Obtener datos completos del perfil para autocompletar empleados"""
+        if hasattr(obj, 'perfil') and obj.perfil:
+            perfil = obj.perfil
+            return {
+                'id': perfil.id,
+                'telefono': perfil.telefono or '',
+                'direccion_residencia': perfil.direccion_residencia or '',
+                'ciudad_residencia': perfil.ciudad_residencia or '',
+                'departamento_residencia': perfil.departamento_residencia or '',
+                'genero': perfil.genero or '',
+                'banco': perfil.banco or '',
+                'tipo_cuenta': perfil.tipo_cuenta or '',
+                'numero_cuenta': perfil.numero_cuenta or '',
+                'numero_cedula': perfil.numero_cedula or '',
+                'fecha_nacimiento': perfil.fecha_nacimiento.isoformat() if perfil.fecha_nacimiento else '',
+                'profesion': perfil.profesion or '',
+                'foto': perfil.foto.url if perfil.foto else None,
+                # Datos del usuario
+                'first_name': obj.first_name or '',
+                'last_name': obj.last_name or '',
+            }
+        return None
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

@@ -32,6 +32,8 @@ import {
   WebhookIcon,
   LineChartIcon,
   ReceiptIcon,
+  FileSignatureIcon,
+  ScaleIcon,
 } from 'lucide-react'
 
 const DashboardLayout = () => {
@@ -73,7 +75,11 @@ const DashboardLayout = () => {
       submenu: [
         { name: 'Empleados', path: '/dashboard/empleados', icon: UsersIcon },
         { name: 'Cargos', path: '/dashboard/cargos', icon: BriefcaseIcon },
+        { name: 'Tipos de Contrato', path: '/dashboard/tipos-contrato', icon: FileTextIcon },
+        { name: 'Contratos', path: '/dashboard/contratos', icon: FileSignatureIcon },
         { name: 'Nómina', path: '/dashboard/nomina', icon: CreditCardIcon },
+        { name: 'Conceptos Laborales', path: '/dashboard/conceptos-laborales', icon: DollarSignIcon },
+        { name: 'Parámetros Legales', path: '/dashboard/parametros-legales', icon: ScaleIcon },
       ]
     },
     { 
@@ -101,6 +107,7 @@ const DashboardLayout = () => {
       path: '/dashboard/items', 
       color: 'text-orange-600' 
     },
+    /* COMENTADO TEMPORALMENTE - Nómina Electrónica
     { 
       name: 'Nómina Electrónica', 
       icon: FileCheckIcon, 
@@ -118,6 +125,7 @@ const DashboardLayout = () => {
         { name: 'Reportes', path: '/dashboard/nomina-electronica/reportes', icon: ReceiptIcon },
       ]
     },
+    */
     { 
       name: 'Reportes', 
       icon: BarChart3Icon, 

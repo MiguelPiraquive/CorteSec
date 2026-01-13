@@ -22,6 +22,8 @@ import DashboardHomePage from './pages/DashboardHomePage'
 // Recursos Humanos
 import EmpleadosPage from './pages/recursos-humanos/EmpleadosPage'
 import CargosPage from './pages/recursos-humanos/CargosPage'
+import TiposContratoPage from './pages/recursos-humanos/TiposContratoPage'
+import ContratosPage from './pages/recursos-humanos/ContratosPage'
 
 // Ubicaciones
 import DepartamentosPage from './pages/ubicaciones/DepartamentosPage'
@@ -42,6 +44,8 @@ import AuditoriaUnificadoPage from './pages/auditoria/AuditoriaUnificadoPage'
 
 // Nómina
 import NominaPage from './pages/nomina/NominaPage'
+import ParametrosLegalesPage from './pages/nomina/ParametrosLegalesPage'
+import ConceptosLaboralesPage from './pages/nomina/ConceptosLaboralesPage'
 
 // Perfil
 import PerfilPage from './pages/perfil/PerfilPage'
@@ -49,8 +53,8 @@ import PerfilPage from './pages/perfil/PerfilPage'
 // Usuarios
 import UsuariosPage from './pages/usuarios/UsuariosPage'
 
-// Nómina Electrónica
-import { PayrollRoutes } from './routes/PayrollRoutes'
+// Nómina Electrónica - COMENTADO TEMPORALMENTE
+// import { PayrollRoutes } from './routes/PayrollRoutes'
 
 function App() {
   return (
@@ -100,6 +104,8 @@ function App() {
                 <Route index element={<DashboardHomePage />} />
                 <Route path="empleados" element={<EmpleadosPage />} />
                 <Route path="cargos" element={<CargosPage />} />
+                <Route path="tipos-contrato" element={<TiposContratoPage />} />
+                <Route path="contratos" element={<ContratosPage />} />
                 <Route path="items" element={<ItemsPage />} />
                 <Route path="prestamos" element={<PrestamosPage />} />
                 <Route path="tipos-prestamo" element={<TiposPrestamoPage />} />
@@ -110,11 +116,14 @@ function App() {
                 <Route path="departamentos" element={<DepartamentosPage />} />
                 <Route path="municipios" element={<MunicipiosPage />} />
                 <Route path="nomina" element={<NominaPage />} />
+                <Route path="parametros-legales" element={<ParametrosLegalesPage />} />
+                <Route path="conceptos-laborales" element={<ConceptosLaboralesPage />} />
                 <Route path="perfil" element={<PerfilPage />} />
                 <Route path="usuarios" element={<UsuariosPage />} />
                 
-                {/* Nómina Electrónica - Todas las rutas */}
+                {/* Nómina Electrónica - COMENTADO TEMPORALMENTE
                 <Route path="nomina-electronica/*" element={<PayrollRoutes />} />
+                */}
                 
                 <Route path="reportes" element={<div className="p-6"><h1 className="text-2xl font-bold">Módulo de Reportes</h1></div>} />
                 <Route path="configuracion" element={<div className="p-6"><h1 className="text-2xl font-bold">Configuración</h1></div>} />

@@ -54,22 +54,26 @@ const empleadosService = {
   },
 
   updateEmpleado: async (id, data) => {
-    // Si hay foto nueva, usar FormData
-    if (data.foto && data.foto instanceof File) {
-      const formData = new FormData()
-      Object.keys(data).forEach(key => {
-        if (data[key] !== null && data[key] !== undefined && data[key] !== '') {
-          formData.append(key, data[key])
-        }
-      })
-      const response = await api.put(`/api/nomina/empleados/${id}/`, formData, {
+    console.log('📤 updateEmpleado recibió data:', data)
+    console.log('📸 Es FormData?:', data instanceof FormData)
+    
+    // Si data ya es FormData (viene con foto nueva), enviar directo
+    if (data instanceof FormData) {
+      console.log('✅ Enviando FormData con foto')
+      const response = await api.put(`/api/nomina/empleados/${id}/`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       return response.data
-    } else {
-      const response = await api.put(`/api/nomina/empleados/${id}/`, data)
-      return response.data
     }
+    
+    // Si no es FormData, es JSON normal - eliminar campo foto si existe
+    const cleanData = { ...data }
+    if ('foto' in cleanData) {
+      delete cleanData.foto
+    }
+    console.log('📤 Enviando JSON (sin foto):', cleanData)
+    const response = await api.put(`/api/nomina/empleados/${id}/`, cleanData)
+    return response.data
   },
 
   deleteEmpleado: async (id) => {
