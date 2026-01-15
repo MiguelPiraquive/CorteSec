@@ -274,6 +274,7 @@ class ContratoSerializer(serializers.ModelSerializer):
     
     empleado_nombre = serializers.CharField(source='empleado.nombre_completo', read_only=True)
     tipo_contrato_nombre = serializers.CharField(source='tipo_contrato.nombre', read_only=True)
+    cargo_nombre = serializers.CharField(source='cargo.nombre', read_only=True)
     ibc = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     
     class Meta:
@@ -281,7 +282,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'empleado', 'empleado_nombre',
             'tipo_contrato', 'tipo_contrato_nombre',
-            'salario', 'nivel_arl', 'cargo',
+            'salario', 'nivel_arl', 'cargo', 'cargo_nombre',
             'fecha_inicio', 'fecha_fin', 'activo',
             'ibc', 'observaciones',
             'created_at', 'updated_at',

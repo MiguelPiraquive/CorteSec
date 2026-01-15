@@ -40,6 +40,12 @@ const cargosService = {
     const response = await api.post(`/api/cargos/${id}/toggle_activo/`)
     return response.data
   },
+
+  // Alias para consistencia con otros servicios
+  getAll: async () => {
+    const response = await api.get('/api/cargos/?page_size=1000')
+    return response.data.results || response.data
+  },
 }
 
 export default cargosService

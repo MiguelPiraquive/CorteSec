@@ -209,9 +209,8 @@ class Cargo(TenantAwareModel):
         """Retorna el número de empleados asignados a este cargo"""
         try:
             from nomina.models import Contrato
-            # Buscar contratos activos con este cargo (CharField en nomina.Contrato)
-            # Comparar por nombre del cargo ya que cargo es CharField
-            return Contrato.objects.filter(cargo__icontains=self.nombre, activo=True).count()
+            # Buscar contratos activos con este cargo (ForeignKey en nomina.Contrato)
+            return Contrato.objects.filter(cargo=self, activo=True).count()
         except ImportError:
             return 0
 

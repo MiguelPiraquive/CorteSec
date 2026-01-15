@@ -27,6 +27,7 @@ import uuid
 
 from core.mixins import TenantAwareModel
 from locations.models import Departamento, Municipio
+from cargos.models import Cargo
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -392,9 +393,12 @@ class Contrato(TenantAwareModel):
         help_text='Indica si es el contrato vigente del empleado'
     )
     
-    # Cargo
-    cargo = models.CharField(
-        max_length=100,
+    # Cargo (Relación con el módulo de cargos)
+    cargo = models.ForeignKey(
+        Cargo,
+        on_delete=models.PROTECT,
+        related_name='contratos',
+        null=True,
         blank=True,
         verbose_name='Cargo',
         help_text='Cargo o posición del empleado'

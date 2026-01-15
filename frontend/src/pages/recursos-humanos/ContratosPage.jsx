@@ -3,6 +3,7 @@ import useAudit from '../../hooks/useAudit'
 import contratosService from '../../services/contratosService'
 import empleadosService from '../../services/empleadosService'
 import tiposContratoService from '../../services/tiposContratoService'
+import cargosService from '../../services/cargosService'
 import {
   FileSignatureIcon,
   PlusIcon,
@@ -32,6 +33,7 @@ const ContratosPage = () => {
   const [contratos, setContratos] = useState([])
   const [empleados, setEmpleados] = useState([])
   const [tiposContrato, setTiposContrato] = useState([])
+  const [cargos, setCargos] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterEmpleado, setFilterEmpleado] = useState('')
@@ -68,15 +70,19 @@ const ContratosPage = () => {
   const loadInitialData = async () => {
     try {
       setLoading(true)
-      const [contratosData, empleadosData, tiposData] = await Promise.all([
+      const [contratosData, empleadosData, tiposData, cargosData] = await Promise.all([
         contratosService.getAllContratos(),
         empleadosService.getAllEmpleados(),
         tiposContratoService.getActivos(),
+        cargosService.getAll(),
       ])
       console.log('Contratos recibidos:', contratosData)
+      console.log('Cargos recibidos:', cargosData)
       setContratos(contratosData)
       setEmpleados(empleadosData.filter(e => e.estado === 'activo'))
       setTiposContrato(tiposData)
+      setCargos(cargosData.filter(c => c.activo === true))
+      console.log('Cargos filtrados (activos):', cargosData.filter(c => c.activo === true))
     } catch (error) {
       showNotification('error', 'Error al cargar datos')
       console.error('Error:', error)
@@ -133,7 +139,7 @@ const ContratosPage = () => {
         nivel_arl: formData.nivel_arl,
         fecha_inicio: formData.fecha_inicio || new Date().toISOString().split('T')[0],
         fecha_fin: formData.fecha_fin || null,
-        cargo: formData.cargo?.trim() || '',
+        cargo: formData.cargo || null,  // Ahora es ID del cargo, no texto
         observaciones: formData.observaciones?.trim() || '',
         activo: formData.activo,
       }
@@ -174,6 +180,7 @@ const ContratosPage = () => {
     // Extraer IDs
     const empleadoId = typeof contrato.empleado === 'object' ? contrato.empleado?.id : contrato.empleado
     const tipoContratoId = typeof contrato.tipo_contrato === 'object' ? contrato.tipo_contrato?.id : contrato.tipo_contrato
+    const cargoId = typeof contrato.cargo === 'object' ? contrato.cargo?.id : contrato.cargo
     
     // Verificar si requiere fecha fin
     const tipo = tiposContrato.find(t => t.id === tipoContratoId)
@@ -186,7 +193,7 @@ const ContratosPage = () => {
       nivel_arl: contrato.nivel_arl || 'I',
       fecha_inicio: contrato.fecha_inicio || '',
       fecha_fin: contrato.fecha_fin || '',
-      cargo: contrato.cargo || '',
+      cargo: cargoId || '',
       observaciones: contrato.observaciones || '',
       activo: contrato.activo ?? true,
     })
@@ -378,10 +385,10 @@ const ContratosPage = () => {
                 </div>
 
                 <div className="space-y-2 mb-4">
-                  {contrato.cargo && (
+                  {contrato.cargo_nombre && (
                     <div className="flex items-center space-x-2 text-sm">
                       <BriefcaseIcon className="w-4 h-4 text-purple-500" />
-                      <span className="text-gray-700">{contrato.cargo}</span>
+                      <span className="text-gray-700">{contrato.cargo_nombre}</span>
                     </div>
                   )}
                   
@@ -553,14 +560,18 @@ const ContratosPage = () => {
                 {/* Cargo */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Cargo</label>
-                  <input 
-                    type="text" 
+                  <select 
                     value={formData.cargo} 
                     onChange={(e) => setFormData({ ...formData, cargo: e.target.value })} 
-                    maxLength={100}
-                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 transition-all" 
-                    placeholder="Ej: Analista de Sistemas"
-                  />
+                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 transition-all"
+                  >
+                    <option value="">Seleccione un cargo (opcional)</option>
+                    {cargos.map(cargo => (
+                      <option key={cargo.id} value={cargo.id}>
+                        {cargo.nombre} - {cargo.departamento_nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Fecha Inicio */}
