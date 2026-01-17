@@ -18,9 +18,7 @@ class ConfiguracionGeneralSerializer(serializers.ModelSerializer):
             'sitio_web', 'logo', 'moneda', 'simbolo_moneda', 'zona_horaria',
             'formato_fecha', 'dia_pago_nomina', 'periodo_nomina',
             'cuenta_efectivo_defecto', 'cuenta_nomina_defecto',
-            'sesion_timeout_minutos', 'max_intentos_login', 'requiere_cambio_password',
-            'dias_cambio_password', 'servidor_email', 'puerto_email', 'email_usuario',
-            'usar_tls', 'fecha_modificacion', 'modificado_por'
+            'fecha_modificacion', 'modificado_por'
         ]
         read_only_fields = ['fecha_modificacion']
 

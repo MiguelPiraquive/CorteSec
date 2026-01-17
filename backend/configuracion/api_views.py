@@ -47,46 +47,145 @@ class ConfiguracionGeneralViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'put', 'patch']  # Solo lectura y actualización (no delete ni create)
     
     def get_queryset(self):
-        # Siempre retorna el singleton
+        """Retorna todos los registros de configuración SIN filtros de tenant"""
+        # ConfiguracionGeneral es global, NO es multi-tenant
         return ConfiguracionGeneral.objects.all()
-    
-    def get_object(self):
-        # Obtiene o crea el singleton
-        config, created = ConfiguracionGeneral.objects.get_or_create(pk=1, defaults={
-            'nombre_empresa': 'Mi Empresa',
-            'nit': '123456789-0',
-            'direccion': 'Dirección de la empresa',
-            'telefono': '123-456-7890',
-            'email': 'info@miempresa.com',
-        })
-        return config
     
     def list(self, request, *args, **kwargs):
         """Retorna la configuración actual (siempre un único objeto)"""
-        config = self.get_object()
+        logger.info("=" * 80)
+        logger.info("LIST llamado - Obteniendo configuración")
+        
+        total_configs = ConfiguracionGeneral.objects.count()
+        logger.info(f"Total de configuraciones en DB: {total_configs}")
+        
+        config = ConfiguracionGeneral.objects.first()
+        logger.info(f"Configuración obtenida: {config}")
+        
+        if config:
+            logger.info(f"Config ID: {config.id}")
+            logger.info(f"Config Nombre: {config.nombre_empresa}")
+            logger.info(f"Config NIT: {config.nit}")
+        
+        if not config:
+            logger.warning("No existe configuración, retornando estructura vacía")
+            return Response({
+                'id': None,
+                'nombre_empresa': '',
+                'nit': '',
+                'direccion': '',
+                'telefono': '',
+                'email': '',
+                'sitio_web': '',
+                'logo': None,
+            })
+        
         serializer = self.get_serializer(config)
+        logger.info(f"Datos serializados: {serializer.data}")
+        logger.info("=" * 80)
+        return Response(serializer.data)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Obtiene la configuración (ignora el pk de la URL, siempre retorna el singleton)"""
+        logger.info("=" * 80)
+        logger.info("RETRIEVE llamado - Obteniendo configuración")
+        logger.info(f"URL PK solicitado: {kwargs.get('pk', 'N/A')}")
+        
+        total_configs = ConfiguracionGeneral.objects.count()
+        logger.info(f"Total de configuraciones en DB: {total_configs}")
+        
+        config = ConfiguracionGeneral.objects.first()
+        logger.info(f"Configuración obtenida: {config}")
+        
+        if config:
+            logger.info(f"Config ID: {config.id}")
+            logger.info(f"Config Nombre: {config.nombre_empresa}")
+            logger.info(f"Config NIT: {config.nit}")
+        
+        if not config:
+            logger.warning("No existe configuración, retornando estructura vacía")
+            return Response({
+                'id': None,
+                'nombre_empresa': '',
+                'nit': '',
+                'direccion': '',
+                'telefono': '',
+                'email': '',
+                'sitio_web': '',
+                'logo': None,
+            })
+        
+        serializer = self.get_serializer(config)
+        logger.info(f"Datos serializados: {serializer.data}")
+        logger.info("=" * 80)
         return Response(serializer.data)
     
     def update(self, request, *args, **kwargs):
-        """Actualiza la configuración general"""
-        config = self.get_object()
-        serializer = self.get_serializer(config, data=request.data, partial=True)
+        """Actualiza la configuración general (ignora el pk de la URL)"""
+        logger.info("=" * 80)
+        logger.info("UPDATE llamado - Guardando configuración")
+        logger.info(f"URL PK solicitado: {kwargs.get('pk', 'N/A')}")
+        logger.info(f"Datos recibidos: {request.data}")
         
-        if serializer.is_valid():
-            # Guardar el usuario que modifica
-            serializer.save(modificado_por=request.user)
-            
-            # Log de la acción
-            LogConfiguracion.objects.create(
-                tipo_cambio='general',
-                nivel='success',
-                item_modificado='Configuración General',
-                descripcion='Configuración general actualizada',
-                usuario=request.user
-            )
-            
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Obtener el registro real, sin importar el ID de la URL
+        total_configs = ConfiguracionGeneral.objects.count()
+        logger.info(f"Total de configuraciones ANTES de update: {total_configs}")
+        
+        config = ConfiguracionGeneral.objects.first()
+        logger.info(f"Configuración existente: {config}")
+        
+        if not config:
+            logger.info("No existe config, creando nueva...")
+            # Si no existe, crear con los datos enviados por el usuario
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                # Crear nuevo registro con el usuario que modifica
+                config = serializer.save(modificado_por=request.user)
+                logger.info(f"✅ CREADA Config ID: {config.id}, Nombre: {config.nombre_empresa}")
+                
+                # Log de la acción
+                LogConfiguracion.objects.create(
+                    tipo_cambio='general',
+                    nivel='success',
+                    item_modificado='Configuración General',
+                    descripcion='Configuración general creada',
+                    usuario=request.user
+                )
+                
+                logger.info("=" * 80)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                logger.error(f"❌ Errores de validación: {serializer.errors}")
+                logger.info("=" * 80)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            logger.info(f"Config existe (ID: {config.id}), actualizando...")
+            # Si existe, actualizar
+            serializer = self.get_serializer(config, data=request.data, partial=True)
+            if serializer.is_valid():
+                # Actualizar registro existente
+                config = serializer.save(modificado_por=request.user)
+                logger.info(f"✅ ACTUALIZADA Config ID: {config.id}, Nombre: {config.nombre_empresa}")
+                
+                # Log de la acción
+                LogConfiguracion.objects.create(
+                    tipo_cambio='general',
+                    nivel='success',
+                    item_modificado='Configuración General',
+                    descripcion='Configuración general actualizada',
+                    usuario=request.user
+                )
+                
+                # Verificar que se guardó
+                config_verificacion = ConfiguracionGeneral.objects.get(pk=config.id)
+                logger.info(f"🔍 VERIFICACIÓN - Nombre en DB: {config_verificacion.nombre_empresa}")
+                
+                logger.info("=" * 80)
+                return Response(serializer.data)
+            else:
+                logger.error(f"❌ Errores de validación: {serializer.errors}")
+                logger.info("=" * 80)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['post'])
     def test_email(self, request):

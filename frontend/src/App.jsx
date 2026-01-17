@@ -60,6 +60,17 @@ import ConfiguracionModulosPage from './pages/configuracion/ConfiguracionModulos
 import ConfiguracionSeguridadPage from './pages/configuracion/ConfiguracionSeguridadPage'
 import ConfiguracionEmailPage from './pages/configuracion/ConfiguracionEmailPage'
 
+// Centro de Ayuda
+import CentroAyudaPage from './pages/ayuda/CentroAyudaPage'
+import ArticulosPage from './pages/ayuda/ArticulosPage'
+import ArticuloDetailPage from './pages/ayuda/ArticuloDetailPage'
+import FAQPage from './pages/ayuda/FAQPage'
+import TutorialesPage from './pages/ayuda/TutorialesPage'
+import TutorialDetailPage from './pages/ayuda/TutorialDetailPage'
+import SoportePage from './pages/ayuda/SoportePage'
+import MisSolicitudesPage from './pages/ayuda/MisSolicitudesPage'
+import BusquedaAyudaPage from './pages/ayuda/BusquedaAyudaPage'
+
 // Nómina Electrónica - COMENTADO TEMPORALMENTE
 // import { PayrollRoutes } from './routes/PayrollRoutes'
 
@@ -132,6 +143,17 @@ function App() {
                 <Route path="modulos" element={<ConfiguracionModulosPage />} />
                 <Route path="seguridad" element={<ConfiguracionSeguridadPage />} />
                 <Route path="email" element={<ConfiguracionEmailPage />} />
+                
+                {/* Centro de Ayuda */}
+                <Route path="ayuda" element={<CentroAyudaPage />} />
+                <Route path="ayuda/articulos" element={<ArticulosPage />} />
+                <Route path="ayuda/articulos/:id" element={<ArticuloDetailPage />} />
+                <Route path="ayuda/faqs" element={<FAQPage />} />
+                <Route path="ayuda/tutoriales" element={<TutorialesPage />} />
+                <Route path="ayuda/tutoriales/:id" element={<TutorialDetailPage />} />
+                <Route path="ayuda/soporte" element={<SoportePage />} />
+                <Route path="ayuda/soporte/:id" element={<MisSolicitudesPage />} />
+                <Route path="ayuda/buscar" element={<BusquedaAyudaPage />} />
                 
                 {/* Nómina Electrónica - COMENTADO TEMPORALMENTE
                 <Route path="nomina-electronica/*" element={<PayrollRoutes />} />

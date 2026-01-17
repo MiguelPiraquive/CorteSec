@@ -23,8 +23,9 @@ const configuracionService = {
       })
       return response.data
     } else {
-      // JSON normal
-      const response = await api.patch('/api/configuracion/general/1/', data)
+      // JSON normal - EXCLUIR logo si no es un File
+      const { logo, ...dataWithoutLogo } = data
+      const response = await api.patch('/api/configuracion/general/1/', dataWithoutLogo)
       return response.data
     }
   },

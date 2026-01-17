@@ -7,14 +7,11 @@ import {
   CoinsIcon,
   ClockIcon,
   CalendarIcon,
-  ShieldIcon,
-  MailIcon,
   SaveIcon,
   CheckCircleIcon,
   AlertCircleIcon,
   UploadIcon,
   XIcon,
-  SendIcon,
   Loader2Icon
 } from 'lucide-react'
 
@@ -22,7 +19,6 @@ const ConfiguracionGeneralPage = () => {
   const audit = useAudit('Configuración General')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [testingEmail, setTestingEmail] = useState(false)
   const [activeTab, setActiveTab] = useState('empresa')
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
   const [logoPreview, setLogoPreview] = useState(null)
@@ -52,18 +48,6 @@ const ConfiguracionGeneralPage = () => {
     // Configuración contable
     cuenta_efectivo_defecto: '',
     cuenta_nomina_defecto: '',
-    
-    // Configuración de seguridad
-    sesion_timeout_minutos: 30,
-    max_intentos_login: 3,
-    requiere_cambio_password: true,
-    dias_cambio_password: 90,
-    
-    // Configuración de correo
-    servidor_email: '',
-    puerto_email: 587,
-    email_usuario: '',
-    usar_tls: true,
   })
 
   useEffect(() => {
@@ -129,31 +113,11 @@ const ConfiguracionGeneralPage = () => {
     }
   }
 
-  const handleTestEmail = async () => {
-    if (!formData.email) {
-      showNotification('error', 'Por favor ingrese un email de destino')
-      return
-    }
-    
-    try {
-      setTestingEmail(true)
-      await configuracionService.testEmail(formData.email)
-      audit.button('test_email', { email: formData.email })
-      showNotification('success', `Email de prueba enviado a ${formData.email}`)
-    } catch (error) {
-      console.error('Error al enviar email:', error)
-      showNotification('error', 'Error al enviar email de prueba')
-    } finally {
-      setTestingEmail(false)
-    }
-  }
-
   const tabs = [
     { id: 'empresa', label: 'Información Empresa', icon: BuildingIcon },
     { id: 'moneda', label: 'Moneda y Formato', icon: CoinsIcon },
     { id: 'fechas', label: 'Fechas y Horarios', icon: ClockIcon },
     { id: 'nomina', label: 'Nómina', icon: CalendarIcon },
-    { id: 'seguridad', label: 'Seguridad', icon: ShieldIcon },
   ]
 
   if (loading) {
@@ -446,68 +410,6 @@ const ConfiguracionGeneralPage = () => {
                   />
                   <p className="text-xs text-gray-500 mt-1">Código de cuenta contable</p>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Seguridad */}
-          {activeTab === 'seguridad' && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Configuración de Seguridad</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Timeout de Sesión (minutos) *</label>
-                  <input
-                    type="number"
-                    min="5"
-                    max="480"
-                    value={formData.sesion_timeout_minutos}
-                    onChange={(e) => handleInputChange('sesion_timeout_minutos', parseInt(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition-all"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Tiempo de inactividad antes de cerrar sesión</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Máximo Intentos de Login *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={formData.max_intentos_login}
-                    onChange={(e) => handleInputChange('max_intentos_login', parseInt(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition-all"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Intentos fallidos antes de bloquear cuenta</p>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.requiere_cambio_password}
-                      onChange={(e) => handleInputChange('requiere_cambio_password', e.target.checked)}
-                      className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-sm font-semibold text-gray-700">Requiere cambio de contraseña periódico</span>
-                  </label>
-                </div>
-
-                {formData.requiere_cambio_password && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Días para Cambio de Contraseña *</label>
-                    <input
-                      type="number"
-                      min="30"
-                      max="365"
-                      value={formData.dias_cambio_password}
-                      onChange={(e) => handleInputChange('dias_cambio_password', parseInt(e.target.value))}
-                      className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition-all"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Cada cuántos días se debe cambiar la contraseña</p>
-                  </div>
-                )}  
               </div>
             </div>
           )}

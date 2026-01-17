@@ -121,58 +121,6 @@ class ConfiguracionGeneral(TenantAwareModel):
         help_text=_("Código de cuenta contable para nómina")
     )
     
-    # Configuración de seguridad
-    sesion_timeout_minutos = models.PositiveIntegerField(
-        default=30,
-        verbose_name=_("Timeout de sesión (minutos)"),
-        help_text=_("Tiempo de inactividad antes de cerrar sesión")
-    )
-    
-    max_intentos_login = models.PositiveIntegerField(
-        default=3,
-        verbose_name=_("Máximo intentos de login"),
-        help_text=_("Máximo intentos fallidos antes de bloquear cuenta")
-    )
-    
-    requiere_cambio_password = models.BooleanField(
-        default=True,
-        verbose_name=_("Requiere cambio de contraseña"),
-        help_text=_("Si los usuarios deben cambiar contraseña periódicamente")
-    )
-    
-    dias_cambio_password = models.PositiveIntegerField(
-        default=90,
-        verbose_name=_("Días para cambio de contraseña"),
-        help_text=_("Cada cuántos días se debe cambiar la contraseña")
-    )
-    
-    # Configuración de correo
-    servidor_email = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name=_("Servidor de email"),
-        help_text=_("Servidor SMTP para envío de correos")
-    )
-    
-    puerto_email = models.PositiveIntegerField(
-        default=587,
-        verbose_name=_("Puerto de email")
-    )
-    
-    email_usuario = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name=_("Usuario de email")
-    )
-    
-    usar_tls = models.BooleanField(
-        default=True,
-        verbose_name=_("Usar TLS"),
-        help_text=_("Usar conexión segura TLS para email")
-    )
-    
     # Campos de auditoría
     fecha_modificacion = models.DateTimeField(
         auto_now=True,
@@ -195,9 +143,20 @@ class ConfiguracionGeneral(TenantAwareModel):
         return f"Configuración - {self.nombre_empresa}"
 
     def save(self, *args, **kwargs):
-        # Implementar singleton pattern
-        if not self.pk and ConfiguracionGeneral.objects.exists():
-            raise ValueError(_("Solo puede existir una configuración general"))
+        """
+        Implementar singleton pattern.
+        Solo permite crear un registro si no existe ninguno.
+        Las actualizaciones siempre están permitidas.
+        """
+        # Solo validar en creación (cuando no tiene pk)
+        if not self.pk:
+            # Verificar si ya existe algún registro
+            if ConfiguracionGeneral.objects.exists():
+                # Si ya existe, obtener el existente y actualizarlo en lugar de crear uno nuevo
+                existing = ConfiguracionGeneral.objects.first()
+                self.pk = existing.pk
+        
+        # Guardar (creación o actualización)
         super().save(*args, **kwargs)
 
     @classmethod

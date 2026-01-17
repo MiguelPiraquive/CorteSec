@@ -170,7 +170,7 @@ class ArticuloAyudaViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
 
 class FAQViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     """API ViewSet para FAQs"""
-    queryset = FAQ.objects.select_related('categoria')
+    queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = AyudaPagination
@@ -185,6 +185,13 @@ class FAQViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve']:
             return self.queryset.filter(activo=True)
         return self.queryset
+
+    @action(detail=False, methods=['get'])
+    def populares(self, request):
+        """Obtener FAQs más populares basado en votos útiles"""
+        faqs = self.get_queryset().order_by('-util_si')[:10]
+        serializer = self.get_serializer(faqs, many=True)
+        return Response(serializer.data)
 
 
 class SolicitudSoporteViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
@@ -265,8 +272,8 @@ class TutorialViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['categoria', 'dificultad', 'publicado']
     search_fields = ['titulo', 'descripcion', 'tags']
-    ordering_fields = ['tiempo_estimado', 'titulo', 'fecha_creacion']
-    ordering = ['orden', '-fecha_creacion']
+    ordering_fields = ['tiempo_estimado', 'titulo', 'fecha_creacion', 'destacado']
+    ordering = ['-destacado', '-fecha_creacion']
 
     def get_queryset(self):
         """Filtrar tutoriales publicados"""
@@ -333,7 +340,7 @@ def estadisticas_ayuda(request):
     stats = {
         'total_articulos': ArticuloAyuda.objects.filter(activo=True, publicado=True).count(),
         'total_faqs': FAQ.objects.filter(activo=True).count(),
-        'total_tutoriales': Tutorial.objects.filter(activo=True).count(),
+        'total_tutoriales': Tutorial.objects.filter(publicado=True).count(),
         'solicitudes_abiertas': SolicitudSoporte.objects.filter(estado__in=['abierto', 'en_proceso']).count(),
         'total_recursos': RecursoAyuda.objects.count(),
         'articulos_populares': ArticuloAyuda.objects.filter(

@@ -38,6 +38,10 @@ import {
   DatabaseIcon,
   SlidersHorizontalIcon,
   LockIcon,
+  HelpCircle,
+  MessageCircle,
+  GraduationCap,
+  Headphones,
 } from 'lucide-react'
 
 const DashboardLayout = () => {
@@ -49,6 +53,7 @@ const DashboardLayout = () => {
   const [controlAccesoOpen, setControlAccesoOpen] = useState(false)
   const [nominaElectronicaOpen, setNominaElectronicaOpen] = useState(false)
   const [configuracionOpen, setConfiguracionOpen] = useState(false)
+  const [centroAyudaOpen, setCentroAyudaOpen] = useState(false)
   const { user, logout } = useAuth()
   const { tenant } = useTenant()
   const navigate = useNavigate()
@@ -161,6 +166,18 @@ const DashboardLayout = () => {
         { name: 'Email', path: '/dashboard/email', icon: MailIcon },
       ]
     },
+    { 
+      name: 'Centro de Ayuda', 
+      icon: HelpCircle,
+      color: 'text-cyan-600',
+      submenu: [
+        { name: 'Inicio', path: '/dashboard/ayuda', icon: HomeIcon },
+        { name: 'Artículos', path: '/dashboard/ayuda/articulos', icon: BookOpenIcon },
+        { name: 'Preguntas Frecuentes', path: '/dashboard/ayuda/faqs', icon: MessageCircle },
+        { name: 'Tutoriales', path: '/dashboard/ayuda/tutoriales', icon: GraduationCap },
+        { name: 'Soporte', path: '/dashboard/ayuda/soporte', icon: Headphones },
+      ]
+    },
   ]
 
   return (
@@ -255,6 +272,9 @@ const DashboardLayout = () => {
               } else if (item.name === 'Configuración') {
                 isSubmenuOpen = configuracionOpen
                 toggleSubmenu = () => setConfiguracionOpen(!configuracionOpen)
+              } else if (item.name === 'Centro de Ayuda') {
+                isSubmenuOpen = centroAyudaOpen
+                toggleSubmenu = () => setCentroAyudaOpen(!centroAyudaOpen)
               }
               
               if (hasSubmenu) {
