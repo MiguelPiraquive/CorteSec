@@ -16,6 +16,5 @@ urlpatterns = [
     
     # API endpoints adicionales
     path('dashboard/', api_views.dashboard_api_view, name='configuracion-dashboard'),
-    path('general/', api_views.configuracion_general_api, name='configuracion-general'),
-    path('test-email/', api_views.test_email_api, name='test-email'),
+    path('exchange-rates/', api_views.exchange_rates_view, name='exchange-rates'),
 ]

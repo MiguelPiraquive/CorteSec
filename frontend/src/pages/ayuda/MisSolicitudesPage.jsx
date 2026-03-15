@@ -12,6 +12,7 @@ import {
   User
 } from 'lucide-react'
 import ayudaService from '../../services/ayudaService'
+import { usePermissions } from '../../context/PermissionsContext'
 
 /**
  * ════════════════════════════════════════════════════════════
@@ -26,6 +27,7 @@ import ayudaService from '../../services/ayudaService'
  * @component
  */
 const MisSolicitudesDetailPage = () => {
+  const { hasPermission, initialized } = usePermissions()
   const { id } = useParams()
   const navigate = useNavigate()
   const [ticket, setTicket] = useState(null)
@@ -144,6 +146,9 @@ const MisSolicitudesDetailPage = () => {
     })
   }
 
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('ayuda.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -178,14 +183,14 @@ const MisSolicitudesDetailPage = () => {
         </button>
 
         <div className="flex items-center gap-3">
-          {ticket.estado === 'cerrada' ? (
+          {hasPermission('ayuda.manage_tickets') && ticket.estado === 'cerrada' ? (
             <button
               onClick={handleReabrirTicket}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Reabrir Ticket
             </button>
-          ) : ticket.estado === 'resuelta' && (
+          ) : hasPermission('ayuda.manage_tickets') && ticket.estado === 'resuelta' && (
             <button
               onClick={handleCerrarTicket}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"

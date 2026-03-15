@@ -22,7 +22,7 @@ from .models import (
     PermisoDirecto, AuditoriaPermisos
 )
 from .services import DirectPermissionService, PermissionAnalyticsService
-from core.models import Organizacion
+# from core.mixins import BaseViewSetMixin  # Not found
 
 User = get_user_model()
 
@@ -194,11 +194,6 @@ class PermisoTestCase(TestCase):
             nombre='Ver',
             codigo='view',
             categoria='crud'
-        )
-        
-        self.organizacion = Organizacion.objects.create(
-            nombre='Test Org',
-            codigo='test_org'
         )
     
     def test_crear_permiso_basico(self):

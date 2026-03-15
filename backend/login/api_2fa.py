@@ -25,7 +25,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from .policies import LoginAccessPolicy
 from rest_framework.response import Response
 from .models import CustomUser, LoginAttempt, UserSession
 from .auth_security import AuthSecurityManager, SecurityAuditLogger
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def enable_2fa(request):
     """
     Habilita la autenticación de dos factores para el usuario
@@ -57,12 +57,11 @@ def enable_2fa(request):
         
         if method == 'email':
             # Enviar código por email
-            from django.core.mail import send_mail
-            send_mail(
-                'Código de verificación 2FA - CorteSec',
-                f'Tu código de verificación es: {verification_code}\n\nEste código expira en 5 minutos.',
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
+            from core.email_service import send_system_email
+            send_system_email(
+                subject='Código de verificación 2FA - CorteSec',
+                message=f'Tu código de verificación es: {verification_code}\n\nEste código expira en 5 minutos.',
+                recipient_list=[user.email],
                 fail_silently=False,
             )
             
@@ -99,7 +98,7 @@ def enable_2fa(request):
             
             response_data.update({
                 'qr_code': f'data:image/png;base64,{img_str}',
-                'secret': user.totp_secret,
+                'secret': user.generate_totp_secret(),
                 'message': 'Escanea el código QR con tu app de autenticación'
             })
         
@@ -113,7 +112,7 @@ def enable_2fa(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def verify_2fa(request):
     """
     Verifica el código 2FA y completa la activación
@@ -194,7 +193,7 @@ def verify_2fa(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def disable_2fa(request):
     """
     Deshabilita la autenticación de dos factores
@@ -239,7 +238,7 @@ def disable_2fa(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def get_user_sessions(request):
     """
     Obtiene las sesiones activas del usuario
@@ -274,7 +273,7 @@ def get_user_sessions(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def terminate_session(request):
     """
     Termina una sesión específica
@@ -322,7 +321,7 @@ def terminate_session(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def terminate_all_other_sessions(request):
     """
     Termina todas las demás sesiones del usuario excepto la actual
@@ -359,7 +358,7 @@ def terminate_all_other_sessions(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def get_security_alerts(request):
     """
     Obtiene las alertas de seguridad del usuario

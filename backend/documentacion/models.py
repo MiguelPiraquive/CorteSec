@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
+from django.core.validators import FileExtensionValidator
 import os
 from core.mixins import TenantAwareModel
 
@@ -14,7 +15,6 @@ class CategoriaDocumento(TenantAwareModel):
     
     nombre = models.CharField(
         max_length=100,
-        unique=True,
         verbose_name=_("Nombre de la categoría")
     )
     
@@ -47,6 +47,7 @@ class CategoriaDocumento(TenantAwareModel):
         verbose_name = _("Categoría de Documento")
         verbose_name_plural = _("Categorías de Documento")
         ordering = ['orden', 'nombre']
+        unique_together = [['organization', 'nombre']]
 
     def __str__(self):
         return self.nombre
@@ -93,7 +94,10 @@ class Documento(TenantAwareModel):
     archivo = models.FileField(
         upload_to='documentacion/',
         verbose_name=_("Archivo"),
-        help_text=_("Archivo del documento")
+        help_text=_("Archivo del documento"),
+        validators=[FileExtensionValidator(
+            allowed_extensions=['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt', 'jpg', 'jpeg', 'png']
+        )]
     )
     
     version = models.CharField(
@@ -237,7 +241,10 @@ class VersionDocumento(TenantAwareModel):
     
     archivo = models.FileField(
         upload_to='documentacion/versiones/',
-        verbose_name=_("Archivo de la versión")
+        verbose_name=_("Archivo de la versión"),
+        validators=[FileExtensionValidator(
+            allowed_extensions=['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt', 'jpg', 'jpeg', 'png']
+        )]
     )
     
     notas_version = models.TextField(

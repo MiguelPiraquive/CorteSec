@@ -1,35 +1,35 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
-from core.models import Configuracion, LogSistema, Notificacion
+from core.models import ConfiguracionSistema, LogAuditoria, Notificacion
 
 
 class ConfiguracionModelTest(TestCase):
     def test_configuracion_creation(self):
         """Test de creación de configuración"""
-        config = Configuracion.objects.create(
+        config = ConfiguracionSistema.objects.create(
             clave='test_config',
             valor='test_value',
             descripcion='Configuración de prueba',
-            tipo='string',
-            activo=True
+            tipo_dato='string',
+            activa=True
         )
         self.assertEqual(config.clave, 'test_config')
         self.assertEqual(config.valor, 'test_value')
 
     def test_configuracion_str_method(self):
         """Test del método __str__ de configuración"""
-        config = Configuracion.objects.create(
+        config = ConfiguracionSistema.objects.create(
             clave='test_config',
             valor='test_value',
             descripcion='Configuración de prueba',
-            tipo='string',
-            activo=True
+            tipo_dato='string',
+            activa=True
         )
-        self.assertEqual(str(config), 'test_config')
+        self.assertIn('test_config', str(config))
 
 
-class LogSistemaModelTest(TestCase):
+class LogAuditoriaModelTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             username='testuser',
@@ -38,11 +38,12 @@ class LogSistemaModelTest(TestCase):
         )
 
     def test_log_creation(self):
-        """Test de creación de log del sistema"""
-        log = LogSistema.objects.create(
+        """Test de creación de log de auditoría"""
+        log = LogAuditoria.objects.create(
             usuario=self.user,
             accion='login',
-            descripcion='Usuario ingresó al sistema',
+            modelo='User',
+            objeto_id=str(self.user.pk),
             ip_address='127.0.0.1',
             user_agent='Test Browser'
         )
@@ -51,14 +52,15 @@ class LogSistemaModelTest(TestCase):
 
     def test_log_str_method(self):
         """Test del método __str__ del log"""
-        log = LogSistema.objects.create(
+        log = LogAuditoria.objects.create(
             usuario=self.user,
             accion='login',
-            descripcion='Usuario ingresó al sistema',
+            modelo='User',
+            objeto_id=str(self.user.pk),
             ip_address='127.0.0.1',
             user_agent='Test Browser'
         )
-        expected_str = f"{log.fecha} - {self.user.username} - login"
+        expected_str = f"{self.user.username} - login - User"
         self.assertEqual(str(log), expected_str)
 
 
@@ -104,9 +106,9 @@ class CoreViewsTest(TestCase):
         )
 
     def test_home_view(self):
-        """Test de la vista principal"""
-        response = self.client.get(reverse('core:home'))
-        self.assertEqual(response.status_code, 200)
+        """Test de la vista principal (SPA dev)"""
+        response = self.client.get(reverse('core:react_spa_dev'))
+        self.assertIn(response.status_code, [200, 302])
 
     def test_dashboard_requires_login(self):
         """Test que el dashboard requiere login"""

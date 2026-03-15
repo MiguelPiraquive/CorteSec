@@ -1,6 +1,6 @@
 # dashboard/advanced_apis.py
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from .policies import DashboardAccessPolicy, DashboardViewPolicy
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Count, Q, Avg, Sum
@@ -9,18 +9,29 @@ from datetime import datetime, timedelta
 from django.core.cache import cache
 from django.http import JsonResponse
 import json
-from .models import Contractor, Project, Payment
+from .models import Project
 from core.models import LogAuditoria, Organizacion
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+
+def _get_organization_from_request(request):
+    return (
+        getattr(request, 'tenant', None)
+        or getattr(request.user, 'organization', None)
+        or getattr(request.user, 'organizacion', None)
+    )
+
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def advanced_dashboard_metrics(request):
     """API avanzada para métricas del dashboard"""
     user = request.user
-    organization = user.organizacion
+    organization = _get_organization_from_request(request)
+
+    if not organization:
+        return Response({'error': 'Organización requerida'}, status=status.HTTP_400_BAD_REQUEST)
     
     # Cache key para optimización
     cache_key = f'dashboard_metrics_{organization.id}_{user.id}'
@@ -35,48 +46,27 @@ def advanced_dashboard_metrics(request):
     last_7_days = today - timedelta(days=7)
     
     # Métricas avanzadas
-    contractors = Contractor.objects.filter(organizacion=organization)
-    projects = Project.objects.filter(organizacion=organization)
-    payments = Payment.objects.filter(organizacion=organization)
+    projects = Project.objects.filter(organization=organization)
     
     metrics = {
-        'contractors': {
-            'total': contractors.count(),
-            'active': contractors.filter(estado='activo').count(),
-            'new_this_month': contractors.filter(fecha_registro__gte=last_30_days).count(),
-            'by_status': dict(contractors.values('estado').annotate(count=Count('id')).values_list('estado', 'count')),
-        },
         'projects': {
             'total': projects.count(),
-            'active': projects.filter(estado='activo').count(),
+            'active': projects.filter(end_date__isnull=True).count(),
             'completed_this_month': projects.filter(
-                estado='completado',
-                fecha_fin__gte=last_30_days
+                end_date__isnull=False,
+                end_date__gte=last_30_days
             ).count(),
-            'by_status': dict(projects.values('estado').annotate(count=Count('id')).values_list('estado', 'count')),
-            'avg_duration': projects.exclude(fecha_fin__isnull=True).aggregate(
-                avg_days=Avg('fecha_fin') - Avg('fecha_inicio')
-            )['avg_days'] or 0,
-        },
-        'payments': {
-            'total': payments.count(),
-            'pending': payments.filter(estado='pendiente').count(),
-            'completed_this_month': payments.filter(
-                estado='completado',
-                fecha_pago__gte=last_30_days
-            ).count(),
-            'total_amount': payments.filter(estado='completado').aggregate(Sum('monto'))['monto__sum'] or 0,
-            'pending_amount': payments.filter(estado='pendiente').aggregate(Sum('monto'))['monto__sum'] or 0,
+            'by_status': {
+                'active': projects.filter(end_date__isnull=True).count(),
+                'completed': projects.filter(end_date__isnull=False).count(),
+            },
+            'avg_duration': calculate_average_duration(projects),
         },
         'trends': {
-            'contractors_weekly': get_weekly_trend(contractors, 'fecha_registro'),
-            'projects_weekly': get_weekly_trend(projects, 'fecha_inicio'),
-            'payments_weekly': get_weekly_trend(payments, 'fecha_pago'),
+            'projects_weekly': get_weekly_trend(projects, 'start_date'),
         },
         'performance': {
             'completion_rate': calculate_completion_rate(projects),
-            'payment_efficiency': calculate_payment_efficiency(payments),
-            'contractor_satisfaction': calculate_satisfaction_score(contractors),
         }
     }
     
@@ -86,42 +76,44 @@ def advanced_dashboard_metrics(request):
     return Response(metrics)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def contractor_analytics(request):
-    """Análisis detallado de contratistas"""
+    """Análisis detallado de proyectos (legacy endpoint)"""
     user = request.user
-    organization = user.organizacion
+    organization = _get_organization_from_request(request)
+
+    if not organization:
+        return Response({'error': 'Organización requerida'}, status=status.HTTP_400_BAD_REQUEST)
     
-    contractors = Contractor.objects.filter(organizacion=organization)
+    projects = Project.objects.filter(organization=organization)
     
     analytics = {
-        'demographics': {
-            'age_distribution': get_age_distribution(contractors),
-            'experience_levels': dict(contractors.values('nivel_experiencia').annotate(count=Count('id')).values_list('nivel_experiencia', 'count')),
-            'geographic_distribution': dict(contractors.values('ubicacion').annotate(count=Count('id')).values_list('ubicacion', 'count')),
-        },
+        'demographics': {},
         'performance': {
-            'top_performers': get_top_performers(contractors),
-            'project_success_rate': get_project_success_rates(contractors),
-            'average_rating': contractors.aggregate(Avg('calificacion_promedio'))['calificacion_promedio__avg'] or 0,
+            'top_performers': [],
+            'project_success_rate': calculate_project_success_rate(projects),
+            'average_rating': 0,
         },
         'financial': {
-            'payment_history': get_payment_history(contractors),
-            'earning_trends': get_earning_trends(contractors),
-            'cost_efficiency': calculate_cost_efficiency(contractors),
+            'payment_history': [],
+            'earning_trends': [],
+            'cost_efficiency': 0,
         }
     }
     
     return Response(analytics)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def project_analytics(request):
     """Análisis detallado de proyectos"""
     user = request.user
-    organization = user.organizacion
+    organization = _get_organization_from_request(request)
+
+    if not organization:
+        return Response({'error': 'Organización requerida'}, status=status.HTTP_400_BAD_REQUEST)
     
-    projects = Project.objects.filter(organizacion=organization)
+    projects = Project.objects.filter(organization=organization)
     
     analytics = {
         'overview': {
@@ -136,50 +128,35 @@ def project_analytics(request):
             'budget_trends': get_budget_trends(projects),
         },
         'categories': {
-            'by_type': dict(projects.values('tipo').annotate(count=Count('id')).values_list('tipo', 'count')),
-            'by_priority': dict(projects.values('prioridad').annotate(count=Count('id')).values_list('prioridad', 'count')),
-            'by_complexity': dict(projects.values('complejidad').annotate(count=Count('id')).values_list('complejidad', 'count')),
+            'by_status': {
+                'active': projects.filter(end_date__isnull=True).count(),
+                'completed': projects.filter(end_date__isnull=False).count(),
+            },
         }
     }
     
     return Response(analytics)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def financial_analytics(request):
-    """Análisis financiero avanzado"""
-    user = request.user
-    organization = user.organizacion
-    
-    payments = Payment.objects.filter(organizacion=organization)
-    
-    analytics = {
-        'cash_flow': {
-            'monthly_income': get_monthly_income(payments),
-            'monthly_expenses': get_monthly_expenses(payments),
-            'net_profit': calculate_net_profit(payments),
-            'growth_rate': calculate_growth_rate(payments),
-        },
-        'payment_patterns': {
-            'average_payment_time': calculate_average_payment_time(payments),
-            'late_payments': payments.filter(fecha_vencimiento__lt=timezone.now(), estado='pendiente').count(),
-            'payment_methods': dict(payments.values('metodo_pago').annotate(count=Count('id')).values_list('metodo_pago', 'count')),
-        },
-        'forecasting': {
-            'next_month_projection': forecast_next_month(payments),
-            'quarterly_projection': forecast_quarterly(payments),
-            'risk_assessment': assess_financial_risks(payments),
-        }
-    }
-    
-    return Response(analytics)
+    """Análisis financiero avanzado (legacy - datos movidos a Flujo de Caja)"""
+    return Response({
+        'cash_flow': {},
+        'payment_patterns': {},
+        'forecasting': {},
+        'note': 'Los datos financieros se gestionan desde el módulo de Flujo de Caja'
+    })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def bulk_operations(request):
     """Operaciones en lote para el dashboard"""
     user = request.user
-    organization = user.organizacion
+    organization = _get_organization_from_request(request)
+
+    if not organization:
+        return Response({'error': 'Organización requerida'}, status=status.HTTP_400_BAD_REQUEST)
     
     operation = request.data.get('operation')
     entity_type = request.data.get('entity_type')
@@ -189,12 +166,8 @@ def bulk_operations(request):
         return Response({'error': 'Faltan parámetros requeridos'}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        if entity_type == 'contractors':
-            queryset = Contractor.objects.filter(organizacion=organization, id__in=entity_ids)
-        elif entity_type == 'projects':
-            queryset = Project.objects.filter(organizacion=organization, id__in=entity_ids)
-        elif entity_type == 'payments':
-            queryset = Payment.objects.filter(organizacion=organization, id__in=entity_ids)
+        if entity_type == 'projects':
+            queryset = Project.objects.filter(organization=organization, id__in=entity_ids)
         else:
             return Response({'error': 'Tipo de entidad no válido'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -203,10 +176,15 @@ def bulk_operations(request):
         # Log de auditoría
         LogAuditoria.objects.create(
             usuario=user,
-            organizacion=organization,
             accion=f'bulk_{operation}',
             modelo=entity_type,
-            detalles=f'Operación en lote: {operation} en {len(entity_ids)} elementos'
+            metadata={
+                'organization_id': str(organization.id),
+                'operation': operation,
+                'entity_type': entity_type,
+                'entity_ids': entity_ids,
+                'parameters': request.data.get('parameters', {})
+            }
         )
         
         return Response(result)
@@ -215,11 +193,14 @@ def bulk_operations(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def export_data(request):
     """Exportar datos del dashboard"""
     user = request.user
-    organization = user.organizacion
+    organization = _get_organization_from_request(request)
+
+    if not organization:
+        return Response({'error': 'Organización requerida'}, status=status.HTTP_400_BAD_REQUEST)
     
     export_type = request.GET.get('type', 'excel')
     entity_type = request.GET.get('entity_type', 'all')
@@ -238,61 +219,43 @@ def export_data(request):
 
 # Funciones auxiliares
 def get_weekly_trend(queryset, date_field):
-    """Obtiene tendencia semanal"""
+    """Obtiene tendencia semanal usando ORM seguro"""
+    from django.db.models.functions import TruncDate
     last_7_days = timezone.now().date() - timedelta(days=7)
-    return list(queryset.filter(**{f'{date_field}__gte': last_7_days}).extra(
-        {'day': f"date({date_field})"}).values('day').annotate(count=Count('id')).order_by('day'))
+    return list(
+        queryset.filter(**{f'{date_field}__gte': last_7_days})
+        .annotate(day=TruncDate(date_field))
+        .values('day')
+        .annotate(count=Count('id'))
+        .order_by('day')
+    )
 
 def calculate_completion_rate(projects):
     """Calcula tasa de completación"""
     total = projects.count()
     if total == 0:
         return 0
-    completed = projects.filter(estado='completado').count()
+    completed = projects.filter(end_date__isnull=False).count()
     return (completed / total) * 100
 
-def calculate_payment_efficiency(payments):
-    """Calcula eficiencia de pagos"""
-    total = payments.count()
-    if total == 0:
-        return 0
-    on_time = payments.filter(fecha_pago__lte=timezone.now()).count()
-    return (on_time / total) * 100
-
-def calculate_satisfaction_score(contractors):
+def calculate_satisfaction_score(queryset):
     """Calcula puntuación de satisfacción"""
-    avg_rating = contractors.aggregate(Avg('calificacion_promedio'))['calificacion_promedio__avg']
-    return avg_rating or 0
+    return 0
 
-def get_age_distribution(contractors):
-    """Distribución por edades"""
-    # Implementar lógica de distribución por edades
+def get_age_distribution(queryset):
+    """Distribución por antigüedad"""
     return {}
 
-def get_top_performers(contractors):
-    """Obtiene mejores contratistas"""
-    return list(contractors.order_by('-calificacion_promedio')[:10].values(
-        'id', 'nombre', 'apellido', 'calificacion_promedio'
-    ))
+def get_top_performers(queryset):
+    """Obtiene mejores entidades"""
+    return []
 
-def get_project_success_rates(contractors):
-    """Tasa de éxito por contratista"""
-    # Implementar lógica de tasa de éxito
-    return {}
+def get_project_success_rates(queryset):
+    """Tasa de éxito de proyectos"""
+    return []
 
-def get_payment_history(contractors):
-    """Historial de pagos por contratista"""
-    # Implementar lógica de historial de pagos
-    return {}
-
-def get_earning_trends(contractors):
-    """Tendencias de ganancias"""
-    # Implementar lógica de tendencias
-    return {}
-
-def calculate_cost_efficiency(contractors):
+def calculate_cost_efficiency(queryset):
     """Calcula eficiencia de costos"""
-    # Implementar lógica de eficiencia
     return 0
 
 def calculate_project_success_rate(projects):
@@ -300,20 +263,20 @@ def calculate_project_success_rate(projects):
     total = projects.count()
     if total == 0:
         return 0
-    successful = projects.filter(estado='completado').count()
+    successful = projects.filter(end_date__isnull=False).count()
     return (successful / total) * 100
 
 def calculate_average_duration(projects):
     """Duración promedio de proyectos"""
-    completed = projects.filter(estado='completado').exclude(fecha_fin__isnull=True)
+    completed = projects.filter(end_date__isnull=False)
     if not completed.exists():
         return 0
     
     total_days = 0
     count = 0
     for project in completed:
-        if project.fecha_inicio and project.fecha_fin:
-            duration = (project.fecha_fin - project.fecha_inicio).days
+        if project.start_date and project.end_date:
+            duration = (project.end_date - project.start_date).days
             total_days += duration
             count += 1
     
@@ -321,81 +284,62 @@ def calculate_average_duration(projects):
 
 def calculate_budget_efficiency(projects):
     """Eficiencia presupuestaria"""
-    # Implementar lógica de eficiencia presupuestaria
-    return 0
+    total = projects.count() or 1
+    completed = projects.filter(end_date__isnull=False).count()
+    return (completed / total) * 100
 
 def get_monthly_project_trends(projects):
     """Tendencias mensuales de proyectos"""
-    # Implementar lógica de tendencias mensuales
-    return []
+    trends = []
+    today = timezone.now().date()
+    for i in range(5, -1, -1):
+        month_start = (today.replace(day=1) - timedelta(days=30 * i)).replace(day=1)
+        month_end = (month_start + timedelta(days=32)).replace(day=1)
+        count = projects.filter(start_date__gte=month_start, start_date__lt=month_end).count()
+        trends.append({'month': month_start.strftime('%Y-%m'), 'count': count})
+    return trends
 
 def get_completion_trends(projects):
     """Tendencias de completación"""
-    # Implementar lógica de tendencias de completación
-    return []
+    trends = []
+    today = timezone.now().date()
+    for i in range(5, -1, -1):
+        month_start = (today.replace(day=1) - timedelta(days=30 * i)).replace(day=1)
+        month_end = (month_start + timedelta(days=32)).replace(day=1)
+        count = projects.filter(end_date__gte=month_start, end_date__lt=month_end).count()
+        trends.append({'month': month_start.strftime('%Y-%m'), 'count': count})
+    return trends
 
 def get_budget_trends(projects):
     """Tendencias presupuestarias"""
-    # Implementar lógica de tendencias presupuestarias
-    return []
+    return get_monthly_project_trends(projects)
 
-def get_monthly_income(payments):
-    """Ingresos mensuales"""
-    # Implementar lógica de ingresos mensuales
-    return []
-
-def get_monthly_expenses(payments):
-    """Gastos mensuales"""
-    # Implementar lógica de gastos mensuales
-    return []
-
-def calculate_net_profit(payments):
-    """Ganancia neta"""
-    income = payments.filter(tipo='ingreso', estado='completado').aggregate(Sum('monto'))['monto__sum'] or 0
-    expenses = payments.filter(tipo='gasto', estado='completado').aggregate(Sum('monto'))['monto__sum'] or 0
-    return income - expenses
-
-def calculate_growth_rate(payments):
-    """Tasa de crecimiento"""
-    # Implementar lógica de tasa de crecimiento
-    return 0
-
-def calculate_average_payment_time(payments):
-    """Tiempo promedio de pago"""
-    # Implementar lógica de tiempo promedio
-    return 0
-
-def forecast_next_month(payments):
-    """Proyección del próximo mes"""
-    # Implementar lógica de proyección
-    return 0
-
-def forecast_quarterly(payments):
-    """Proyección trimestral"""
-    # Implementar lógica de proyección trimestral
-    return 0
-
-def assess_financial_risks(payments):
-    """Evaluación de riesgos financieros"""
-    # Implementar lógica de evaluación de riesgos
-    return {}
 
 def perform_bulk_operation(operation, queryset, parameters):
     """Realiza operaciones en lote"""
     if operation == 'update_status':
         new_status = parameters.get('status')
-        if new_status:
+        if new_status and hasattr(queryset.model, 'estado'):
             updated = queryset.update(estado=new_status)
             return {'updated': updated, 'message': f'{updated} elementos actualizados'}
-    
+        return {'error': 'El modelo no soporta estado'}
+
+    elif operation == 'complete_projects':
+        if queryset.model.__name__ == 'Project':
+            updated = queryset.filter(end_date__isnull=True).update(end_date=timezone.now().date())
+            return {'updated': updated, 'message': f'{updated} proyectos completados'}
+        return {'error': 'Operación no válida para este modelo'}
+
     elif operation == 'delete':
         count = queryset.count()
         queryset.delete()
         return {'deleted': count, 'message': f'{count} elementos eliminados'}
     
     elif operation == 'archive':
-        updated = queryset.update(archivado=True)
-        return {'archived': updated, 'message': f'{updated} elementos archivados'}
+        if hasattr(queryset.model, 'archivado'):
+            updated = queryset.update(archivado=True)
+            return {'archived': updated, 'message': f'{updated} elementos archivados'}
+        return {'error': 'El modelo no soporta archivado'}
     
     return {'error': 'Operación no válida'}
 

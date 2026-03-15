@@ -10,7 +10,10 @@ Fecha: 2025-07-12
 """
 
 from django.apps import AppConfig
+import logging
 from django.utils.translation import gettext_lazy as _
+
+logger = logging.getLogger(__name__)
 
 
 class CoreConfig(AppConfig):
@@ -25,8 +28,15 @@ class CoreConfig(AppConfig):
         # Importar signals si los hay
         try:
             from . import signals  # noqa
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.debug('No se pudieron cargar signals de core: %s', exc)
+        
+        # Importar signals de notificaciones automáticas
+        try:
+            from . import notification_signals  # noqa
+            logger.info('Signals de notificaciones automáticas cargados correctamente')
+        except ImportError as exc:
+            logger.debug('No se pudieron cargar notification_signals: %s', exc)
         
         # Registrar handlers o configuraciones adicionales
         self.setup_system_defaults()
@@ -35,4 +45,4 @@ class CoreConfig(AppConfig):
         """Configura valores por defecto del sistema"""
         # Aquí se pueden configurar valores por defecto
         # cuando la aplicación esté lista
-        pass
+        logger.debug('setup_system_defaults ejecutado sin acciones configuradas')

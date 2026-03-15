@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import authService from '../services/authService'
+import { resetSessionState, onSessionExpired } from '../services/api'
 
 const AuthContext = createContext(null)
 
@@ -16,19 +17,37 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
+  // When the api interceptor detects a dead session (refresh failed),
+  // this callback fires INSTANTLY to update React state
   useEffect(() => {
-    // Check if user is authenticated on mount
-    const initAuth = () => {
+    return onSessionExpired(() => {
+      setUser(null)
+      setIsAuthenticated(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    const initAuth = async () => {
       try {
-        const token = localStorage.getItem('authToken')
         const storedUser = authService.getCurrentUser()
-        
-        if (token && storedUser) {
-          setUser(storedUser)
-          setIsAuthenticated(true)
+        if (storedUser) {
+          const result = await authService.checkAuth()
+          if (result.success && result.user) {
+            resetSessionState()
+            setUser(result.user)
+            setIsAuthenticated(true)
+          } else {
+            localStorage.removeItem('user')
+            localStorage.removeItem('tenantCode')
+            localStorage.removeItem('tenantSlug')
+            localStorage.removeItem('tenantName')
+          }
         }
-      } catch (error) {
-        console.error('Error initializing auth:', error)
+      } catch {
+        localStorage.removeItem('user')
+        localStorage.removeItem('tenantCode')
+        localStorage.removeItem('tenantSlug')
+        localStorage.removeItem('tenantName')
       } finally {
         setLoading(false)
       }
@@ -37,25 +56,26 @@ export const AuthProvider = ({ children }) => {
     initAuth()
   }, [])
 
-  const login = async (email, password, tenantCode) => {
+  const login = async (email, password) => {
     try {
-      const response = await authService.login(email, password, tenantCode)
-      
+      resetSessionState()
+      const response = await authService.login(email, password)
+
       if (response.success && response.user) {
         setUser(response.user)
         setIsAuthenticated(true)
         return response
       }
-      
+
       throw new Error(response.message || 'Error en el login')
     } catch (error) {
       throw error
     }
   }
 
-  const register = async (userData, tenantCode) => {
+  const register = async (userData) => {
     try {
-      const response = await authService.register(userData, tenantCode)
+      const response = await authService.register(userData)
       return response
     } catch (error) {
       throw error

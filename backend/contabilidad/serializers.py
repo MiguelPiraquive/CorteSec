@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import models
 from decimal import Decimal
 from .models import (
     PlanCuentas, ComprobanteContable, MovimientoContable, FlujoCaja,
@@ -61,15 +62,18 @@ class ComprobanteContableSerializer(serializers.ModelSerializer):
 class MovimientoContableSerializer(serializers.ModelSerializer):
     """Serializer para Movimientos Contables"""
     comprobante_numero = serializers.CharField(source='comprobante.numero', read_only=True)
+    comprobante_fecha = serializers.DateField(source='comprobante.fecha', read_only=True)
     cuenta_codigo = serializers.CharField(source='cuenta.codigo', read_only=True)
     cuenta_nombre = serializers.CharField(source='cuenta.nombre', read_only=True)
+    centro_costo_codigo = serializers.CharField(source='centro_costo.codigo', read_only=True)
+    centro_costo_nombre = serializers.CharField(source='centro_costo.nombre', read_only=True)
     
     class Meta:
         model = MovimientoContable
         fields = [
-            'id', 'comprobante', 'comprobante_numero', 'cuenta', 'cuenta_codigo',
+            'id', 'comprobante', 'comprobante_numero', 'comprobante_fecha', 'cuenta', 'cuenta_codigo',
             'cuenta_nombre', 'descripcion', 'valor_debito', 'valor_credito', 
-            'tercero', 'centro_costo'
+            'tercero', 'centro_costo', 'centro_costo_codigo', 'centro_costo_nombre'
         ]
         read_only_fields = ['comprobante_numero', 'cuenta_codigo', 'cuenta_nombre']
     
@@ -77,7 +81,13 @@ class MovimientoContableSerializer(serializers.ModelSerializer):
         """Validaciones del movimiento contable"""
         valor_debito = data.get('valor_debito', Decimal('0'))
         valor_credito = data.get('valor_credito', Decimal('0'))
-        
+
+        # No permitir valores negativos
+        if valor_debito < 0 or valor_credito < 0:
+            raise serializers.ValidationError(
+                "Los valores de débito y crédito no pueden ser negativos"
+            )
+
         # Un movimiento debe tener valor en débito O crédito, pero no ambos
         if valor_debito > 0 and valor_credito > 0:
             raise serializers.ValidationError(
@@ -98,7 +108,7 @@ class MovimientoContableSerializer(serializers.ModelSerializer):
         
         # Validar tercero si es requerido
         if cuenta and cuenta.requiere_tercero:
-            if not data.get('tercero_identificacion') or not data.get('tercero_nombre'):
+            if not data.get('tercero'):
                 raise serializers.ValidationError(
                     f"La cuenta {cuenta.codigo} requiere información del tercero"
                 )
@@ -132,12 +142,12 @@ class CentroCostoSerializer(serializers.ModelSerializer):
         from datetime import date
         inicio_año = date(date.today().year, 1, 1)
         
-        movimientos = obj.movimientos.filter(fecha_movimiento__gte=inicio_año)
+        movimientos = obj.movimientos
         total_debitos = movimientos.aggregate(
-            total=serializers.models.Sum('valor_debito')
+            total=models.Sum('valor_debito')
         )['total'] or Decimal('0')
         total_creditos = movimientos.aggregate(
-            total=serializers.models.Sum('valor_credito')
+            total=models.Sum('valor_credito')
         )['total'] or Decimal('0')
         
         return float(total_debitos - total_creditos)
@@ -152,8 +162,8 @@ class AsientoContableSerializer(serializers.ModelSerializer):
     class Meta:
         model = ComprobanteContable
         fields = [
-            'id', 'numero', 'tipo', 'fecha', 'descripcion', 'estado',
-            'valor_total', 'movimientos', 'total_debitos', 'total_creditos'
+            'id', 'numero', 'tipo_comprobante', 'fecha', 'descripcion', 'estado',
+            'movimientos', 'total_debitos', 'total_creditos'
         ]
 
 
@@ -233,7 +243,7 @@ class ConsultaSaldosSerializer(serializers.Serializer):
     cuenta = serializers.CharField(max_length=20, help_text="Código de cuenta")
     fecha_desde = serializers.DateField(required=False)
     fecha_hasta = serializers.DateField(required=False)
-    centro_costo = serializers.CharField(max_length=20, required=False)
+    centro_costo = serializers.PrimaryKeyRelatedField(queryset=CentroCosto.objects.all(), required=False, allow_null=True)
     incluir_subcuentas = serializers.BooleanField(default=False)
 
 
@@ -247,7 +257,7 @@ class ReporteContableSerializer(serializers.Serializer):
     ])
     fecha_desde = serializers.DateField()
     fecha_hasta = serializers.DateField()
-    centro_costo = serializers.CharField(max_length=20, required=False)
+    centro_costo = serializers.PrimaryKeyRelatedField(queryset=CentroCosto.objects.all(), required=False, allow_null=True)
     formato = serializers.ChoiceField(
         choices=[('pdf', 'PDF'), ('excel', 'Excel'), ('json', 'JSON')],
         default='pdf'

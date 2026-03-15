@@ -27,15 +27,8 @@ const parametrosLegalesService = {
    */
   getAllParametros: async () => {
     try {
-      const response = await api.get('/api/nomina/parametros-legales/?page_size=1000');
-      const data = response.data;
-      
-      if (Array.isArray(data)) {
-        return data;
-      } else if (data.results) {
-        return data.results;
-      }
-      return [];
+      const response = await api.get('/api/nomina/parametros-legales/', { params: { page_size: 99999 } });
+      return response.data.results || response.data;
     } catch (error) {
       console.error('Error al obtener todos los parámetros legales:', error);
       throw error;
@@ -161,24 +154,36 @@ const parametrosLegalesService = {
    * Lista de conceptos disponibles
    */
   conceptos: [
+    // Seguridad Social
     { value: 'SALUD', label: 'Salud' },
     { value: 'PENSION', label: 'Pensión' },
+    // ARL por niveles
     { value: 'ARL_NIVEL_I', label: 'ARL Nivel I' },
     { value: 'ARL_NIVEL_II', label: 'ARL Nivel II' },
     { value: 'ARL_NIVEL_III', label: 'ARL Nivel III' },
     { value: 'ARL_NIVEL_IV', label: 'ARL Nivel IV' },
     { value: 'ARL_NIVEL_V', label: 'ARL Nivel V' },
+    // Parafiscales
     { value: 'CAJA_COMPENSACION', label: 'Caja de Compensación' },
     { value: 'SENA', label: 'SENA' },
     { value: 'ICBF', label: 'ICBF' },
+    // Prestaciones sociales
     { value: 'CESANTIAS', label: 'Cesantías' },
     { value: 'INTERESES_CESANTIAS', label: 'Intereses Cesantías' },
     { value: 'PRIMA_SERVICIOS', label: 'Prima de Servicios' },
     { value: 'VACACIONES', label: 'Vacaciones' },
+    // Valores de referencia
     { value: 'SMMLV', label: 'Salario Mínimo Mensual Legal Vigente' },
     { value: 'AUXILIO_TRANSPORTE', label: 'Auxilio de Transporte' },
     { value: 'TOPE_AUXILIO_TRANSPORTE', label: 'Tope Auxilio Transporte' },
     { value: 'IBC_SERVICIOS', label: 'IBC Servicios' },
+    // Retención en la fuente
+    { value: 'UVT', label: 'Unidad de Valor Tributario (UVT)' },
+    // Fondo de Solidaridad Pensional
+    { value: 'TOPE_FSP', label: 'Tope Fondo Solidaridad Pensional' },
+    { value: 'TOPE_SUBSISTENCIA', label: 'Tope Aporte Subsistencia' },
+    { value: 'FSP', label: 'Fondo de Solidaridad Pensional' },
+    { value: 'SUBSISTENCIA', label: 'Aporte Subsistencia' },
   ],
 };
 

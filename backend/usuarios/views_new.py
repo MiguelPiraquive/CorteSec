@@ -18,6 +18,11 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q, Count
 from django.utils import timezone
 from datetime import timedelta
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.conf import settings
+from core.email_service import send_system_email
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.http import HttpResponse
@@ -31,7 +36,7 @@ from .serializers_new import (
     UserStatsSerializer, HistorialUsuarioSerializer, VerificarDisponibilidadSerializer
 )
 from .filters import UserFilter
-from roles.models import Rol, AsignacionRol
+# from roles.models import Rol, AsignacionRol  # COMENTADO: módulo no existe
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -415,7 +420,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def resetear_contrasena(self, request):
-        """Enviar email de reseteo de contraseña (placeholder)"""
+        """Enviar email de reseteo de contraseña"""
         email = request.data.get('email')
         
         if not email:
@@ -425,19 +430,49 @@ class UsuarioViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            user = User.objects.get(email=email)
-            
-            # TODO: Implementar envío de email de reseteo
-            # Por ahora solo retornamos éxito
-            
+            user = User.objects.filter(email=email).first()
+
+            # Por seguridad, no revelar si el email existe
+            if not user:
+                return Response({
+                    'message': 'Si el email existe, recibirás instrucciones para resetear tu contraseña'
+                })
+
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            reset_url = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+
+            email_subject = 'Recuperación de contraseña - CorteSec'
+            email_body = f"""
+Hola {user.get_full_name() or user.email},
+
+Recibimos una solicitud para restablecer tu contraseña.
+
+Usa el siguiente enlace para continuar (válido por 24 horas):
+{reset_url}
+
+Si no solicitaste este cambio, ignora este correo.
+
+Saludos,
+Equipo CorteSec
+"""
+
+            send_system_email(
+                subject=email_subject,
+                message=email_body,
+                recipient_list=[user.email],
+                fail_silently=False
+            )
+
             return Response({
                 'message': f'Email de reseteo enviado a {email}'
             })
-        except User.DoesNotExist:
-            # Por seguridad, no revelar que el email no existe
-            return Response({
-                'message': f'Si el email existe, recibirás instrucciones para resetear tu contraseña'
-            })
+        except Exception as e:
+            logger.error(f"Error enviando email de reseteo: {e}")
+            return Response(
+                {'error': 'No se pudo enviar el correo de recuperación.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     def get_client_ip(self, request):
         """Obtener IP del cliente"""

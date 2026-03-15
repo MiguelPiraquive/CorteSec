@@ -80,14 +80,9 @@ urlpatterns = [
     
     # ==================== SYSTEM STATUS Y HEALTH ====================
     
-    # Verificación del sistema (solo para staff)
+    # Verificación del sistema (solo para staff, JWT)
     path('api/system-status/', system_status, name='system_status'),
     path('api/health-check/', system_health_check, name='system_health_check'),
-    path('system-check/', views.system_check, name='system_check'),
-    
-    # Health checks
-    path('api/health/', views.health_check, name='health_check'),
-    path('health/', views.health_check, name='health_simple'),  # URL alternativa más simple
     
     # Página de prueba para header sticky
     path('test-sticky/', views.test_sticky, name='test_sticky'),
@@ -114,4 +109,8 @@ urlpatterns = [
     path('api/dashboard/hourly-patterns/', api_views.dashboard_hourly_patterns, name='dashboard_hourly_patterns'),
     path('api/dashboard/productivity-heatmap/', api_views.dashboard_productivity_heatmap, name='dashboard_productivity_heatmap'),
     path('api/dashboard/search-suggestions/', api_views.dashboard_search_suggestions, name='dashboard_search_suggestions'),
+
+    # ==================== APIs PÚBLICAS (LANDING) ====================
+    path('api/public/plans/', api_views.public_plans, name='public_plans'),
+    path('api/public/landing/', api_views.public_landing_info, name='public_landing_info'),
 ]

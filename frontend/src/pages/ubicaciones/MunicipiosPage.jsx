@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import useAudit from '../../hooks/useAudit'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
+import useServerPagination from '../../hooks/useServerPagination'
+import Pagination from '../../components/Pagination'
 import locationsService from '../../services/locationsService'
 import {
   MapIcon,
@@ -16,20 +20,29 @@ import {
 
 const MunicipiosPage = () => {
   const audit = useAudit('Municipios')
-  const [municipios, setMunicipios] = useState([])
+  const { hasPermission, initialized } = usePermissions()
   const [departamentos, setDepartamentos] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
   const [filterDepartamento, setFilterDepartamento] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [editingMunicipio, setEditingMunicipio] = useState(null)
   const [excelFile, setExcelFile] = useState(null)
   const [uploadResult, setUploadResult] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const [pageSize] = useState(20)
+
+  const fetchMunicipios = useCallback((params) => locationsService.getMunicipios(params), [])
+  const {
+    data: municipios,
+    loading,
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    searchTerm,
+    setSearchTerm,
+    setCurrentPage,
+    setFilters,
+    refresh,
+  } = useServerPagination(fetchMunicipios, { pageSize: 20 })
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -39,31 +52,19 @@ const MunicipiosPage = () => {
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
 
+  // Load departamentos for dropdown
   useEffect(() => {
-    loadData()
+    locationsService.getAllDepartamentos().then(data => {
+      setDepartamentos(Array.isArray(data) ? data : [])
+    }).catch(() => {})
   }, [])
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, filterDepartamento])
-
-  const loadData = async () => {
-    try {
-      setLoading(true)
-      const [municipiosData, departamentosData] = await Promise.all([
-        locationsService.getAllMunicipios(),
-        locationsService.getAllDepartamentos(),
-      ])
-      setMunicipios(municipiosData)
-      setDepartamentos(departamentosData)
-      setTotalCount(municipiosData.length)
-      setTotalPages(Math.ceil(municipiosData.length / pageSize))
-      setCurrentPage(1)
-    } catch (error) {
-      showNotification('error', 'Error al cargar datos')
-      console.error(error)
-    } finally {
-      setLoading(false)
+  const handleFilterDepartamento = (value) => {
+    setFilterDepartamento(value)
+    if (value) {
+      setFilters({ departamento: value })
+    } else {
+      setFilters({})
     }
   }
 
@@ -87,7 +88,7 @@ const MunicipiosPage = () => {
       setShowModal(false)
       setFormData({ nombre: '', codigo: '', departamento: '' })
       setEditingMunicipio(null)
-      loadData()
+      refresh()
     } catch (error) {
       showNotification('error', error.response?.data?.message || 'Error al guardar municipio')
     }
@@ -108,7 +109,7 @@ const MunicipiosPage = () => {
     try {
       await locationsService.deleteMunicipio(id)
       showNotification('success', 'Municipio eliminado exitosamente')
-      loadData()
+      refresh()
     } catch (error) {
       showNotification('error', 'Error al eliminar municipio')
     }
@@ -131,36 +132,14 @@ const MunicipiosPage = () => {
       const result = await locationsService.uploadExcel(excelFile)
       setUploadResult(result)
       showNotification('success', 'Archivo procesado exitosamente')
-      loadData()
+      refresh()
     } catch (error) {
       showNotification('error', error.response?.data?.error || 'Error al procesar archivo')
     }
   }
 
-  const getDepartamentoNombre = (depId) => {
-    const dep = departamentos.find(d => d.id === depId)
-    return dep ? dep.nombre : 'N/A'
-  }
-
-  const filteredMunicipios = municipios.filter(mun => {
-    const matchSearch = mun.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (mun.codigo && mun.codigo.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchDepartamento = !filterDepartamento || mun.departamento?.id === filterDepartamento
-    return matchSearch && matchDepartamento
-  })
-
-  // Paginación de datos filtrados
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const paginatedMunicipios = filteredMunicipios.slice(startIndex, endIndex)
-  const filteredTotalPages = Math.ceil(filteredMunicipios.length / pageSize)
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= filteredTotalPages) {
-      setCurrentPage(newPage)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('municipios.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   return (
     <div className="space-y-6">
@@ -187,14 +166,18 @@ const MunicipiosPage = () => {
             </div>
           </div>
           <div className="flex space-x-3">
-            <button onClick={() => setShowUploadModal(true)} className="flex items-center space-x-2 px-5 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold border border-white/30">
-              <UploadIcon className="w-5 h-5" />
-              <span>Importar Excel</span>
-            </button>
-            <button onClick={() => { setShowModal(true); setEditingMunicipio(null); setFormData({ nombre: '', codigo: '', departamento: '' }) }} className="flex items-center space-x-2 px-5 py-3 bg-white text-emerald-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg">
-              <PlusIcon className="w-5 h-5" />
-              <span>Nuevo Municipio</span>
-            </button>
+            <Can permission="municipios.add">
+              <button onClick={() => setShowUploadModal(true)} className="flex items-center space-x-2 px-5 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold border border-white/30">
+                <UploadIcon className="w-5 h-5" />
+                <span>Importar Excel</span>
+              </button>
+            </Can>
+            <Can permission="municipios.add">
+              <button onClick={() => { setShowModal(true); setEditingMunicipio(null); setFormData({ nombre: '', codigo: '', departamento: '' }) }} className="flex items-center space-x-2 px-5 py-3 bg-white text-emerald-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg">
+                <PlusIcon className="w-5 h-5" />
+                <span>Nuevo Municipio</span>
+              </button>
+            </Can>
           </div>
         </div>
       </div>
@@ -206,7 +189,7 @@ const MunicipiosPage = () => {
             <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre o código..." className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all" />
           </div>
-          <select value={filterDepartamento} onChange={(e) => setFilterDepartamento(e.target.value)} className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all">
+          <select value={filterDepartamento} onChange={(e) => handleFilterDepartamento(e.target.value)} className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all">
             <option value="">Todos los departamentos</option>
             {departamentos.map(dep => (
               <option key={dep.id} value={dep.id}>{dep.nombre}</option>
@@ -237,24 +220,28 @@ const MunicipiosPage = () => {
                     </div>
                   </td>
                 </tr>
-              ) : filteredMunicipios.length === 0 ? (
+              ) : municipios.length === 0 ? (
                 <tr>
                   <td colSpan="4" className="px-6 py-12 text-center text-gray-500">No se encontraron municipios</td>
                 </tr>
               ) : (
-                paginatedMunicipios.map((mun, index) => (
+                municipios.map((mun, index) => (
                   <tr key={mun.id} className={`border-b border-gray-200/50 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-teal-50 transition-all ${index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}`}>
                     <td className="px-6 py-4 text-sm font-mono font-semibold text-gray-700">{mun.codigo || 'N/A'}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-gray-900">{mun.nombre}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{mun.departamento?.nombre || 'N/A'}</td>
                     <td className="px-6 py-4">
                       <div className="flex justify-center space-x-2">
-                        <button onClick={() => handleEdit(mun)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all transform hover:scale-110">
-                          <EditIcon className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDelete(mun.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all transform hover:scale-110">
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
+                        <Can permission="municipios.change">
+                          <button onClick={() => handleEdit(mun)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all transform hover:scale-110">
+                            <EditIcon className="w-4 h-4" />
+                          </button>
+                        </Can>
+                        <Can permission="municipios.delete">
+                          <button onClick={() => handleDelete(mun.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all transform hover:scale-110">
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </Can>
                       </div>
                     </td>
                   </tr>
@@ -264,75 +251,15 @@ const MunicipiosPage = () => {
           </table>
         </div>
 
-        {/* Paginación */}
-        {filteredMunicipios.length > pageSize && (
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Mostrando <span className="font-semibold text-gray-900">{startIndex + 1}</span> a{' '}
-                <span className="font-semibold text-gray-900">{Math.min(endIndex, filteredMunicipios.length)}</span> de{' '}
-                <span className="font-semibold text-gray-900">{filteredMunicipios.length}</span> municipios
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handlePageChange(1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Primera
-                </button>
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Anterior
-                </button>
-                <div className="flex items-center space-x-2">
-                  {[...Array(Math.min(5, filteredTotalPages))].map((_, i) => {
-                    let pageNum
-                    if (filteredTotalPages <= 5) {
-                      pageNum = i + 1
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1
-                    } else if (currentPage >= filteredTotalPages - 2) {
-                      pageNum = filteredTotalPages - 4 + i
-                    } else {
-                      pageNum = currentPage - 2 + i
-                    }
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => handlePageChange(pageNum)}
-                        className={`px-4 py-2 rounded-lg transition-all ${
-                          currentPage === pageNum
-                            ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg'
-                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
-                </div>
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === filteredTotalPages}
-                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Siguiente
-                </button>
-                <button
-                  onClick={() => handlePageChange(filteredTotalPages)}
-                  disabled={currentPage === filteredTotalPages}
-                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Última
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Paginacion */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          itemLabel="municipios"
+        />
       </div>
 
       {/* Create/Edit Modal */}

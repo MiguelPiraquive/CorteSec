@@ -60,6 +60,11 @@ const permisosService = {
     return response.data
   },
 
+  patchTipoPermiso: async (id, data) => {
+    const response = await api.patch(`/api/permisos/tipos-permiso/${id}/`, data)
+    return response.data
+  },
+
   deleteTipoPermiso: async (id) => {
     const response = await api.delete(`/api/permisos/tipos-permiso/${id}/`)
     return response.data
@@ -67,6 +72,11 @@ const permisosService = {
 
   getTiposPorCategoria: async () => {
     const response = await api.get('/api/permisos/tipos-permiso/categorias/')
+    return response.data
+  },
+
+  getEstadisticasTiposPermiso: async () => {
+    const response = await api.get('/api/permisos/tipos-permiso/estadisticas/')
     return response.data
   },
 
@@ -124,6 +134,11 @@ const permisosService = {
     return response.data
   },
 
+  patchPermiso: async (id, data) => {
+    const response = await api.patch(`/api/permisos/permisos/${id}/`, data)
+    return response.data
+  },
+
   deletePermiso: async (id) => {
     const response = await api.delete(`/api/permisos/permisos/${id}/`)
     return response.data
@@ -136,6 +151,24 @@ const permisosService = {
 
   getPermisosPorModulo: async () => {
     const response = await api.get('/api/permisos/permisos/por-modulo/')
+    return response.data
+  },
+
+  // ==================== PERMISOS POR ROL ====================
+
+  getPermisosPorRol: async (rolId) => {
+    const response = await api.get('/api/permisos/permisos-rol/por-rol/', {
+      params: { rol_id: rolId }
+    })
+    return response.data
+  },
+
+  setPermisosPorRol: async (rolId, permisos = [], tipo = 'grant') => {
+    const response = await api.post('/api/permisos/permisos-rol/por-rol/', {
+      rol_id: rolId,
+      permisos,
+      tipo
+    })
     return response.data
   },
 
@@ -178,6 +211,151 @@ const permisosService = {
     return response.data
   },
 
+  // ==================== RESTRICCIONES DE CAMPO ====================
+
+  getAllRestriccionesCampo: async (params = {}) => {
+    const response = await api.get('/api/permisos/restricciones-campo/', { params })
+    return response.data
+  },
+
+  createRestriccionCampo: async (data) => {
+    const response = await api.post('/api/permisos/restricciones-campo/', data)
+    return response.data
+  },
+
+  updateRestriccionCampo: async (id, data) => {
+    const response = await api.put(`/api/permisos/restricciones-campo/${id}/`, data)
+    return response.data
+  },
+
+  patchRestriccionCampo: async (id, data) => {
+    const response = await api.patch(`/api/permisos/restricciones-campo/${id}/`, data)
+    return response.data
+  },
+
+  deleteRestriccionCampo: async (id) => {
+    const response = await api.delete(`/api/permisos/restricciones-campo/${id}/`)
+    return response.data
+  },
+
+  // ==================== RESTRICCIONES DE REGISTRO (RLS) ====================
+
+  getAllRestriccionesRegistro: async (params = {}) => {
+    const response = await api.get('/api/permisos/restricciones-registro/', { params })
+    return response.data
+  },
+
+  createRestriccionRegistro: async (data) => {
+    const response = await api.post('/api/permisos/restricciones-registro/', data)
+    return response.data
+  },
+
+  updateRestriccionRegistro: async (id, data) => {
+    const response = await api.put(`/api/permisos/restricciones-registro/${id}/`, data)
+    return response.data
+  },
+
+  patchRestriccionRegistro: async (id, data) => {
+    const response = await api.patch(`/api/permisos/restricciones-registro/${id}/`, data)
+    return response.data
+  },
+
+  deleteRestriccionRegistro: async (id) => {
+    const response = await api.delete(`/api/permisos/restricciones-registro/${id}/`)
+    return response.data
+  },
+
+  // ==================== DELEGACIONES ====================
+
+  getAllDelegaciones: async (params = {}) => {
+    const response = await api.get('/api/permisos/delegaciones/', { params })
+    return response.data
+  },
+
+  createDelegacion: async (data) => {
+    const response = await api.post('/api/permisos/delegaciones/', data)
+    return response.data
+  },
+
+  updateDelegacion: async (id, data) => {
+    const response = await api.put(`/api/permisos/delegaciones/${id}/`, data)
+    return response.data
+  },
+
+  patchDelegacion: async (id, data) => {
+    const response = await api.patch(`/api/permisos/delegaciones/${id}/`, data)
+    return response.data
+  },
+
+  deleteDelegacion: async (id) => {
+    const response = await api.delete(`/api/permisos/delegaciones/${id}/`)
+    return response.data
+  },
+
+  revocarDelegacion: async (id) => {
+    const response = await api.post(`/api/permisos/delegaciones/${id}/revocar/`)
+    return response.data
+  },
+
+  // ==================== SOLICITUDES DE APROBACIÓN ====================
+
+  getAllSolicitudesAprobacion: async (params = {}) => {
+    const response = await api.get('/api/permisos/solicitudes-aprobacion/', { params })
+    return response.data
+  },
+
+  createSolicitudAprobacion: async (data) => {
+    const response = await api.post('/api/permisos/solicitudes-aprobacion/', data)
+    return response.data
+  },
+
+  updateSolicitudAprobacion: async (id, data) => {
+    const response = await api.put(`/api/permisos/solicitudes-aprobacion/${id}/`, data)
+    return response.data
+  },
+
+  deleteSolicitudAprobacion: async (id) => {
+    const response = await api.delete(`/api/permisos/solicitudes-aprobacion/${id}/`)
+    return response.data
+  },
+
+  aprobarSolicitud: async (id, respuesta = '') => {
+    const response = await api.post(`/api/permisos/solicitudes-aprobacion/${id}/aprobar/`, { respuesta })
+    return response.data
+  },
+
+  rechazarSolicitud: async (id, respuesta = '') => {
+    const response = await api.post(`/api/permisos/solicitudes-aprobacion/${id}/rechazar/`, { respuesta })
+    return response.data
+  },
+
+  // ==================== ELEMENTOS UI ====================
+
+  getAllUIElements: async (params = {}) => {
+    const response = await api.get('/api/permisos/ui-elements/', { params })
+    return response.data
+  },
+
+  createUIElement: async (data) => {
+    const response = await api.post('/api/permisos/ui-elements/', data)
+    return response.data
+  },
+
+  updateUIElement: async (id, data) => {
+    const response = await api.put(`/api/permisos/ui-elements/${id}/`, data)
+    return response.data
+  },
+
+  patchUIElement: async (id, data) => {
+    const response = await api.patch(`/api/permisos/ui-elements/${id}/`, data)
+    return response.data
+  },
+
+  deleteUIElement: async (id) => {
+    const response = await api.delete(`/api/permisos/ui-elements/${id}/`)
+    return response.data
+  },
+
   getEstadisticasAuditoria: async () => {
     const response = await api.get('/api/permisos/auditoria/estadisticas/')
     return response.data
@@ -187,6 +365,16 @@ const permisosService = {
   
   getEstadisticasGenerales: async () => {
     const response = await api.get('/api/permisos/estadisticas/generales/')
+    return response.data
+  },
+
+  getDashboardStats: async () => {
+    const response = await api.get('/api/permisos/dashboard/stats/')
+    return response.data
+  },
+
+  revocarPermisoDirecto: async (id, data = {}) => {
+    const response = await api.post(`/api/permisos/permisos-directos/${id}/revoke/`, data)
     return response.data
   },
 

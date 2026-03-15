@@ -15,7 +15,7 @@ class TipoCantidadSerializer(serializers.ModelSerializer):
             'es_sistema', 'orden', 'fecha_creacion', 'fecha_modificacion',
             'descripcion_completa', 'puede_eliminarse'
         ]
-        read_only_fields = ['id', 'organization', 'fecha_creacion', 'fecha_modificacion']
+        read_only_fields = ['id', 'organization', 'es_sistema', 'fecha_creacion', 'fecha_modificacion']
 
     def validate_codigo(self, value):
         """Validar formato del código"""

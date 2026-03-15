@@ -303,48 +303,86 @@ class Organization(models.Model):
         return timezone.now() > self.trial_ends_at
 
     def get_plan_limits(self):
-        """Obtiene los límites según el plan"""
-        limits = {
-            'FREE': {
-                'max_users': 3,
-                'max_storage_mb': 512,
+        """
+        Obtiene los límites según el plan desde PlanFeature (billing).
+        Fallback a campos del Plan si no hay PlanFeatures.
+        """
+        if not self.plan:
+            return {
+                'max_users': self.max_users or 3,
+                'max_storage_mb': self.max_storage_mb or 512,
                 'max_projects': 5,
-                'features': ['basic_reports', 'email_support']
-            },
-            'BASIC': {
-                'max_users': 10,
-                'max_storage_mb': 2048,
-                'max_projects': 20,
-                'features': ['advanced_reports', 'email_support', 'export_data']
-            },
-            'PRO': {
-                'max_users': 50,
-                'max_storage_mb': 10240,
-                'max_projects': 100,
-                'features': ['all_reports', 'priority_support', 'api_access', 'custom_branding']
-            },
-            'ENTERPRISE': {
-                'max_users': 1000,
-                'max_storage_mb': 51200,
-                'max_projects': 1000,
-                'features': ['unlimited_features', 'dedicated_support', 'sso', 'audit_logs']
+                'features': [],
             }
-        }
-        return limits.get(self.plan, limits['FREE'])
+
+        # Intentar obtener desde PlanFeature (fuente de verdad)
+        try:
+            from billing.models import PlanFeature
+            plan_features = PlanFeature.objects.filter(plan=self.plan, enabled=True)
+
+            limits = {
+                'max_users': self.plan.max_users,
+                'max_storage_mb': self.plan.max_storage_mb,
+                'max_projects': 9999,
+                'features': [],
+            }
+
+            for pf in plan_features:
+                limits['features'].append(pf.feature_code)
+                if pf.feature_code == 'max_usuarios' and pf.limit_value:
+                    limits['max_users'] = pf.limit_value
+                elif pf.feature_code == 'max_almacenamiento_mb' and pf.limit_value:
+                    limits['max_storage_mb'] = pf.limit_value
+                elif pf.feature_code == 'max_proyectos' and pf.limit_value:
+                    limits['max_projects'] = pf.limit_value
+
+            return limits
+        except Exception:
+            # Fallback a campos del Plan
+            return {
+                'max_users': self.plan.max_users if self.plan else 3,
+                'max_storage_mb': self.plan.max_storage_mb if self.plan else 512,
+                'max_projects': 5,
+                'features': self.plan.features if self.plan else [],
+            }
 
     def upgrade_plan(self, new_plan):
-        """Actualizar plan de la organización"""
+        """
+        Actualizar plan de la organización.
+        Se sincroniza con la Subscription de billing.
+        """
+        from core.models import PlanChangeLog
         old_plan = self.plan
         self.plan = new_plan
-        
-        # Actualizar límites según el nuevo plan
-        limits = self.get_plan_limits()
-        self.max_users = limits['max_users']
-        self.max_storage_mb = limits['max_storage_mb']
-        
-        self.save()
-        
-        # TODO: Registrar cambio de plan en auditoría
+
+        # Actualizar límites desde el plan
+        self.max_users = new_plan.max_users
+        self.max_storage_mb = new_plan.max_storage_mb
+
+        self.save(update_fields=['plan', 'max_users', 'max_storage_mb'])
+
+        # Registrar cambio de plan
+        try:
+            PlanChangeLog.objects.create(
+                organization=self,
+                old_plan=old_plan,
+                new_plan=new_plan,
+                changed_by=None,
+                reason='upgrade_plan() called',
+            )
+        except Exception:
+            pass
+
+        # Sincronizar con Subscription de billing
+        try:
+            from billing.models import Subscription
+            sub = Subscription.objects.filter(organization=self).first()
+            if sub:
+                sub.plan = new_plan
+                sub.save(update_fields=['plan', 'updated_at'])
+        except Exception:
+            pass
+
         return f"Plan actualizado de {old_plan} a {new_plan}"
 
     def get_absolute_url(self):

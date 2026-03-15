@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from contabilidad.models import PlanCuentas, TipoMovimiento, CentroCosto
+from contabilidad.models import PlanCuentas, CentroCosto
 from decimal import Decimal
 
 
@@ -21,51 +21,6 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING('Datos contables existentes eliminados')
             )
-
-        # Crear tipos de movimiento
-        tipos_movimiento = [
-            {
-                'codigo': 'ING',
-                'nombre': 'Ingreso',
-                'descripcion': 'Movimientos de ingreso',
-                'afecta_debito': False,
-                'afecta_credito': True,
-                'activo': True
-            },
-            {
-                'codigo': 'EGR',
-                'nombre': 'Egreso',
-                'descripcion': 'Movimientos de egreso',
-                'afecta_debito': True,
-                'afecta_credito': False,
-                'activo': True
-            },
-            {
-                'codigo': 'TRF',
-                'nombre': 'Transferencia',
-                'descripcion': 'Transferencias entre cuentas',
-                'afecta_debito': True,
-                'afecta_credito': True,
-                'activo': True
-            },
-        ]
-
-        tipos_creados = {}
-        for tipo_data in tipos_movimiento:
-            tipo, created = TipoMovimiento.objects.get_or_create(
-                codigo=tipo_data['codigo'],
-                defaults=tipo_data
-            )
-            tipos_creados[tipo_data['codigo']] = tipo
-            
-            if created:
-                self.stdout.write(
-                    self.style.SUCCESS(f'Creado tipo de movimiento: {tipo.nombre}')
-                )
-            else:
-                self.stdout.write(
-                    self.style.WARNING(f'Ya existe tipo de movimiento: {tipo.nombre}')
-                )
 
         # Crear centros de costo
         centros_costo = [
@@ -154,6 +109,36 @@ class Command(BaseCommand):
                 'es_auxiliar': True,
                 'activo': True
             },
+            {
+                'codigo': '13',
+                'nombre': 'DEUDORES',
+                'tipo_cuenta': 'activo',
+                'naturaleza': 'debito',
+                'nivel': 2,
+                'cuenta_padre': '1',
+                'es_auxiliar': False,
+                'activo': True
+            },
+            {
+                'codigo': '1365',
+                'nombre': 'CUENTAS POR COBRAR A TRABAJADORES',
+                'tipo_cuenta': 'activo',
+                'naturaleza': 'debito',
+                'nivel': 3,
+                'cuenta_padre': '13',
+                'es_auxiliar': True,
+                'activo': True
+            },
+            {
+                'codigo': '1305',
+                'nombre': 'CARTERA PRÉSTAMOS',
+                'tipo_cuenta': 'activo',
+                'naturaleza': 'debito',
+                'nivel': 3,
+                'cuenta_padre': '13',
+                'es_auxiliar': True,
+                'activo': True
+            },
             
             # PASIVOS
             {
@@ -182,6 +167,56 @@ class Command(BaseCommand):
                 'naturaleza': 'credito',
                 'nivel': 3,
                 'cuenta_padre': '21',
+                'es_auxiliar': True,
+                'activo': True
+            },
+            {
+                'codigo': '23',
+                'nombre': 'CUENTAS POR PAGAR',
+                'tipo_cuenta': 'pasivo',
+                'naturaleza': 'credito',
+                'nivel': 2,
+                'cuenta_padre': '2',
+                'es_auxiliar': False,
+                'activo': True
+            },
+            {
+                'codigo': '2370',
+                'nombre': 'RETENCIONES Y APORTES DE NÓMINA',
+                'tipo_cuenta': 'pasivo',
+                'naturaleza': 'credito',
+                'nivel': 3,
+                'cuenta_padre': '23',
+                'es_auxiliar': True,
+                'activo': True
+            },
+            {
+                'codigo': '237005',
+                'nombre': 'APORTES A EPS',
+                'tipo_cuenta': 'pasivo',
+                'naturaleza': 'credito',
+                'nivel': 4,
+                'cuenta_padre': '2370',
+                'es_auxiliar': True,
+                'activo': True
+            },
+            {
+                'codigo': '2380',
+                'nombre': 'ACREEDORES VARIOS',
+                'tipo_cuenta': 'pasivo',
+                'naturaleza': 'credito',
+                'nivel': 3,
+                'cuenta_padre': '23',
+                'es_auxiliar': True,
+                'activo': True
+            },
+            {
+                'codigo': '238030',
+                'nombre': 'FONDOS DE CESANTÍAS Y/O PENSIONES',
+                'tipo_cuenta': 'pasivo',
+                'naturaleza': 'credito',
+                'nivel': 4,
+                'cuenta_padre': '2380',
                 'es_auxiliar': True,
                 'activo': True
             },
@@ -238,8 +273,48 @@ class Command(BaseCommand):
                 'activo': True
             },
             {
+                'codigo': '42',
+                'nombre': 'OTROS INGRESOS',
+                'tipo_cuenta': 'ingreso',
+                'naturaleza': 'credito',
+                'nivel': 2,
+                'cuenta_padre': '4',
+                'es_auxiliar': False,
+                'activo': True
+            },
+            {
                 'codigo': '4135',
                 'nombre': 'SERVICIOS',
+                'tipo_cuenta': 'ingreso',
+                'naturaleza': 'credito',
+                'nivel': 3,
+                'cuenta_padre': '41',
+                'es_auxiliar': True,
+                'activo': True
+            },
+            {
+                'codigo': '4210',
+                'nombre': 'INGRESOS FINANCIEROS',
+                'tipo_cuenta': 'ingreso',
+                'naturaleza': 'credito',
+                'nivel': 3,
+                'cuenta_padre': '42',
+                'es_auxiliar': True,
+                'activo': True
+            },
+            {
+                'codigo': '421005',
+                'nombre': 'INTERESES',
+                'tipo_cuenta': 'ingreso',
+                'naturaleza': 'credito',
+                'nivel': 4,
+                'cuenta_padre': '4210',
+                'es_auxiliar': True,
+                'activo': True
+            },
+            {
+                'codigo': '4175',
+                'nombre': 'INGRESOS POR MORA',
                 'tipo_cuenta': 'ingreso',
                 'naturaleza': 'credito',
                 'nivel': 3,
@@ -285,6 +360,9 @@ class Command(BaseCommand):
         cuentas_ordenadas = sorted(cuentas, key=lambda x: x['nivel'])
         
         for cuenta_data in cuentas_ordenadas:
+            cuenta_data['activa'] = cuenta_data.pop('activo', True)
+            cuenta_data['acepta_movimientos'] = cuenta_data.pop('es_auxiliar', True)
+            cuenta_data.setdefault('requiere_tercero', False)
             cuenta_padre_codigo = cuenta_data.pop('cuenta_padre', None)
             if cuenta_padre_codigo:
                 cuenta_data['cuenta_padre'] = cuentas_creadas[cuenta_padre_codigo]

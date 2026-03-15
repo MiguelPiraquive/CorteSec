@@ -31,9 +31,11 @@ class OrganizacionForm(forms.ModelForm):
     class Meta:
         model = Organizacion
         fields = [
-            'nombre', 'codigo', 'razon_social', 'nit', 
-            'email', 'telefono', 'direccion', 'activa', 
-            'logo', 'configuracion'
+            'nombre', 'codigo', 'slug', 'razon_social', 'nit',
+            'email', 'telefono', 'website', 'direccion',
+            'city', 'state', 'country', 'postal_code',
+            'plan', 'max_users', 'max_storage_mb', 'is_trial', 'trial_ends_at',
+            'primary_color', 'activa', 'logo', 'configuracion', 'settings'
         ]
         widgets = {
             'nombre': forms.TextInput(attrs={
@@ -45,6 +47,10 @@ class OrganizacionForm(forms.ModelForm):
                 'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
                 'placeholder': 'Código único de la organización',
                 'required': True
+            }),
+            'slug': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'placeholder': 'slug-empresa (opcional)'
             }),
             'razon_social': forms.TextInput(attrs={
                 'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
@@ -58,6 +64,10 @@ class OrganizacionForm(forms.ModelForm):
                 'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
                 'placeholder': 'email@organizacion.com'
             }),
+            'website': forms.URLInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'placeholder': 'https://www.empresa.com'
+            }),
             'telefono': forms.TextInput(attrs={
                 'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
                 'placeholder': '+57 300 123 4567'
@@ -66,6 +76,44 @@ class OrganizacionForm(forms.ModelForm):
                 'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
                 'placeholder': 'Dirección física de la organización',
                 'rows': 3
+            }),
+            'city': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'placeholder': 'Ciudad'
+            }),
+            'state': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'placeholder': 'Estado/Provincia'
+            }),
+            'country': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'placeholder': 'País'
+            }),
+            'postal_code': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'placeholder': 'Código postal'
+            }),
+            'plan': forms.Select(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+            }),
+            'max_users': forms.NumberInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'min': 1
+            }),
+            'max_storage_mb': forms.NumberInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'min': 100
+            }),
+            'is_trial': forms.CheckboxInput(attrs={
+                'class': 'rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500'
+            }),
+            'trial_ends_at': forms.DateTimeInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'type': 'datetime-local'
+            }),
+            'primary_color': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'placeholder': '#007bff'
             }),
             'activa': forms.CheckboxInput(attrs={
                 'class': 'rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500'
@@ -78,12 +126,18 @@ class OrganizacionForm(forms.ModelForm):
                 'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
                 'placeholder': '{"key": "value"}',
                 'rows': 4
+            }),
+            'settings': forms.Textarea(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500',
+                'placeholder': '{"plan_features": ["nomina", "prestamos"]}',
+                'rows': 4
             })
         }
         help_texts = {
             'codigo': _('Código único identificador (se convertirá a mayúsculas)'),
             'nit': _('Número de identificación tributaria'),
             'configuracion': _('Configuración en formato JSON'),
+            'settings': _('Settings SaaS en formato JSON'),
         }
     
     def clean_codigo(self):

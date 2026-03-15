@@ -2,7 +2,7 @@
 Management Command: init_organization
 =====================================
 
-Crea la organización principal del sistema.
+Crea la organización principal del sistema (modelo Organizacion).
 
 Uso:
     python manage.py init_organization
@@ -14,7 +14,7 @@ Fecha: Enero 2026
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from core.models import Organization
+from core.models import Organizacion
 
 
 class Command(BaseCommand):
@@ -46,7 +46,7 @@ class Command(BaseCommand):
         nit = options['nit']
         
         with transaction.atomic():
-            org, created = Organization.objects.get_or_create(
+            org, created = Organizacion.objects.get_or_create(
                 codigo=codigo,
                 defaults={
                     'nombre': nombre,

@@ -8,6 +8,8 @@ router.register(r'cuentas', api_views.PlanCuentasViewSet, basename='plancuentas'
 router.register(r'comprobantes', api_views.ComprobanteContableViewSet, basename='comprobante')
 router.register(r'movimientos', api_views.MovimientoContableViewSet, basename='movimiento')
 router.register(r'flujo-caja', api_views.FlujoCajaViewSet, basename='flujocaja')
+router.register(r'centros-costo', api_views.CentroCostoViewSet, basename='centrocosto')
+router.register(r'balances', api_views.BalanceComprobacionViewSet, basename='balancecomprobacion')
 
 # URLs de la API
 urlpatterns = [

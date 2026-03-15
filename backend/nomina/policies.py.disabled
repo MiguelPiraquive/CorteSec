@@ -1,0 +1,231 @@
+"""
+Nomina Access Policies
+======================
+Políticas de acceso para el módulo de nómina.
+
+Policies:
+- NominaAccessPolicy: Nómina general
+- ConceptoLaboralAccessPolicy: Conceptos laborales
+- LiquidacionAccessPolicy: Liquidaciones
+- PagoNominaAccessPolicy: Pagos
+"""
+
+from core.policies import (
+    BaseAccessPolicy,
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    RowLevelSecurityMixin
+)
+
+
+class NominaAccessPolicy(
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    RowLevelSecurityMixin,
+    BaseAccessPolicy
+):
+    """
+    Policy para gestión de nómina.
+    
+    Recursos protegidos:
+    - nomina_mensual: Nómina mensual
+    - nomina_electronica: Nómina electrónica
+    
+    Acciones:
+    - ver, crear, editar, eliminar (CRUD)
+    - calcular: Calcular nómina
+    - aprobar: Aprobar nómina
+    - procesar_pago: Procesar pago
+    - exportar: Exportar nómina
+    - cerrar: Cerrar período
+    """
+    
+    id = 'nomina_access_policy'
+    resource_name = 'nomina_mensual'
+    
+    # Mapeo de acciones DRF a acciones RBAC
+    action_map = {
+        'list': 'ver',
+        'retrieve': 'ver',
+        'create': 'crear',
+        'update': 'editar',
+        'partial_update': 'editar',
+        'destroy': 'eliminar',
+        'calcular': 'calcular',
+        'aprobar': 'aprobar',
+        'procesar_pago': 'procesar_pago',
+        'exportar': 'exportar',
+        'cerrar': 'cerrar',
+    }
+    
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["create", "update", "partial_update"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["destroy"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["calcular", "aprobar", "procesar_pago", "exportar", "cerrar"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+    ]
+    
+    def scope_queryset(self, request, queryset):
+        """
+        Aplica filtros RLS al queryset de nómina.
+        
+        Supervisores solo ven nómina de su departamento.
+        """
+        return self.apply_rls_filter(
+            request.user,
+            queryset,
+            self.resource_name
+        )
+
+
+class ConceptoLaboralAccessPolicy(
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    BaseAccessPolicy
+):
+    """
+    Policy para conceptos laborales (devengos, deducciones).
+    
+    Recursos: concepto_laboral
+    Acciones: CRUD estándar
+    """
+    
+    id = 'concepto_laboral_access_policy'
+    resource_name = 'concepto_laboral'
+    
+    action_map = {
+        'list': 'ver',
+        'retrieve': 'ver',
+        'create': 'crear',
+        'update': 'editar',
+        'partial_update': 'editar',
+        'destroy': 'eliminar',
+    }
+    
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["create", "update", "partial_update", "destroy"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+    ]
+
+
+class LiquidacionAccessPolicy(
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    RowLevelSecurityMixin,
+    BaseAccessPolicy
+):
+    """
+    Policy para liquidaciones de empleados.
+    
+    Recursos: liquidacion
+    Acciones: CRUD + aprobar, revertir
+    """
+    
+    id = 'liquidacion_access_policy'
+    resource_name = 'liquidacion'
+    
+    action_map = {
+        'list': 'ver',
+        'retrieve': 'ver',
+        'create': 'crear',
+        'update': 'editar',
+        'partial_update': 'editar',
+        'destroy': 'eliminar',
+        'aprobar': 'aprobar',
+        'revertir': 'revertir',
+    }
+    
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["create", "update", "partial_update"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["destroy", "aprobar", "revertir"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+    ]
+    
+    def scope_queryset(self, request, queryset):
+        """RLS: Filtrar liquidaciones según rol."""
+        return self.apply_rls_filter(
+            request.user,
+            queryset,
+            self.resource_name
+        )
+
+
+class PagoNominaAccessPolicy(
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    BaseAccessPolicy
+):
+    """
+    Policy para pagos de nómina.
+    
+    Recursos: pago_nomina
+    Acciones: CRUD + aprobar_pago, exportar_pagos
+    """
+    
+    id = 'pago_nomina_access_policy'
+    resource_name = 'pago_nomina'
+    
+    action_map = {
+        'list': 'ver',
+        'retrieve': 'ver',
+        'create': 'crear',
+        'update': 'editar',
+        'partial_update': 'editar',
+        'destroy': 'eliminar',
+        'aprobar_pago': 'aprobar_pago',
+        'exportar_pagos': 'exportar',
+    }
+    
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["create", "update", "partial_update"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["destroy", "aprobar_pago", "exportar_pagos"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+    ]

@@ -1,5 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import useAudit from '../../hooks/useAudit'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
+import { useConfiguracion } from '../../context/ConfiguracionContext'
+import useServerPagination from '../../hooks/useServerPagination'
+import Pagination from '../../components/Pagination'
 import parametrosLegalesService from '../../services/parametrosLegalesService'
 import {
   ScaleIcon,
@@ -17,15 +22,12 @@ import {
 
 const ParametrosLegalesPage = () => {
   const audit = useAudit('Parámetros Legales')
-  const [parametros, setParametros] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  const { hasPermission, initialized } = usePermissions()
+  const { formatCurrency: cfgFormatCurrency, formatDate: cfgFormatDate } = useConfiguracion()
   const [filterConcepto, setFilterConcepto] = useState('')
   const [filterActivo, setFilterActivo] = useState('true') // Por defecto solo activos
   const [showModal, setShowModal] = useState(false)
   const [editingParametro, setEditingParametro] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize] = useState(12)
   
   const [formData, setFormData] = useState({
     concepto: '',
@@ -39,27 +41,37 @@ const ParametrosLegalesPage = () => {
     activo: true,
   })
 
+  const fetchParametros = useCallback((params) => parametrosLegalesService.getAll(params), [])
+  const {
+    data: parametros,
+    loading,
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    searchTerm,
+    setSearchTerm,
+    setCurrentPage,
+    setFilters,
+    refresh,
+  } = useServerPagination(fetchParametros, { pageSize: 12, initialFilters: { activo: 'true' } })
+
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
 
-  useEffect(() => {
-    loadParametros()
-  }, [])
+  const handleFilterConcepto = (value) => {
+    setFilterConcepto(value)
+    const filters = {}
+    if (value) filters.concepto = value
+    if (filterActivo !== '') filters.activo = filterActivo
+    setFilters(filters)
+  }
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, filterConcepto, filterActivo])
-
-  const loadParametros = async () => {
-    try {
-      setLoading(true)
-      const data = await parametrosLegalesService.getAllParametros()
-      setParametros(data)
-    } catch (error) {
-      showNotification('error', 'Error al cargar parámetros legales')
-      console.error('Error:', error)
-    } finally {
-      setLoading(false)
-    }
+  const handleFilterActivo = (value) => {
+    setFilterActivo(value)
+    const filters = {}
+    if (filterConcepto) filters.concepto = filterConcepto
+    if (value !== '') filters.activo = value
+    setFilters(filters)
   }
 
   const showNotification = (type, message) => {
@@ -116,13 +128,11 @@ const ParametrosLegalesPage = () => {
         porcentaje_total: parseFloat(formData.porcentaje_total) || 0,
         porcentaje_empleado: parseFloat(formData.porcentaje_empleado) || 0,
         porcentaje_empleador: parseFloat(formData.porcentaje_empleador) || 0,
-        valor_fijo: formData.valor_fijo ? parseFloat(formData.valor_fijo) : null,
+        valor_fijo: formData.valor_fijo ? parseFloat(formData.valor_fijo) : 0,
         vigente_desde: formData.vigente_desde,
         vigente_hasta: formData.vigente_hasta || null,
         activo: formData.activo,
       }
-
-      console.log('Enviando parámetro:', dataToSend)
 
       if (editingParametro) {
         await parametrosLegalesService.update(editingParametro.id, dataToSend)
@@ -136,14 +146,15 @@ const ParametrosLegalesPage = () => {
       
       setShowModal(false)
       resetForm()
-      await loadParametros()
+      refresh()
     } catch (error) {
-      console.error('Error guardando:', error)
-      console.error('Detalle:', error.response?.data)
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.porcentaje_total?.[0] ||
-                       Object.values(error.response?.data || {})[0] ||
-                       'Error al guardar parámetro legal'
+      const data = error.response?.data || {}
+      const errorMsg = typeof data === 'string' ? data
+        : data.detail?.[0] || data.detail
+        || data.porcentaje_total?.[0]
+        || data.non_field_errors?.[0]
+        || (typeof Object.values(data)[0] === 'string' ? Object.values(data)[0] : Object.values(data)[0]?.[0])
+        || 'Error al guardar parámetro legal'
       showNotification('error', errorMsg)
     }
   }
@@ -151,8 +162,6 @@ const ParametrosLegalesPage = () => {
   const handleEdit = (parametro) => {
     audit.modalOpen('editar_parametro_legal', { parametro_id: parametro.id, concepto: parametro.concepto })
     setEditingParametro(parametro)
-    
-    console.log('Editando parámetro:', parametro)
     
     setFormData({
       concepto: parametro.concepto || '',
@@ -174,9 +183,10 @@ const ParametrosLegalesPage = () => {
     try {
       await parametrosLegalesService.delete(id)
       showNotification('success', 'Parámetro legal eliminado exitosamente')
-      loadParametros()
+      refresh()
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Error al eliminar parámetro legal'
+      const data = error.response?.data || {}
+      const errorMsg = data.detail?.[0] || data.detail || 'Error al eliminar parámetro legal'
       showNotification('error', errorMsg)
     }
   }
@@ -196,40 +206,14 @@ const ParametrosLegalesPage = () => {
     setEditingParametro(null)
   }
 
-  const filteredParametros = parametros.filter(param => {
-    const conceptoDisplay = param.concepto_display?.toLowerCase() || param.concepto?.toLowerCase() || ''
-    const descripcion = param.descripcion?.toLowerCase() || ''
-    
-    const matchSearch = conceptoDisplay.includes(searchTerm.toLowerCase()) ||
-                       descripcion.includes(searchTerm.toLowerCase())
-    
-    const matchConcepto = !filterConcepto || param.concepto === filterConcepto
-    const matchActivo = filterActivo === '' || (filterActivo === 'true' ? param.activo : !param.activo)
-    
-    return matchSearch && matchConcepto && matchActivo
-  })
-
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const paginatedParametros = filteredParametros.slice(startIndex, endIndex)
-  const totalPages = Math.ceil(filteredParametros.length / pageSize)
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
-
   const formatCurrency = (value) => {
     if (!value) return 'N/A'
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value)
+    return cfgFormatCurrency(value)
   }
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A'
-    const date = new Date(dateStr + 'T00:00:00')
-    return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
+    return cfgFormatDate(dateStr)
   }
 
   const isVigente = (param) => {
@@ -243,6 +227,9 @@ const ParametrosLegalesPage = () => {
     
     return true
   }
+
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('parametros_legales.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   return (
     <div className="space-y-6">
@@ -267,13 +254,15 @@ const ParametrosLegalesPage = () => {
               <p className="text-amber-100 mt-1">Configuración de aportes y prestaciones sociales</p>
             </div>
           </div>
-          <button 
-            onClick={() => { setShowModal(true); resetForm() }} 
-            className="flex items-center space-x-2 px-5 py-3 bg-white text-amber-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span>Nuevo Parámetro</span>
-          </button>
+          <Can permission="parametros_legales.add">
+            <button
+              onClick={() => { setShowModal(true); resetForm() }}
+              className="flex items-center space-x-2 px-5 py-3 bg-white text-amber-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>Nuevo Parámetro</span>
+            </button>
+          </Can>
         </div>
       </div>
 
@@ -290,9 +279,9 @@ const ParametrosLegalesPage = () => {
               className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-amber-500 focus:bg-white transition-all" 
             />
           </div>
-          <select 
-            value={filterConcepto} 
-            onChange={(e) => setFilterConcepto(e.target.value)} 
+          <select
+            value={filterConcepto}
+            onChange={(e) => handleFilterConcepto(e.target.value)}
             className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-amber-500 focus:bg-white transition-all"
           >
             <option value="">Todos los conceptos</option>
@@ -300,9 +289,9 @@ const ParametrosLegalesPage = () => {
               <option key={concepto.value} value={concepto.value}>{concepto.label}</option>
             ))}
           </select>
-          <select 
-            value={filterActivo} 
-            onChange={(e) => setFilterActivo(e.target.value)} 
+          <select
+            value={filterActivo}
+            onChange={(e) => handleFilterActivo(e.target.value)}
             className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-amber-500 focus:bg-white transition-all"
           >
             <option value="">Todos los estados</option>
@@ -321,12 +310,12 @@ const ParametrosLegalesPage = () => {
               <span className="text-gray-600">Cargando parámetros...</span>
             </div>
           </div>
-        ) : paginatedParametros.length === 0 ? (
+        ) : parametros.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-500">
             No se encontraron parámetros legales
           </div>
         ) : (
-          paginatedParametros.map(param => (
+          parametros.map(param => (
             <div 
               key={param.id} 
               className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 border border-gray-200/50 overflow-hidden"
@@ -390,19 +379,23 @@ const ParametrosLegalesPage = () => {
                 </div>
 
                 <div className="flex space-x-2">
-                  <button 
-                    onClick={() => handleEdit(param)} 
-                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-amber-500 text-white hover:bg-amber-600 rounded-lg transition-colors text-sm font-semibold"
-                  >
-                    <EditIcon className="w-4 h-4" />
-                    <span>Editar</span>
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(param.id)} 
-                    className="flex items-center justify-center px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
+                  <Can permission="parametros_legales.change">
+                    <button
+                      onClick={() => handleEdit(param)}
+                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-amber-500 text-white hover:bg-amber-600 rounded-lg transition-colors text-sm font-semibold"
+                    >
+                      <EditIcon className="w-4 h-4" />
+                      <span>Editar</span>
+                    </button>
+                  </Can>
+                  <Can permission="parametros_legales.delete">
+                    <button
+                      onClick={() => handleDelete(param.id)}
+                      className="flex items-center justify-center px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </Can>
                 </div>
               </div>
             </div>
@@ -411,35 +404,14 @@ const ParametrosLegalesPage = () => {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center space-x-2 mt-6">
-          <button 
-            onClick={() => handlePageChange(currentPage - 1)} 
-            disabled={currentPage === 1} 
-            className="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            Anterior
-          </button>
-          <div className="flex space-x-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button 
-                key={page} 
-                onClick={() => handlePageChange(page)} 
-                className={`px-3 py-1 rounded-lg transition-all ${currentPage === page ? 'bg-amber-500 text-white' : 'bg-white hover:bg-gray-100'}`}
-              >
-                {page}
-              </button>
-            ))}
-          </div>
-          <button 
-            onClick={() => handlePageChange(currentPage + 1)} 
-            disabled={currentPage === totalPages} 
-            className="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            Siguiente
-          </button>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        itemLabel="parámetros"
+      />
 
       {/* Modal */}
       {showModal && (
@@ -468,9 +440,41 @@ const ParametrosLegalesPage = () => {
                     className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 transition-all"
                   >
                     <option value="">Seleccione un concepto</option>
-                    {parametrosLegalesService.conceptos.map(concepto => (
-                      <option key={concepto.value} value={concepto.value}>{concepto.label}</option>
-                    ))}
+                    <optgroup label="Seguridad Social">
+                      <option value="SALUD">Salud</option>
+                      <option value="PENSION">Pensión</option>
+                    </optgroup>
+                    <optgroup label="ARL por Nivel de Riesgo">
+                      <option value="ARL_NIVEL_I">ARL Nivel I - Mínimo</option>
+                      <option value="ARL_NIVEL_II">ARL Nivel II - Bajo</option>
+                      <option value="ARL_NIVEL_III">ARL Nivel III - Medio</option>
+                      <option value="ARL_NIVEL_IV">ARL Nivel IV - Alto</option>
+                      <option value="ARL_NIVEL_V">ARL Nivel V - Máximo</option>
+                    </optgroup>
+                    <optgroup label="Parafiscales">
+                      <option value="CAJA_COMPENSACION">Caja de Compensación</option>
+                      <option value="SENA">SENA</option>
+                      <option value="ICBF">ICBF</option>
+                    </optgroup>
+                    <optgroup label="Prestaciones Sociales">
+                      <option value="CESANTIAS">Cesantías</option>
+                      <option value="INTERESES_CESANTIAS">Intereses Cesantías</option>
+                      <option value="PRIMA_SERVICIOS">Prima de Servicios</option>
+                      <option value="VACACIONES">Vacaciones</option>
+                    </optgroup>
+                    <optgroup label="Fondo de Solidaridad Pensional">
+                      <option value="TOPE_FSP">Tope FSP (4 SMMLV)</option>
+                      <option value="FSP">Fondo de Solidaridad Pensional</option>
+                      <option value="TOPE_SUBSISTENCIA">Tope Subsistencia (16 SMMLV)</option>
+                      <option value="SUBSISTENCIA">Aporte Subsistencia</option>
+                    </optgroup>
+                    <optgroup label="Valores de Referencia">
+                      <option value="SMMLV">Salario Mínimo (SMMLV)</option>
+                      <option value="AUXILIO_TRANSPORTE">Auxilio de Transporte</option>
+                      <option value="TOPE_AUXILIO_TRANSPORTE">Tope Auxilio Transporte</option>
+                      <option value="IBC_SERVICIOS">IBC Servicios (40%)</option>
+                      <option value="UVT">UVT</option>
+                    </optgroup>
                   </select>
                 </div>
 
@@ -542,7 +546,7 @@ const ParametrosLegalesPage = () => {
                     value={formData.valor_fijo} 
                     onChange={(e) => setFormData({ ...formData, valor_fijo: e.target.value })} 
                     min="0"
-                    step="1000"
+                    step="0.01"
                     className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 transition-all" 
                     placeholder="Ej: 1300000 (para SMMLV)"
                   />

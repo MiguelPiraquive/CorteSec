@@ -1,9 +1,15 @@
 import api from './api';
 
 const tiposPrestamoService = {
+  // Get tipos de prestamo with params (paginated)
+  getTiposPrestamo: async (params = {}) => {
+    const response = await api.get('/api/prestamos/tipos-prestamo/', { params });
+    return response.data;
+  },
+
   // Get all tipos de prestamo
   getAllTiposPrestamo: async () => {
-    const response = await api.get('/api/prestamos/tipos-prestamo/?page_size=1000');
+    const response = await api.get('/api/prestamos/tipos-prestamo/', { params: { page_size: 99999 } });
     return response.data.results || response.data;
   },
 

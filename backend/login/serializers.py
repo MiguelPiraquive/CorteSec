@@ -1,7 +1,11 @@
+import logging
+
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from .models import CustomUser
+
+logger = logging.getLogger('login')
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -46,71 +50,184 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    """Serializer para login de usuario"""
+    """Serializer para login de usuario - solo valida formato"""
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    
-    def validate(self, attrs):
-        email = attrs.get('email')
-        password = attrs.get('password')
-        
-        if email and password:
-            user = authenticate(email=email, password=password)
-            if not user:
-                raise serializers.ValidationError('Credenciales inválidas.')
-            if not user.is_active:
-                raise serializers.ValidationError('Esta cuenta está desactivada.')
-            
-            attrs['user'] = user
-            return attrs
-        else:
-            raise serializers.ValidationError('Debe proporcionar email y contraseña.')
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """Serializer para registro de usuario con soporte multitenant"""
+    """Serializer para registro - siempre crea nueva organización"""
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True)
-    tenant_code = serializers.CharField(write_only=True, required=True, help_text="Código de la organización")
-    
+    organization_name = serializers.CharField(
+        write_only=True,
+        required=True,
+        help_text="Nombre de la nueva organización"
+    )
+    organization_code = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        help_text="Código de la organización (se auto-genera si no se provee)"
+    )
+    plan_code = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        help_text="Código del plan seleccionado"
+    )
+
     class Meta:
         model = CustomUser
         fields = [
             'username', 'email', 'password', 'password_confirm',
-            'first_name', 'last_name', 'full_name', 'phone', 'tenant_code'
+            'first_name', 'last_name', 'full_name', 'phone',
+            'organization_name', 'organization_code', 'plan_code'
         ]
-    
+
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Las contraseñas no coinciden.")
         return attrs
-    
-    def validate_tenant_code(self, value):
-        """Validar que el código de organización tenga formato válido"""
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("El código de organización es requerido.")
-        return value.strip().upper()
-    
+
+    def validate_organization_code(self, value):
+        """Validar que el código de organización no exista ya"""
+        if value:
+            from core.models import Organizacion
+            value = value.strip().upper()
+            if Organizacion.objects.filter(codigo=value).exists():
+                raise serializers.ValidationError("Ya existe una organización con este código.")
+        return value
+
+    def validate_organization_name(self, value):
+        """Validar que el nombre de organización no exista ya"""
+        if value:
+            from core.models import Organizacion
+            value = value.strip()
+            if Organizacion.objects.filter(nombre=value).exists():
+                raise serializers.ValidationError("Ya existe una organización con este nombre.")
+        return value
+
     def create(self, validated_data):
-        from core.models import Organizacion
-        
+        from core.models import Organizacion, Plan
+        from django.utils.text import slugify
+        from django.utils import timezone
+        from django.db import transaction
+        from datetime import timedelta
+
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
-        tenant_code = validated_data.pop('tenant_code')
-        
-        # Buscar la organización
-        try:
-            organization = Organizacion.objects.get(codigo=tenant_code, activa=True)
-        except Organizacion.DoesNotExist:
-            raise serializers.ValidationError({
-                'tenant_code': f'La organización con código {tenant_code} no existe o no está activa.'
-            })
-        
-        # Crear usuario y asignar organización
-        user = CustomUser.objects.create_user(password=password, **validated_data)
-        user.organization = organization
-        user.save()
-        
+        organization_name = validated_data.pop('organization_name')
+        organization_code = validated_data.pop('organization_code', '') or ''
+        plan_code = validated_data.pop('plan_code', '') or ''
+
+        # Auto-generar código si no se provee
+        if not organization_code:
+            organization_code = slugify(organization_name).upper().replace('-', '_')[:50]
+            # Asegurar unicidad del código
+            base_code = organization_code
+            counter = 1
+            while Organizacion.objects.filter(codigo=organization_code).exists():
+                organization_code = f"{base_code}_{counter}"
+                counter += 1
+
+        # Generar slug único
+        org_slug = slugify(organization_name)[:50]
+        if not org_slug:
+            org_slug = slugify(organization_code.lower())[:50] or 'org'
+        base_slug = org_slug
+        counter = 1
+        while Organizacion.objects.filter(slug=org_slug).exists():
+            org_slug = f"{base_slug}-{counter}"[:50]
+            counter += 1
+
+        with transaction.atomic():
+            # Buscar plan seleccionado
+            plan_obj = None
+            if plan_code:
+                plan_obj = Plan.objects.filter(code=plan_code, is_active=True).first()
+
+            # Si no se encontró el plan, usar FREE
+            if not plan_obj:
+                plan_obj = Plan.objects.filter(code='FREE').first()
+
+            # Determinar límites del plan
+            plan_max_users = plan_obj.max_users if plan_obj else 5
+            plan_max_storage = plan_obj.max_storage_mb if plan_obj else 1024
+
+            # Trial de 14 días
+            trial_end = timezone.now() + timedelta(days=14)
+
+            # Crear organización
+            org = Organizacion.objects.create(
+                nombre=organization_name,
+                codigo=organization_code,
+                slug=org_slug,
+                activa=True,
+                plan=plan_obj,
+                max_users=plan_max_users,
+                max_storage_mb=plan_max_storage,
+                is_trial=True,
+                trial_ends_at=trial_end,
+            )
+
+            # Crear usuario como OWNER
+            user = CustomUser.objects.create_user(
+                password=password,
+                organization=org,
+                organization_role='OWNER',
+                **validated_data
+            )
+
+            # Marcar creador de la org
+            org.created_by = user
+            org.save(update_fields=['created_by'])
+
+            # ─── Asignar rol ADMIN al OWNER automáticamente ───
+            # Sin esto, el usuario no tendría permisos RBAC y vería 403 en todo
+            try:
+                from roles.models import Rol, AsignacionRol
+                admin_role = Rol.objects.filter(codigo='ADMIN', activo=True).first()
+                if admin_role:
+                    AsignacionRol.objects.create(
+                        usuario=user,
+                        rol=admin_role,
+                        activa=True,
+                        fecha_inicio=timezone.now(),
+                        tenant_id=str(org.id),
+                        asignado_por=user,
+                        justificacion='Auto-asignado al crear organización como OWNER',
+                    )
+                    # También M2M directo para compatibilidad
+                    user.roles.add(admin_role)
+                    logger.info(f"Rol ADMIN asignado a {user.username} en org {org.codigo}")
+                else:
+                    logger.warning("No se encontró rol ADMIN activo para asignar al owner")
+            except Exception as role_error:
+                logger.error(f"Error asignando rol ADMIN al owner: {role_error}")
+                raise serializers.ValidationError(
+                    "Error al configurar permisos de la organización. Por favor intenta de nuevo."
+                )
+
+            # Asegurar que la Subscription de billing existe
+            # (el signal auto_create_subscription la crea al crear org,
+            # pero si falló, la creamos aquí como fallback)
+            try:
+                from billing.models import Subscription
+                if not Subscription.objects.filter(organization=org).exists():
+                    Subscription.objects.create(
+                        organization=org,
+                        plan=plan_obj,
+                        status=Subscription.Status.TRIALING,
+                        trial_start=timezone.now(),
+                        trial_end=trial_end,
+                        current_period_start=timezone.now(),
+                        current_period_end=trial_end,
+                        billing_cycle='monthly',
+                    )
+            except Exception:
+                pass  # No bloquear registro si billing falla
+
         return user
 
 
@@ -160,10 +277,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
     
     def validate_email(self, value):
-        try:
-            CustomUser.objects.get(email=value)
-        except CustomUser.DoesNotExist:
-            raise serializers.ValidationError("No existe un usuario con este email.")
+        # Por seguridad no revelamos si el email existe o no
         return value
 
 

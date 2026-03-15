@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import useAudit from '../../hooks/useAudit'
+import { usePermissions } from '../../context/PermissionsContext'
 import configuracionService from '../../services/configuracionService'
 import {
   MailIcon,
@@ -17,6 +18,7 @@ import {
 
 const ConfiguracionEmailPage = () => {
   const audit = useAudit('Configuración de Email')
+  const { hasPermission, initialized } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [sendingTest, setSendingTest] = useState(false)
@@ -60,7 +62,6 @@ const ConfiguracionEmailPage = () => {
     try {
       setLoading(true)
       const data = await configuracionService.getConfiguracionEmail()
-      console.log('📧 Configuración de email cargada:', data)
       setFormData({
         ...formData,
         ...data
@@ -132,6 +133,9 @@ const ConfiguracionEmailPage = () => {
     { id: 'plantillas', label: 'Plantillas', icon: FileTextIcon },
     { id: 'limites', label: 'Límites y Notificaciones', icon: TrendingUpIcon },
   ]
+
+  if (!initialized) return <div className="flex items-center justify-center h-screen"><Loader2Icon className="w-8 h-8 text-blue-500 animate-spin" /></div>
+  if (!hasPermission('configuracion.manage_email')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   if (loading) {
     return (

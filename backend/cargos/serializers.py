@@ -8,20 +8,13 @@ class CargoSerializer(serializers.ModelSerializer):
     jerarquia_completa = serializers.ReadOnlyField()
     subordinados_count = serializers.SerializerMethodField()
     
-    # Aliases para compatibilidad con frontend
-    salario_base_min = serializers.DecimalField(source='salario_base_minimo', max_digits=12, decimal_places=2, required=False)
-    salario_base_max = serializers.DecimalField(source='salario_base_maximo', max_digits=12, decimal_places=2, required=False)
-    salario_base = serializers.DecimalField(source='salario_base_minimo', max_digits=12, decimal_places=2, read_only=True)
-    
     class Meta:
         model = Cargo
         fields = [
             'id', 'nombre', 'codigo', 'descripcion', 'cargo_superior', 
-            'cargo_superior_nombre', 'nivel_jerarquico', 'salario_base_minimo', 
-            'salario_base_maximo', 'limite_aprobacion', 'requiere_aprobacion', 
-            'puede_aprobar', 'es_temporal', 'activo', 'fecha_creacion', 
-            'fecha_modificacion', 'empleados_count', 'jerarquia_completa', 
-            'subordinados_count', 'salario_base_min', 'salario_base_max', 'salario_base'
+            'cargo_superior_nombre', 'nivel_jerarquico', 'activo', 
+            'fecha_creacion', 'fecha_modificacion', 'empleados_count', 
+            'jerarquia_completa', 'subordinados_count',
         ]
     
     def get_subordinados_count(self, obj):
@@ -30,15 +23,6 @@ class CargoSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         """Validación personalizada del serializer."""
-        # Validar que el salario mínimo no sea mayor que el máximo
-        salario_min = data.get('salario_base_minimo')
-        salario_max = data.get('salario_base_maximo')
-        
-        if salario_min and salario_max and salario_min > salario_max:
-            raise serializers.ValidationError(
-                "El salario mínimo no puede ser mayor que el salario máximo"
-            )
-        
         # Validar que no sea su propio superior
         cargo_superior = data.get('cargo_superior')
         if cargo_superior and self.instance and cargo_superior == self.instance:
@@ -77,15 +61,5 @@ class HistorialCargoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "La fecha de inicio no puede ser mayor que la fecha de fin"
             )
-        
-        # Validar que el salario esté en el rango del cargo
-        cargo_nuevo = data.get('cargo_nuevo')
-        salario_asignado = data.get('salario_asignado')
-        
-        if cargo_nuevo and salario_asignado:
-            if not cargo_nuevo.esta_en_rango_salarial(salario_asignado):
-                raise serializers.ValidationError(
-                    "El salario asignado no está en el rango permitido para este cargo"
-                )
         
         return data

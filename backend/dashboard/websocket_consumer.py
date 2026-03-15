@@ -8,7 +8,7 @@ from django.core.cache import cache
 from django.utils import timezone
 from datetime import datetime, timedelta
 from .realtime_data import RealTimeDataManager, realtime_updater, LiveMetricsTracker
-from .models import Contractor, Project, Payment
+from .models import Project
 from core.models import LogAuditoria, Organizacion
 import logging
 
@@ -102,15 +102,16 @@ class BaseConsumer(AsyncWebsocketConsumer):
     # Métodos que deben ser implementados por las subclases
     async def join_groups(self):
         """Unirse a grupos de WebSocket"""
-        pass
+        logger.warning('join_groups not implemented for %s', self.__class__.__name__)
     
     async def leave_groups(self):
         """Salir de grupos de WebSocket"""
-        pass
+        logger.warning('leave_groups not implemented for %s', self.__class__.__name__)
     
     async def handle_message(self, message_type, data):
         """Manejar mensaje específico"""
-        pass
+        logger.warning('Unhandled message type %s in %s', message_type, self.__class__.__name__)
+        await self.send_error('Mensaje no soportado')
     
     async def check_permissions(self):
         """Verificar permisos del usuario"""
@@ -134,7 +135,8 @@ class BaseConsumer(AsyncWebsocketConsumer):
         
         try:
             organization = Organizacion.objects.get(id=self.organization_id)
-            return self.user.organizacion == organization
+            user_org = getattr(self.user, 'organization', None) or getattr(self.user, 'organizacion', None)
+            return user_org == organization
         except Organizacion.DoesNotExist:
             return False
     
@@ -690,10 +692,10 @@ class TrackingConsumer(BaseConsumer):
             await self.get_tracking_data()
         
         elif message_type == 'start_tracking':
-            await self.start_tracking(data.get('contractor_id'))
+            await self.start_tracking(data.get('entity_id'))
         
         elif message_type == 'stop_tracking':
-            await self.stop_tracking(data.get('contractor_id'))
+            await self.stop_tracking(data.get('entity_id'))
 
 class AlertsConsumer(BaseConsumer):
     """Consumidor para alertas del sistema"""

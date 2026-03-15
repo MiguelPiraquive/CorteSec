@@ -25,7 +25,7 @@ from .models import (
     ModuloSistema, TipoPermiso, CondicionPermiso, 
     Permiso, PermisoDirecto, AuditoriaPermisos, PermisoI18N, ConfiguracionEntorno
 )
-from core.models import Organizacion
+# from core.mixins import BaseViewSetMixin  # Not found
 from .forms import (
     ModuloSistemaForm, TipoPermisoForm, 
     CondicionPermisoForm, PermisoForm, PermisoDirectoForm
@@ -42,7 +42,7 @@ def dashboard(request):
     # Estadísticas generales
     stats = {
         'total_usuarios': User.objects.count(),
-        'total_organizaciones': Organizacion.objects.count(),
+
         'total_modulos': ModuloSistema.objects.count(),
         'total_permisos': Permiso.objects.count(),
         'total_tipos_permiso': TipoPermiso.objects.count(),
@@ -132,7 +132,7 @@ def modulo_detail(request, pk):
     """Detalle de un módulo."""
     modulo = get_object_or_404(
         ModuloSistema.objects.select_related('padre').prefetch_related(
-            'hijos', 'permisos__tipo_permiso', 'permisos__organizacion'
+
         ), 
         pk=pk
     )
@@ -142,15 +142,9 @@ def modulo_detail(request, pk):
         permisos__modulo=modulo
     ).distinct()
     
-    # Obtener organizaciones únicas asociadas al módulo
-    organizaciones = Organizacion.objects.filter(
-        permisos__modulo=modulo
-    ).distinct()
-    
     context = {
         'modulo': modulo,
         'tipos_permiso': tipos_permiso,
-        'organizaciones': organizaciones,
     }
     return render(request, 'permisos/modulos/detail.html', context)
 
@@ -672,7 +666,7 @@ def permisos_directos_list(request):
     permisos_directos = paginator.get_page(page_number)
     
     # Datos para filtros
-    usuarios = User.objects.filter(is_active=True).order_by('username')
+    usuarios = User.objects.filter(is_active=True).order_by('email')
     permisos = Permiso.objects.filter(activo=True).order_by('nombre')
     
     # Estadísticas
@@ -997,8 +991,8 @@ def api_usuario_permisos(request, user_id):
         return JsonResponse({
             'usuario': {
                 'id': usuario.id,
-                'username': usuario.username,
-                'nombre_completo': f"{usuario.first_name} {usuario.last_name}".strip(),
+                'email': usuario.email,
+                'nombre_completo': f"{usuario.nombre} {usuario.apellido}".strip(),
             },
             'permisos_directos': permisos_data,
             'total_permisos': len(permisos_data),
@@ -1017,7 +1011,7 @@ def reportes_dashboard(request):
     # Estadísticas generales
     stats_generales = {
         'total_usuarios': User.objects.count(),
-        'total_organizaciones': Organizacion.objects.count(),
+
         'total_modulos': ModuloSistema.objects.count(),
         'total_permisos': Permiso.objects.count(),
         'total_permisos_directos': PermisoDirecto.objects.count(),

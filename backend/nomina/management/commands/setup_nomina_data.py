@@ -21,13 +21,12 @@ from django.db import transaction
 from decimal import Decimal
 from datetime import date
 
-from core.models import Organization
+from core.models import Organizacion
 from nomina.models import (
     ParametroLegal,
     TipoContrato,
     ConceptoLaboral,
 )
-from items.models import Item
 
 
 class Command(BaseCommand):
@@ -45,8 +44,8 @@ class Command(BaseCommand):
         org_codigo = options['organization']
         
         try:
-            organization = Organization.objects.get(codigo=org_codigo)
-        except Organization.DoesNotExist:
+            organization = Organizacion.objects.get(codigo=org_codigo)
+        except Organizacion.DoesNotExist:
             self.stdout.write(
                 self.style.ERROR(f'Organización "{org_codigo}" no encontrada')
             )
@@ -58,7 +57,7 @@ class Command(BaseCommand):
             self.crear_parametros_legales(organization)
             self.crear_tipos_contrato(organization)
             self.crear_conceptos_laborales(organization)
-            self.crear_items_basicos(organization)
+            
         
         self.stdout.write(
             self.style.SUCCESS('✅ Datos de nómina creados exitosamente')
@@ -226,7 +225,7 @@ class Command(BaseCommand):
                 'porcentaje_total': Decimal('0.00'),
                 'porcentaje_empleado': Decimal('0.00'),
                 'porcentaje_empleador': Decimal('0.00'),
-                'valor_fijo': Decimal('1423500.00'),  # Proyectado 2026
+                'valor_fijo': Decimal('1750905.00'),  # Proyectado 2026
                 'vigente_desde': date(2026, 1, 1),
                 'vigente_hasta': date(2026, 12, 31),
             },
@@ -236,7 +235,7 @@ class Command(BaseCommand):
                 'porcentaje_total': Decimal('0.00'),
                 'porcentaje_empleado': Decimal('0.00'),
                 'porcentaje_empleador': Decimal('0.00'),
-                'valor_fijo': Decimal('200000.00'),  # Proyectado 2026
+                'valor_fijo': Decimal('249095.00'),  # Proyectado 2026
                 'vigente_desde': date(2026, 1, 1),
                 'vigente_hasta': date(2026, 12, 31),
             },
@@ -246,7 +245,7 @@ class Command(BaseCommand):
                 'porcentaje_total': Decimal('0.00'),
                 'porcentaje_empleado': Decimal('0.00'),
                 'porcentaje_empleador': Decimal('0.00'),
-                'valor_fijo': Decimal('2847000.00'),  # 2 x SMMLV
+                'valor_fijo': Decimal('3501810.00'),  # 2 x SMMLV
                 'vigente_desde': date(2026, 1, 1),
                 'vigente_hasta': date(2026, 12, 31),
             },
@@ -258,6 +257,60 @@ class Command(BaseCommand):
                 'descripcion': 'IBC para contratos de servicios (40%)',
                 'porcentaje_total': Decimal('40.00'),
                 'porcentaje_empleado': Decimal('0.00'),
+                'porcentaje_empleador': Decimal('0.00'),
+                'vigente_desde': date(2026, 1, 1),
+                'vigente_hasta': date(2026, 12, 31),
+            },
+            # ═══════════════════════════════════════════════════════════════
+            # RETENCIÓN EN LA FUENTE - UVT
+            # ═══════════════════════════════════════════════════════════════
+            {
+                'concepto': 'UVT',
+                'descripcion': 'Unidad de Valor Tributario 2026 - DIAN',
+                'porcentaje_total': Decimal('0.00'),
+                'porcentaje_empleado': Decimal('0.00'),
+                'porcentaje_empleador': Decimal('0.00'),
+                'valor_fijo': Decimal('52374.00'),  # UVT 2026 proyectado
+                'vigente_desde': date(2026, 1, 1),
+                'vigente_hasta': date(2026, 12, 31),
+            },
+            # ═══════════════════════════════════════════════════════════════
+            # FONDO DE SOLIDARIDAD PENSIONAL
+            # ═══════════════════════════════════════════════════════════════
+            {
+                'concepto': 'TOPE_FSP',
+                'descripcion': 'Tope salarial para FSP (4 SMMLV)',
+                'porcentaje_total': Decimal('0.00'),
+                'porcentaje_empleado': Decimal('0.00'),
+                'porcentaje_empleador': Decimal('0.00'),
+                'valor_fijo': Decimal('7003620.00'),  # 4 x SMMLV
+                'vigente_desde': date(2026, 1, 1),
+                'vigente_hasta': date(2026, 12, 31),
+            },
+            {
+                'concepto': 'TOPE_SUBSISTENCIA',
+                'descripcion': 'Tope salarial para Subsistencia (16 SMMLV)',
+                'porcentaje_total': Decimal('0.00'),
+                'porcentaje_empleado': Decimal('0.00'),
+                'porcentaje_empleador': Decimal('0.00'),
+                'valor_fijo': Decimal('28014480.00'),  # 16 x SMMLV
+                'vigente_desde': date(2026, 1, 1),
+                'vigente_hasta': date(2026, 12, 31),
+            },
+            {
+                'concepto': 'FSP',
+                'descripcion': 'Fondo de Solidaridad Pensional (1% para IBC > 4 SMMLV)',
+                'porcentaje_total': Decimal('1.00'),
+                'porcentaje_empleado': Decimal('1.00'),
+                'porcentaje_empleador': Decimal('0.00'),
+                'vigente_desde': date(2026, 1, 1),
+                'vigente_hasta': date(2026, 12, 31),
+            },
+            {
+                'concepto': 'SUBSISTENCIA',
+                'descripcion': 'Aporte Subsistencia (adicional para IBC > 16 SMMLV)',
+                'porcentaje_total': Decimal('1.00'),
+                'porcentaje_empleado': Decimal('1.00'),
                 'porcentaje_empleador': Decimal('0.00'),
                 'vigente_desde': date(2026, 1, 1),
                 'vigente_hasta': date(2026, 12, 31),
@@ -467,13 +520,14 @@ class Command(BaseCommand):
                 'es_legal': False,
             },
             # ═══════════════════════════════════════════════════════════════
-            # DEDUCCIONES
+            # DEDUCCIONES LEGALES
+            # (los códigos DEBEN coincidir con CalculadorNomina en services.py)
             # ═══════════════════════════════════════════════════════════════
             {
                 'nombre': 'Aporte Salud Empleado',
-                'codigo': 'DED_SALUD',
+                'codigo': 'SALUD_EMPLEADO',
                 'tipo': 'DEDUCCION',
-                'descripcion': 'Descuento salud empleado (4%)',
+                'descripcion': 'Descuento salud empleado (4%) - Ley 100/1993',
                 'aplica_porcentaje': True,
                 'porcentaje': Decimal('4.00'),
                 'base_calculo': 'IBC',
@@ -481,9 +535,9 @@ class Command(BaseCommand):
             },
             {
                 'nombre': 'Aporte Pensión Empleado',
-                'codigo': 'DED_PENSION',
+                'codigo': 'PENSION_EMPLEADO',
                 'tipo': 'DEDUCCION',
-                'descripcion': 'Descuento pensión empleado (4%)',
+                'descripcion': 'Descuento pensión empleado (4%) - Ley 100/1993',
                 'aplica_porcentaje': True,
                 'porcentaje': Decimal('4.00'),
                 'base_calculo': 'IBC',
@@ -493,11 +547,30 @@ class Command(BaseCommand):
                 'nombre': 'Fondo de Solidaridad Pensional',
                 'codigo': 'FSP',
                 'tipo': 'DEDUCCION',
-                'descripcion': 'Fondo solidaridad pensional (1% si > 4 SMMLV)',
+                'descripcion': 'Fondo solidaridad pensional (1% si IBC > 4 SMMLV)',
                 'aplica_porcentaje': True,
                 'porcentaje': Decimal('1.00'),
                 'base_calculo': 'IBC',
                 'es_legal': True,
+            },
+            {
+                'nombre': 'Aporte Subsistencia',
+                'codigo': 'SUBSISTENCIA',
+                'tipo': 'DEDUCCION',
+                'descripcion': 'Aporte adicional subsistencia (1% si IBC > 16 SMMLV)',
+                'aplica_porcentaje': True,
+                'porcentaje': Decimal('1.00'),
+                'base_calculo': 'IBC',
+                'es_legal': True,
+            },
+            {
+                'nombre': 'Deducción Restaurante',
+                'codigo': 'RESTAURANTE',
+                'tipo': 'DEDUCCION',
+                'descripcion': 'Descuento por servicio de alimentación/restaurante',
+                'aplica_porcentaje': False,
+                'base_calculo': 'SALARIO',
+                'es_legal': False,
             },
             {
                 'nombre': 'Retención en la Fuente',
@@ -569,86 +642,3 @@ class Command(BaseCommand):
             orden += 1
         
         self.stdout.write(f'    ✓ {creados} conceptos laborales creados')
-
-    def crear_items_basicos(self, organization):
-        """
-        Crea items básicos de producción para construcción.
-        """
-        self.stdout.write('  → Creando items básicos...')
-        
-        items = [
-            {
-                'nombre': 'Metro cuadrado de pintura',
-                'codigo': 'PINTURA_M2',
-                'descripcion': 'Pintura por metro cuadrado',
-                'tipo_cantidad': 'm2',
-                'precio_unitario': Decimal('5000.00'),
-            },
-            {
-                'nombre': 'Metro lineal de tubo',
-                'codigo': 'TUBO_ML',
-                'descripcion': 'Instalación de tubería por metro lineal',
-                'tipo_cantidad': 'ml',
-                'precio_unitario': Decimal('8000.00'),
-            },
-            {
-                'nombre': 'Metro cuadrado de piso',
-                'codigo': 'PISO_M2',
-                'descripcion': 'Instalación de piso por metro cuadrado',
-                'tipo_cantidad': 'm2',
-                'precio_unitario': Decimal('25000.00'),
-            },
-            {
-                'nombre': 'Punto eléctrico',
-                'codigo': 'PUNTO_ELEC',
-                'descripcion': 'Instalación de punto eléctrico',
-                'tipo_cantidad': 'global',
-                'precio_unitario': Decimal('35000.00'),
-            },
-            {
-                'nombre': 'Metro cúbico de excavación',
-                'codigo': 'EXCAV_M3',
-                'descripcion': 'Excavación manual por metro cúbico',
-                'tipo_cantidad': 'm3',
-                'precio_unitario': Decimal('45000.00'),
-            },
-            {
-                'nombre': 'Metro cuadrado de enchape',
-                'codigo': 'ENCHAPE_M2',
-                'descripcion': 'Instalación de enchape cerámico',
-                'tipo_cantidad': 'm2',
-                'precio_unitario': Decimal('35000.00'),
-            },
-            {
-                'nombre': 'Metro cuadrado de estuco',
-                'codigo': 'ESTUCO_M2',
-                'descripcion': 'Aplicación de estuco por m²',
-                'tipo_cantidad': 'm2',
-                'precio_unitario': Decimal('12000.00'),
-            },
-            {
-                'nombre': 'Hora de trabajo',
-                'codigo': 'HORA_TRAB',
-                'descripcion': 'Hora de trabajo general',
-                'tipo_cantidad': 'global',
-                'precio_unitario': Decimal('15000.00'),
-            },
-        ]
-        
-        creados = 0
-        for item_data in items:
-            item, created = Item.objects.update_or_create(
-                organization=organization,
-                nombre=item_data['nombre'],
-                defaults={
-                    'codigo': item_data['codigo'],
-                    'descripcion': item_data['descripcion'],
-                    'tipo_cantidad': item_data['tipo_cantidad'],
-                    'precio_unitario': item_data['precio_unitario'],
-                    'activo': True,
-                }
-            )
-            if created:
-                creados += 1
-        
-        self.stdout.write(f'    ✓ {creados} items creados')

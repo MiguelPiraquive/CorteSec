@@ -6,22 +6,33 @@
 
 Señales Django para automatizar procesos de nómina.
 
+- Generación automática de número de nómina (pre_save)
+- Cálculo de valor total de item (pre_save)
+- Auto-creación de conceptos legales al crear organización (post_save)
+
+NOTA: Los signals de recalculación de totales (items, conceptos, préstamos)
+fueron eliminados porque interferían con el servicio CalculadorNomina que
+maneja todo el cálculo de forma atómica. Lo mismo para la desactivación
+de contratos, que ya se maneja en Contrato.save().
+
 Autor: Sistema CorteSec
-Versión: 1.0.0
-Fecha: Enero 2026
+Versión: 2.1.0
+Fecha: Febrero 2026
 """
 
-from django.db.models.signals import post_save, pre_save
-from django.dispatch import receiver
+import logging
 from decimal import Decimal
+
+from django.db.models.signals import pre_save, post_save
+from django.dispatch import receiver
 
 from .models import (
     NominaSimple,
     NominaItem,
-    NominaConcepto,
-    NominaPrestamo,
-    Contrato,
+    ConceptoLaboral,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -33,6 +44,9 @@ def generar_numero_nomina(sender, instance, **kwargs):
     """
     Genera automáticamente el número de nómina si no existe.
     Formato: NOM-YYYY-NNNNNN
+    
+    Usa Max() para encontrar el último número secuencial,
+    evitando colisiones cuando se borran nóminas intermedias.
     """
     if not instance.numero:
         from datetime import datetime
@@ -61,18 +75,6 @@ def generar_numero_nomina(sender, instance, **kwargs):
         instance.numero = f"{prefix}{nueva_secuencia:06d}"
 
 
-@receiver(post_save, sender=NominaSimple)
-def actualizar_estado_contrato(sender, instance, created, **kwargs):
-    """
-    Actualiza información del contrato cuando se crea una nómina.
-    """
-    # Solo para nuevas nóminas
-    if created and instance.contrato:
-        # Aquí podríamos agregar lógica adicional si es necesario
-        # Por ejemplo, actualizar fecha de última nómina, etc.
-        pass
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # SEÑALES PARA ITEMS DE NÓMINA
 # ══════════════════════════════════════════════════════════════════════════════
@@ -86,80 +88,120 @@ def calcular_valor_total_item(sender, instance, **kwargs):
     instance.valor_total = instance.cantidad * instance.valor_unitario
 
 
-@receiver(post_save, sender=NominaItem)
-def actualizar_total_items_nomina(sender, instance, **kwargs):
-    """
-    Actualiza el total de items en la nómina después de guardar un item.
-    """
-    if instance.nomina:
-        total = sum(
-            item.valor_total 
-            for item in instance.nomina.items.all()
-        )
-        
-        # Actualizar sin disparar señales adicionales
-        NominaSimple.objects.filter(pk=instance.nomina.pk).update(
-            total_items=total
-        )
-
-
 # ══════════════════════════════════════════════════════════════════════════════
-# SEÑALES PARA CONCEPTOS DE NÓMINA
+# SEÑALES PARA AUTO-CREAR CONCEPTOS LEGALES
 # ══════════════════════════════════════════════════════════════════════════════
 
-@receiver(post_save, sender=NominaConcepto)
-def actualizar_totales_por_concepto(sender, instance, **kwargs):
+# Conceptos legales que el CalculadorNomina NECESITA para funcionar.
+# Se crean automáticamente cuando se crea una nueva organización.
+CONCEPTOS_LEGALES_REQUERIDOS = [
+    # Deducciones legales obligatorias
+    {
+        'codigo': 'SALUD_EMPLEADO',
+        'nombre': 'Aporte Salud Empleado',
+        'tipo': 'DEDUCCION',
+        'descripcion': 'Descuento salud empleado (4%) - Ley 100/1993',
+        'aplica_porcentaje': True,
+        'porcentaje': Decimal('4.00'),
+        'base_calculo': 'IBC',
+        'es_legal': True,
+        'orden': 1,
+    },
+    {
+        'codigo': 'PENSION_EMPLEADO',
+        'nombre': 'Aporte Pensión Empleado',
+        'tipo': 'DEDUCCION',
+        'descripcion': 'Descuento pensión empleado (4%) - Ley 100/1993',
+        'aplica_porcentaje': True,
+        'porcentaje': Decimal('4.00'),
+        'base_calculo': 'IBC',
+        'es_legal': True,
+        'orden': 2,
+    },
+    {
+        'codigo': 'FSP',
+        'nombre': 'Fondo de Solidaridad Pensional',
+        'tipo': 'DEDUCCION',
+        'descripcion': 'Fondo solidaridad pensional (1% si IBC > 4 SMMLV)',
+        'aplica_porcentaje': True,
+        'porcentaje': Decimal('1.00'),
+        'base_calculo': 'IBC',
+        'es_legal': True,
+        'orden': 3,
+    },
+    {
+        'codigo': 'SUBSISTENCIA',
+        'nombre': 'Aporte Subsistencia',
+        'tipo': 'DEDUCCION',
+        'descripcion': 'Aporte adicional subsistencia (1% si IBC > 16 SMMLV)',
+        'aplica_porcentaje': True,
+        'porcentaje': Decimal('1.00'),
+        'base_calculo': 'IBC',
+        'es_legal': True,
+        'orden': 4,
+    },
+    {
+        'codigo': 'RESTAURANTE',
+        'nombre': 'Deducción Restaurante',
+        'tipo': 'DEDUCCION',
+        'descripcion': 'Descuento por servicio de alimentación/restaurante',
+        'aplica_porcentaje': False,
+        'porcentaje': Decimal('0.00'),
+        'base_calculo': 'SALARIO',
+        'es_legal': False,
+        'orden': 10,
+    },
+]
+
+
+def crear_conceptos_legales_para_organizacion(organization):
     """
-    Actualiza los totales de devengados/deducciones después de guardar un concepto.
+    Crea los conceptos laborales legales requeridos por el calculador.
+    Usa update_or_create para ser idempotente (se puede ejecutar múltiples veces).
     """
-    if instance.nomina:
-        devengados = sum(
-            c.valor for c in instance.nomina.conceptos.filter(tipo='DEVENGADO')
+    creados = 0
+    for concepto_data in CONCEPTOS_LEGALES_REQUERIDOS:
+        _, created = ConceptoLaboral.objects.update_or_create(
+            organization=organization,
+            codigo=concepto_data['codigo'],
+            defaults={
+                'nombre': concepto_data['nombre'],
+                'tipo': concepto_data['tipo'],
+                'descripcion': concepto_data['descripcion'],
+                'aplica_porcentaje': concepto_data['aplica_porcentaje'],
+                'porcentaje': concepto_data['porcentaje'],
+                'base_calculo': concepto_data['base_calculo'],
+                'es_legal': concepto_data['es_legal'],
+                'orden': concepto_data['orden'],
+                'activo': True,
+            }
         )
-        deducciones = sum(
-            c.valor for c in instance.nomina.conceptos.filter(tipo='DEDUCCION')
-        )
-        
-        # Actualizar sin disparar señales adicionales
-        NominaSimple.objects.filter(pk=instance.nomina.pk).update(
-            total_devengado=instance.nomina.total_items + devengados,
-            total_deducciones=deducciones
-        )
+        if created:
+            creados += 1
+    return creados
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SEÑALES PARA PRÉSTAMOS EN NÓMINA
-# ══════════════════════════════════════════════════════════════════════════════
+try:
+    from core.models import Organizacion
 
-@receiver(post_save, sender=NominaPrestamo)
-def actualizar_total_prestamos_nomina(sender, instance, **kwargs):
-    """
-    Actualiza el total de préstamos en la nómina después de agregar un descuento.
-    """
-    if instance.nomina:
-        total = sum(
-            p.valor_cuota for p in instance.nomina.prestamos_descontados.all()
-        )
-        
-        # Actualizar sin disparar señales adicionales
-        NominaSimple.objects.filter(pk=instance.nomina.pk).update(
-            total_prestamos=total
-        )
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# SEÑALES PARA CONTRATOS
-# ══════════════════════════════════════════════════════════════════════════════
-
-@receiver(post_save, sender=Contrato)
-def desactivar_contratos_anteriores(sender, instance, created, **kwargs):
-    """
-    Cuando se crea un nuevo contrato activo, desactiva los contratos anteriores
-    del mismo empleado en la misma organización.
-    """
-    if created and instance.activo:
-        Contrato.objects.filter(
-            organization=instance.organization,
-            empleado=instance.empleado,
-            activo=True
-        ).exclude(pk=instance.pk).update(activo=False)
+    @receiver(post_save, sender=Organizacion)
+    def auto_crear_conceptos_legales(sender, instance, created, **kwargs):
+        """
+        Cuando se crea una nueva organización, crea automáticamente
+        los conceptos laborales legales que el sistema necesita.
+        """
+        if created:
+            try:
+                creados = crear_conceptos_legales_para_organizacion(instance)
+                logger.info(
+                    f'Auto-creados {creados} conceptos legales para '
+                    f'organización "{instance.nombre}"'
+                )
+            except Exception as e:
+                logger.error(
+                    f'Error al crear conceptos legales para '
+                    f'"{instance.nombre}": {e}'
+                )
+except ImportError:
+    # Si core no está disponible, no registrar el signal
+    pass

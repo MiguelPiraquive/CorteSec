@@ -189,9 +189,9 @@ const nominaService = {
   /**
    * Obtener estadísticas de nóminas
    */
-  getEstadisticas: async () => {
+  getEstadisticas: async (params = {}) => {
     try {
-      const response = await api.get('/api/nomina/nominas/estadisticas/');
+      const response = await api.get('/api/nomina/nominas/estadisticas/', { params });
       return response.data;
     } catch (error) {
       console.error('Error obteniendo estadísticas:', error);

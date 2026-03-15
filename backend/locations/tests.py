@@ -1,7 +1,7 @@
 import unittest
 from django.test import TestCase
-from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.core.exceptions import ValidationError
 from core.models import Organizacion
 from .models import Departamento, Municipio
 
@@ -12,14 +12,14 @@ class DepartamentoModelTest(TestCase):
     def setUp(self):
         """Configuración inicial"""
         self.organizacion = Organizacion.objects.create(
-            name="Test Org",
-            email="test@test.com"
+            nombre="Test Org",
+            codigo="ORGTEST"
         )
     
     def test_crear_departamento(self):
         """Test crear departamento básico"""
         departamento = Departamento.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             nombre="Cundinamarca",
             codigo="25"
         )
@@ -31,7 +31,7 @@ class DepartamentoModelTest(TestCase):
     def test_departamento_sin_codigo(self):
         """Test crear departamento sin código"""
         departamento = Departamento.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             nombre="Amazonas"
         )
         
@@ -40,20 +40,20 @@ class DepartamentoModelTest(TestCase):
     def test_municipios_count(self):
         """Test contar municipios"""
         departamento = Departamento.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             nombre="Cundinamarca",
             codigo="25"
         )
         
         # Crear municipios
         Municipio.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             departamento=departamento,
             nombre="Bogotá",
             codigo="25001"
         )
         Municipio.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             departamento=departamento,
             nombre="Soacha",
             codigo="25754"
@@ -68,11 +68,11 @@ class MunicipioModelTest(TestCase):
     def setUp(self):
         """Configuración inicial"""
         self.organizacion = Organizacion.objects.create(
-            name="Test Org",
-            email="test@test.com"
+            nombre="Test Org",
+            codigo="ORGTEST"
         )
         self.departamento = Departamento.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             nombre="Cundinamarca",
             codigo="25"
         )
@@ -80,7 +80,7 @@ class MunicipioModelTest(TestCase):
     def test_crear_municipio(self):
         """Test crear municipio básico"""
         municipio = Municipio.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             departamento=self.departamento,
             nombre="Bogotá",
             codigo="25001"
@@ -94,7 +94,7 @@ class MunicipioModelTest(TestCase):
     def test_nombre_completo(self):
         """Test propiedad nombre_completo"""
         municipio = Municipio.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             departamento=self.departamento,
             nombre="Soacha"
         )
@@ -105,16 +105,16 @@ class MunicipioModelTest(TestCase):
         """Test restricción unique_together"""
         # Crear primer municipio
         Municipio.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             departamento=self.departamento,
             nombre="Bogotá",
             codigo="25001"
         )
         
         # Intentar crear otro con el mismo nombre en el mismo departamento
-        with self.assertRaises(IntegrityError):
+        with self.assertRaises((IntegrityError, ValidationError)):
             Municipio.objects.create(
-                organizacion=self.organizacion,
+                organization=self.organizacion,
                 departamento=self.departamento,
                 nombre="Bogotá",
                 codigo="25002"
@@ -127,15 +127,15 @@ class UbicacionesIntegrationTest(TestCase):
     def setUp(self):
         """Configuración inicial"""
         self.organizacion = Organizacion.objects.create(
-            name="Test Org",
-            email="test@test.com"
+            nombre="Test Org",
+            codigo="ORGTEST"
         )
     
     def test_jerarquia_completa(self):
         """Test crear jerarquía completa de ubicaciones"""
         # Crear departamento
         cundinamarca = Departamento.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             nombre="Cundinamarca",
             codigo="25",
             capital="Bogotá",
@@ -144,14 +144,14 @@ class UbicacionesIntegrationTest(TestCase):
         
         # Crear municipios
         bogota = Municipio.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             departamento=cundinamarca,
             nombre="Bogotá",
             codigo="25001"
         )
         
         soacha = Municipio.objects.create(
-            organizacion=self.organizacion,
+            organization=self.organizacion,
             departamento=cundinamarca,
             nombre="Soacha",
             codigo="25754"

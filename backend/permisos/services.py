@@ -377,7 +377,7 @@ class PermissionAnalyticsService:
     
     def obtener_estadisticas_generales(self) -> Dict:
         """Obtiene estadísticas generales del sistema."""
-        from core.models import Organizacion
+        # Importar aquí para evitar imports circulares
         
         now = timezone.now()
         last_week = now - timedelta(days=7)
@@ -390,7 +390,7 @@ class PermissionAnalyticsService:
                 'total_permisos': Permiso.objects.count(),
                 'permisos_activos': Permiso.objects.filter(activo=True).count(),
                 'permisos_directos_activos': PermisoDirecto.objects.filter(activo=True).count(),
-                'organizaciones': Organizacion.objects.count(),
+
                 'modulos': ModuloSistema.objects.count()
             },
             'actividad_reciente': {

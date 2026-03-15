@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import useAudit from '../../hooks/useAudit'
+import { usePermissions } from '../../context/PermissionsContext'
 import configuracionService from '../../services/configuracionService'
 import {
   LayoutGridIcon,
@@ -23,6 +24,7 @@ import {
 
 const ConfiguracionModulosPage = () => {
   const audit = useAudit('Configuración de Módulos')
+  const { hasPermission, initialized } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [modulos, setModulos] = useState([])
   const [filteredModulos, setFilteredModulos] = useState([])
@@ -59,7 +61,6 @@ const ConfiguracionModulosPage = () => {
     try {
       setLoading(true)
       const data = await configuracionService.getModulos()
-      console.log('📦 Módulos cargados:', data)
       setModulos(data)
     } catch (error) {
       console.error('Error al cargar módulos:', error)
@@ -247,6 +248,9 @@ const ConfiguracionModulosPage = () => {
     { name: 'Índigo', value: '#6366F1' },
     { name: 'Cyan', value: '#06B6D4' }
   ]
+
+  if (!initialized) return <div className="flex items-center justify-center h-screen"><Loader2Icon className="w-8 h-8 text-green-500 animate-spin" /></div>
+  if (!hasPermission('configuracion.manage_modulos')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   if (loading) {
     return (

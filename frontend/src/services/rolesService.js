@@ -42,6 +42,11 @@ const rolesService = {
     return response.data;
   },
 
+  patchRol: async (id, data) => {
+    const response = await api.patch(`/api/roles/roles/${id}/`, data);
+    return response.data;
+  },
+
   /**
    * Eliminar un rol
    */
@@ -59,7 +64,13 @@ const rolesService = {
    */
   getEstadisticas: async () => {
     const response = await api.get('/api/roles/roles/estadisticas/');
-    return response.data;
+    const data = response.data;
+    return {
+      total: data.total_roles ?? 0,
+      activos: data.roles_activos ?? 0,
+      inactivos: data.roles_inactivos ?? 0,
+      sistema: data.roles_sistema ?? 0,
+    };
   },
 
   // ============================================================================
@@ -139,6 +150,139 @@ const rolesService = {
    */
   asignarRolUsuario: async (id, data) => {
     const response = await api.post(`/api/roles/roles/${id}/asignar_usuario/`, data);
+    return response.data;
+  },
+
+  /**
+   * Asignar permisos a un rol
+   */
+  asignarPermisos: async (id, permisos) => {
+    const response = await api.post(`/api/roles/roles/${id}/asignar_permisos/`, { permisos_ids: permisos });
+    return response.data;
+  },
+
+  // ============================================================================
+  // PLANTILLAS DE ROL
+  // ============================================================================
+
+  getPlantillasRol: async (params = {}) => {
+    const response = await api.get('/api/roles/plantillas/', { params });
+    return response.data;
+  },
+
+  getPlantillaRol: async (id) => {
+    const response = await api.get(`/api/roles/plantillas/${id}/`);
+    return response.data;
+  },
+
+  createPlantillaRol: async (data) => {
+    const response = await api.post('/api/roles/plantillas/', data);
+    return response.data;
+  },
+
+  updatePlantillaRol: async (id, data) => {
+    const response = await api.put(`/api/roles/plantillas/${id}/`, data);
+    return response.data;
+  },
+
+  deletePlantillaRol: async (id) => {
+    const response = await api.delete(`/api/roles/plantillas/${id}/`);
+    return response.data;
+  },
+
+  crearRolDesdePlantilla: async (id, data) => {
+    const response = await api.post(`/api/roles/plantillas/${id}/crear_rol/`, data);
+    return response.data;
+  },
+
+  // ============================================================================
+  // META ROLES
+  // ============================================================================
+
+  getMetaRoles: async (params = {}) => {
+    const response = await api.get('/api/roles/meta-roles/', { params });
+    return response.data;
+  },
+
+  createMetaRol: async (data) => {
+    const response = await api.post('/api/roles/meta-roles/', data);
+    return response.data;
+  },
+
+  updateMetaRol: async (id, data) => {
+    const response = await api.put(`/api/roles/meta-roles/${id}/`, data);
+    return response.data;
+  },
+
+  deleteMetaRol: async (id) => {
+    const response = await api.delete(`/api/roles/meta-roles/${id}/`);
+    return response.data;
+  },
+
+  // ============================================================================
+  // ROLES CONDICIONALES
+  // ============================================================================
+
+  getRolesCondicionales: async (params = {}) => {
+    const response = await api.get('/api/roles/roles-condicionales/', { params });
+    return response.data;
+  },
+
+  createRolCondicional: async (data) => {
+    const response = await api.post('/api/roles/roles-condicionales/', data);
+    return response.data;
+  },
+
+  updateRolCondicional: async (id, data) => {
+    const response = await api.put(`/api/roles/roles-condicionales/${id}/`, data);
+    return response.data;
+  },
+
+  deleteRolCondicional: async (id) => {
+    const response = await api.delete(`/api/roles/roles-condicionales/${id}/`);
+    return response.data;
+  },
+
+  evaluarRolCondicional: async (id) => {
+    const response = await api.post(`/api/roles/roles-condicionales/${id}/evaluar/`);
+    return response.data;
+  },
+
+  // ============================================================================
+  // CONFIGURACIÓN DINÁMICA DE ROLES
+  // ============================================================================
+
+  getConfiguracionesRol: async (params = {}) => {
+    const response = await api.get('/api/roles/configuracion/', { params });
+    return response.data;
+  },
+
+  createConfiguracionRol: async (data) => {
+    const response = await api.post('/api/roles/configuracion/', data);
+    return response.data;
+  },
+
+  updateConfiguracionRol: async (id, data) => {
+    const response = await api.put(`/api/roles/configuracion/${id}/`, data);
+    return response.data;
+  },
+
+  deleteConfiguracionRol: async (id) => {
+    const response = await api.delete(`/api/roles/configuracion/${id}/`);
+    return response.data;
+  },
+
+  // ============================================================================
+  // AUDITORÍA E HISTORIAL
+  // ============================================================================
+
+  getAuditoriaRoles: async (params = {}) => {
+    const response = await api.get('/api/roles/auditoria/', { params });
+    return response.data;
+  },
+
+  getHistorialAsignaciones: async (params = {}) => {
+    const response = await api.get('/api/roles/historial/', { params });
     return response.data;
   },
 };

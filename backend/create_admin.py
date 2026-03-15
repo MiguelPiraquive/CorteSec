@@ -1,8 +1,8 @@
 from django.contrib.auth import get_user_model
-from core.models import Organization
+from core.models import Organizacion
 
 User = get_user_model()
-org = Organization.objects.first()
+org = Organizacion.objects.first()
 
 print(f"Organización: {org}")
 print(f"Total usuarios: {User.objects.count()}")

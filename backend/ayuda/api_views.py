@@ -9,17 +9,16 @@ Versión: 1.0.0
 Fecha: 2025-07-29
 """
 
-from rest_framework import viewsets, permissions, status, filters
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Count, F
 from django.utils import timezone
 
 from .models import (
-    TipoAyuda, CategoriaAyuda, ArticuloAyuda, FAQ, 
-    SolicitudSoporte, RespuestaSoporte, Tutorial, 
+    TipoAyuda, CategoriaAyuda, ArticuloAyuda, FAQ,
+    SolicitudSoporte, RespuestaSoporte, Tutorial,
     PasoTutorial, ProgresoTutorial, RecursoAyuda
 )
 from .serializers import (
@@ -29,21 +28,16 @@ from .serializers import (
     RecursoAyudaSerializer
 )
 from core.mixins import MultiTenantViewSetMixin
-
-
-class AyudaPagination(PageNumberPagination):
-    """Paginación personalizada para ayuda"""
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 100
+from core.pagination import StandardResultsSetPagination
+from .policies import AyudaAccessPolicy
 
 
 class TipoAyudaViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     """API ViewSet para tipos de ayuda"""
     queryset = TipoAyuda.objects.all()
     serializer_class = TipoAyudaSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = AyudaPagination
+    permission_classes = [AyudaAccessPolicy]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['tipo', 'activo']
     search_fields = ['nombre', 'descripcion']
@@ -62,8 +56,8 @@ class CategoriaAyudaViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     """API ViewSet para categorías de ayuda"""
     queryset = CategoriaAyuda.objects.all()
     serializer_class = CategoriaAyudaSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = AyudaPagination
+    permission_classes = [AyudaAccessPolicy]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['activa']
     search_fields = ['nombre', 'descripcion']
@@ -105,8 +99,8 @@ class ArticuloAyudaViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     """API ViewSet para artículos de ayuda"""
     queryset = ArticuloAyuda.objects.select_related('categoria', 'autor').prefetch_related('recursos')
     serializer_class = ArticuloAyudaSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = AyudaPagination
+    permission_classes = [AyudaAccessPolicy]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['categoria', 'es_faq', 'publicado', 'activo']
     search_fields = ['titulo', 'contenido', 'tags']
@@ -172,8 +166,8 @@ class FAQViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     """API ViewSet para FAQs"""
     queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = AyudaPagination
+    permission_classes = [AyudaAccessPolicy]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['categoria', 'activo']
     search_fields = ['pregunta', 'respuesta', 'tags']
@@ -198,8 +192,8 @@ class SolicitudSoporteViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     """API ViewSet para solicitudes de soporte"""
     queryset = SolicitudSoporte.objects.select_related('usuario').prefetch_related('respuestas')
     serializer_class = SolicitudSoporteSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = AyudaPagination
+    permission_classes = [AyudaAccessPolicy]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['estado', 'prioridad', 'categoria']
     search_fields = ['asunto', 'descripcion']
@@ -267,8 +261,8 @@ class TutorialViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     """API ViewSet para tutoriales"""
     queryset = Tutorial.objects.select_related('categoria').prefetch_related('pasos')
     serializer_class = TutorialSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = AyudaPagination
+    permission_classes = [AyudaAccessPolicy]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['categoria', 'dificultad', 'publicado']
     search_fields = ['titulo', 'descripcion', 'tags']
@@ -312,8 +306,8 @@ class RecursoAyudaViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     """API ViewSet para recursos de ayuda"""
     queryset = RecursoAyuda.objects.all()
     serializer_class = RecursoAyudaSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = AyudaPagination
+    permission_classes = [AyudaAccessPolicy]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['tipo', 'activo']
     search_fields = ['nombre', 'descripcion']
@@ -334,48 +328,51 @@ class RecursoAyudaViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
 # === VISTAS ADICIONALES ===
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([AyudaAccessPolicy])
 def estadisticas_ayuda(request):
     """Estadísticas generales del centro de ayuda"""
+    org = request.user.organization
     stats = {
-        'total_articulos': ArticuloAyuda.objects.filter(activo=True, publicado=True).count(),
-        'total_faqs': FAQ.objects.filter(activo=True).count(),
-        'total_tutoriales': Tutorial.objects.filter(publicado=True).count(),
-        'solicitudes_abiertas': SolicitudSoporte.objects.filter(estado__in=['abierto', 'en_proceso']).count(),
-        'total_recursos': RecursoAyuda.objects.count(),
+        'total_articulos': ArticuloAyuda.objects.filter(organization=org, activo=True, publicado=True).count(),
+        'total_faqs': FAQ.objects.filter(organization=org, activo=True).count(),
+        'total_tutoriales': Tutorial.objects.filter(organization=org, publicado=True).count(),
+        'solicitudes_abiertas': SolicitudSoporte.objects.filter(organization=org, estado__in=['abierto', 'en_proceso']).count(),
+        'total_recursos': RecursoAyuda.objects.filter(organization=org).count(),
         'articulos_populares': ArticuloAyuda.objects.filter(
-            activo=True, publicado=True
+            organization=org, activo=True, publicado=True
         ).order_by('-vistas')[:5].values('id', 'titulo', 'vistas'),
     }
     return Response(stats)
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([AyudaAccessPolicy])
 def busqueda_global(request):
     """Búsqueda global en todo el centro de ayuda"""
     query = request.GET.get('q', '')
     if not query:
         return Response({'error': 'Parámetro de búsqueda requerido'}, status=400)
-    
+
+    org = request.user.organization
+
     # Buscar en artículos
     articulos = ArticuloAyuda.objects.filter(
         Q(titulo__icontains=query) | Q(contenido__icontains=query) | Q(tags__icontains=query),
-        activo=True, publicado=True
+        organization=org, activo=True, publicado=True
     )[:10]
-    
+
     # Buscar en FAQs
     faqs = FAQ.objects.filter(
         Q(pregunta__icontains=query) | Q(respuesta__icontains=query) | Q(tags__icontains=query),
-        activo=True
+        organization=org, activo=True
     )[:10]
-    
+
     # Buscar en tutoriales
     tutoriales = Tutorial.objects.filter(
         Q(titulo__icontains=query) | Q(descripcion__icontains=query) | Q(tags__icontains=query),
-        activo=True
+        organization=org, activo=True
     )[:10]
-    
+
     return Response({
         'query': query,
         'articulos': ArticuloAyudaSerializer(articulos, many=True).data,

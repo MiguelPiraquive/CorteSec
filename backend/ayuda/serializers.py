@@ -111,7 +111,7 @@ class SolicitudSoporteSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'fecha_creacion', 'fecha_modificacion',
-            'usuario_nombre', 'asignado_a_nombre', 
+            'usuario', 'usuario_nombre', 'asignado_a_nombre', 
             'prioridad_display', 'estado_display', 'respuestas'
         ]
 

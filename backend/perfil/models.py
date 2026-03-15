@@ -83,7 +83,10 @@ class Perfil(TenantAwareModel):
         blank=True,
         null=True,
         verbose_name=_("Foto de perfil"),
-        help_text=_("Foto de perfil del usuario")
+        help_text=_("Foto de perfil del usuario"),
+        validators=[FileExtensionValidator(
+            allowed_extensions=['jpg', 'jpeg', 'png', 'webp']
+        )]
     )
     
     fecha_nacimiento = models.DateField(
@@ -269,7 +272,6 @@ class Perfil(TenantAwareModel):
         max_length=20,
         blank=True,
         null=True,
-        unique=True,
         verbose_name=_("Número de cédula"),
         validators=[RegexValidator(
             regex=r'^\d{8,12}$',
@@ -312,6 +314,21 @@ class Perfil(TenantAwareModel):
         verbose_name=_("Zona horaria")
     )
 
+    # Preferencia de modal de proyecto
+    mostrar_modal_proyecto = models.BooleanField(
+        default=True,
+        verbose_name=_("Mostrar modal de proyecto al iniciar"),
+        help_text=_("Si se debe mostrar el selector de proyecto al iniciar sesión")
+    )
+
+    # Proyecto fijo/favorito: si está set, se auto-selecciona al iniciar y no sale el modal
+    proyecto_fijo = models.UUIDField(
+        null=True,
+        blank=True,
+        verbose_name=_("Proyecto fijo"),
+        help_text=_("UUID del proyecto que se selecciona automáticamente al iniciar sesión")
+    )
+
     # Configuración de privacidad
     perfil_completado = models.BooleanField(
         default=False,
@@ -342,6 +359,7 @@ class Perfil(TenantAwareModel):
         verbose_name = _("Perfil de Usuario")
         verbose_name_plural = _("Perfiles de Usuario")
         ordering = ['usuario__first_name', 'usuario__last_name']
+        unique_together = [['organization', 'numero_cedula']]
 
     def __str__(self):
         return f"Perfil de {self.usuario.get_full_name() or self.usuario.username}"
@@ -383,6 +401,29 @@ class Perfil(TenantAwareModel):
             # Evitar recursión infinita
             Perfil.objects.filter(pk=self.pk).update(perfil_completado=completado)
 
+    def calcular_porcentaje_completitud(self):
+        """Calcula el porcentaje de completitud del perfil"""
+        campos = [
+            ('fecha_nacimiento', self.fecha_nacimiento, 10),
+            ('genero', self.genero, 5),
+            ('estado_civil', self.estado_civil, 5),
+            ('nacionalidad', self.nacionalidad, 5),
+            ('telefono', self.telefono, 10),
+            ('direccion_residencia', self.direccion_residencia, 10),
+            ('ciudad_residencia', self.ciudad_residencia, 8),
+            ('departamento_residencia', self.departamento_residencia, 7),
+            ('tipo_sangre', self.tipo_sangre, 5),
+            ('nivel_educacion', self.nivel_educacion, 5),
+            ('profesion', self.profesion, 5),
+            ('banco', self.banco, 5),
+            ('numero_cuenta', self.numero_cuenta, 5),
+            ('tipo_cuenta', self.tipo_cuenta, 5),
+            ('numero_cedula', self.numero_cedula, 10),
+        ]
+        total_peso = sum(peso for _, _, peso in campos)
+        completados = sum(peso for _, valor, peso in campos if valor)
+        return round((completados / total_peso) * 100) if total_peso > 0 else 0
+
     @property
     def edad(self):
         """Calcula la edad del usuario"""
@@ -407,11 +448,35 @@ class Perfil(TenantAwareModel):
 
     def puede_ver_info_usuario(self, otro_usuario):
         """Verifica si puede ver información de otro usuario"""
-        if not self.privacidad_publica:
+        if not otro_usuario:
             return False
-        
-        # TODO: Implementar lógica de permisos según roles
-        return True
+
+        # El mismo usuario siempre puede ver su información
+        if otro_usuario.id == self.usuario_id:
+            return True
+
+        # Si el perfil es público, permitir acceso
+        if self.privacidad_publica:
+            return True
+
+        # Administradores y staff pueden ver
+        if getattr(otro_usuario, 'is_superuser', False) or getattr(otro_usuario, 'is_staff', False):
+            return True
+
+        # Permiso explícito
+        try:
+            if otro_usuario.has_perm('perfil.view_perfil') or otro_usuario.has_perm('perfil.ver_perfil'):
+                return True
+        except Exception:
+            pass
+
+        # Misma organización
+        org_self = getattr(self.usuario, 'organization_id', None)
+        org_other = getattr(otro_usuario, 'organization_id', None)
+        if org_self and org_other and org_self == org_other:
+            return True
+
+        return False
 
     def get_informacion_publica(self):
         """Retorna solo la información que puede ser pública"""
@@ -458,6 +523,43 @@ class ConfiguracionNotificaciones(models.Model):
         default=True,
         verbose_name=_("Notificaciones del sistema"),
         help_text=_("Recibir notificaciones importantes del sistema")
+    )
+
+    notif_contratos = models.BooleanField(
+        default=True,
+        verbose_name=_("Notificaciones de contratos"),
+        help_text=_("Recibir notificaciones sobre contratos")
+    )
+
+    notif_empleados = models.BooleanField(
+        default=True,
+        verbose_name=_("Notificaciones de empleados"),
+        help_text=_("Recibir notificaciones sobre empleados")
+    )
+
+    notif_proyectos = models.BooleanField(
+        default=True,
+        verbose_name=_("Notificaciones de proyectos"),
+        help_text=_("Recibir notificaciones sobre proyectos")
+    )
+
+    notif_contabilidad = models.BooleanField(
+        default=True,
+        verbose_name=_("Notificaciones de contabilidad"),
+        help_text=_("Recibir notificaciones sobre contabilidad")
+    )
+
+    notif_seguridad = models.BooleanField(
+        default=True,
+        verbose_name=_("Notificaciones de seguridad"),
+        help_text=_("Recibir alertas de seguridad")
+    )
+
+    # Preferencias adicionales
+    sonido_enabled = models.BooleanField(
+        default=True,
+        verbose_name=_("Sonido de notificaciones"),
+        help_text=_("Activar sonido al recibir notificaciones")
     )
     
     # Canales de notificación

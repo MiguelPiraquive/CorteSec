@@ -1,9 +1,15 @@
 import api from './api';
 
 const prestamosService = {
+  // Get prestamos with params (paginated)
+  getPrestamos: async (params = {}) => {
+    const response = await api.get('/api/prestamos/prestamos/', { params });
+    return response.data;
+  },
+
   // Get all prestamos
-  getAllPrestamos: async () => {
-    const response = await api.get('/api/prestamos/prestamos/?page_size=1000');
+  getAllPrestamos: async (params = {}) => {
+    const response = await api.get('/api/prestamos/prestamos/', { params: { page_size: 99999, ...params } });
     return response.data.results || response.data;
   },
 
@@ -54,15 +60,9 @@ const prestamosService = {
     return response.data;
   },
 
-  // Get resumen
-  getResumen: async () => {
-    const response = await api.get('/api/prestamos/prestamos/resumen/');
-    return response.data;
-  },
-
-  // Get estadisticas
-  getEstadisticas: async () => {
-    const response = await api.get('/api/prestamos/prestamos/estadisticas/');
+  // Get dashboard stats
+  getDashboard: async (params = {}) => {
+    const response = await api.get('/api/prestamos/prestamos/dashboard/', { params });
     return response.data;
   },
 

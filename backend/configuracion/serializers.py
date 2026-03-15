@@ -18,6 +18,8 @@ class ConfiguracionGeneralSerializer(serializers.ModelSerializer):
             'sitio_web', 'logo', 'moneda', 'simbolo_moneda', 'zona_horaria',
             'formato_fecha', 'dia_pago_nomina', 'periodo_nomina',
             'cuenta_efectivo_defecto', 'cuenta_nomina_defecto',
+            'cuenta_prestamos_defecto', 'cuenta_intereses_prestamo_defecto', 'cuenta_mora_prestamo_defecto',
+            'cuenta_otras_deducciones_defecto',
             'fecha_modificacion', 'modificado_por'
         ]
         read_only_fields = ['fecha_modificacion']
@@ -172,7 +174,7 @@ class ConfiguracionSeguridadSerializer(serializers.ModelSerializer):
 
 class ConfiguracionEmailSerializer(serializers.ModelSerializer):
     """Serializer para configuración de email"""
-    modificado_por_nombre = serializers.CharField(source='modificado_por.get_full_name', read_only=True)
+    modificado_por_nombre = serializers.SerializerMethodField()
     password_smtp_oculto = serializers.SerializerMethodField()
     
     class Meta:
@@ -190,11 +192,15 @@ class ConfiguracionEmailSerializer(serializers.ModelSerializer):
             'password_smtp': {'write_only': True}
         }
 
+    def get_modificado_por_nombre(self, obj):
+        """Retorna el nombre del usuario que modificó la configuración"""
+        if obj.modificado_por:
+            return obj.modificado_por.get_full_name() or obj.modificado_por.username
+        return ''
+
     def get_password_smtp_oculto(self, obj):
         """Retorna la contraseña oculta para mostrar en el frontend"""
-        if obj.password_smtp:
-            return '*' * len(obj.password_smtp)
-        return ''
+        return '********' if obj.password_smtp else ''
 
     def validate_puerto_smtp(self, value):
         """Valida que el puerto SMTP sea válido"""

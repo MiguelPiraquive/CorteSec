@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
+from core.models import Organizacion
 from .models import TipoCantidad
 from .forms import TipoCantidadForm, TipoCantidadFiltroForm
 
@@ -17,11 +18,16 @@ class TipoCantidadModelTests(TestCase):
     """Tests para el modelo TipoCantidad"""
     
     def setUp(self):
+        self.organization = Organizacion.objects.create(
+            nombre='Org Test Base',
+            codigo='ORGBASE'
+        )
         self.tipo_cantidad = TipoCantidad.objects.create(
             codigo='m2',
             descripcion='Metro cuadrado',
             simbolo='m²',
-            orden=1
+            orden=1,
+            organization=self.organization
         )
     
     def test_string_representation(self):
@@ -38,7 +44,8 @@ class TipoCantidadModelTests(TestCase):
         tipo_sin_simbolo = TipoCantidad.objects.create(
             codigo='hrs',
             descripcion='Horas',
-            orden=2
+            orden=2,
+            organization=self.organization
         )
         self.assertEqual(tipo_sin_simbolo.descripcion_completa, 'Horas')
     
@@ -153,16 +160,22 @@ class TipoCantidadViewTests(TestCase):
     
     def setUp(self):
         self.client = Client()
+        self.organization = Organizacion.objects.create(
+            nombre='Org Test',
+            codigo='ORGTEST'
+        )
         self.user = User.objects.create_user(
             username='testuser',
-            password='testpass123'
+            password='testpass123',
+            organization=self.organization
         )
-        self.client.login(username='testuser', password='testpass123')
+        self.client.force_login(self.user)
         
         self.tipo_cantidad = TipoCantidad.objects.create(
             codigo='m2',
             descripcion='Metro cuadrado',
-            simbolo='m²'
+            simbolo='m²',
+            organization=self.organization
         )
     
     def test_lista_tipos_cantidad_view(self):

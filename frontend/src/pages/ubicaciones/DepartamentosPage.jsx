@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import useAudit from '../../hooks/useAudit'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
+import useServerPagination from '../../hooks/useServerPagination'
+import Pagination from '../../components/Pagination'
 import locationsService from '../../services/locationsService'
 import {
   MapPinIcon,
@@ -17,18 +21,26 @@ import {
 
 const DepartamentosPage = () => {
   const audit = useAudit('Departamentos')
-  const [departamentos, setDepartamentos] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  const { hasPermission, initialized } = usePermissions()
   const [showModal, setShowModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [editingDepartamento, setEditingDepartamento] = useState(null)
   const [excelFile, setExcelFile] = useState(null)
   const [uploadResult, setUploadResult] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const [pageSize] = useState(20)
+
+  const fetchDepartamentos = useCallback((params) => locationsService.getDepartamentos(params), [])
+  const {
+    data: departamentos,
+    loading,
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    searchTerm,
+    setSearchTerm,
+    setCurrentPage,
+    refresh,
+  } = useServerPagination(fetchDepartamentos, { pageSize: 20 })
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -38,30 +50,6 @@ const DepartamentosPage = () => {
   })
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
-
-  useEffect(() => {
-    loadDepartamentos()
-  }, [])
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm])
-
-  const loadDepartamentos = async (page = 1) => {
-    try {
-      setLoading(true)
-      const data = await locationsService.getAllDepartamentos()
-      setDepartamentos(data)
-      setTotalCount(data.length)
-      setTotalPages(Math.ceil(data.length / pageSize))
-      setCurrentPage(1)
-    } catch (error) {
-      showNotification('error', 'Error al cargar departamentos')
-      console.error(error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message })
@@ -83,7 +71,7 @@ const DepartamentosPage = () => {
       setShowModal(false)
       setFormData({ nombre: '', codigo: '', capital: '', region: '' })
       setEditingDepartamento(null)
-      loadDepartamentos()
+      refresh()
     } catch (error) {
       showNotification('error', error.response?.data?.message || 'Error al guardar departamento')
     }
@@ -105,7 +93,7 @@ const DepartamentosPage = () => {
     try {
       await locationsService.deleteDepartamento(id)
       showNotification('success', 'Departamento eliminado exitosamente')
-      loadDepartamentos()
+      refresh()
     } catch (error) {
       showNotification('error', 'Error al eliminar departamento')
     }
@@ -128,29 +116,14 @@ const DepartamentosPage = () => {
       const result = await locationsService.uploadExcel(excelFile)
       setUploadResult(result)
       showNotification('success', 'Archivo procesado exitosamente')
-      loadDepartamentos()
+      refresh()
     } catch (error) {
       showNotification('error', error.response?.data?.error || 'Error al procesar archivo')
     }
   }
 
-  const filteredDepartamentos = departamentos.filter(dep =>
-    dep.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (dep.codigo && dep.codigo.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
-
-  // Paginación de datos filtrados
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const paginatedDepartamentos = filteredDepartamentos.slice(startIndex, endIndex)
-  const filteredTotalPages = Math.ceil(filteredDepartamentos.length / pageSize)
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= filteredTotalPages) {
-      setCurrentPage(newPage)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('departamentos.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   return (
     <div className="space-y-6">
@@ -177,14 +150,18 @@ const DepartamentosPage = () => {
             </div>
           </div>
           <div className="flex space-x-3">
-            <button onClick={() => setShowUploadModal(true)} className="flex items-center space-x-2 px-5 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold border border-white/30">
-              <UploadIcon className="w-5 h-5" />
-              <span>Importar Excel</span>
-            </button>
-            <button onClick={() => { setShowModal(true); setEditingDepartamento(null); setFormData({ nombre: '', codigo: '', capital: '', region: '' }) }} className="flex items-center space-x-2 px-5 py-3 bg-white text-teal-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg">
-              <PlusIcon className="w-5 h-5" />
-              <span>Nuevo Departamento</span>
-            </button>
+            <Can permission="departamentos.add">
+              <button onClick={() => setShowUploadModal(true)} className="flex items-center space-x-2 px-5 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold border border-white/30">
+                <UploadIcon className="w-5 h-5" />
+                <span>Importar Excel</span>
+              </button>
+            </Can>
+            <Can permission="departamentos.add">
+              <button onClick={() => { setShowModal(true); setEditingDepartamento(null); setFormData({ nombre: '', codigo: '', capital: '', region: '' }) }} className="flex items-center space-x-2 px-5 py-3 bg-white text-teal-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg">
+                <PlusIcon className="w-5 h-5" />
+                <span>Nuevo Departamento</span>
+              </button>
+            </Can>
           </div>
         </div>
       </div>
@@ -220,12 +197,12 @@ const DepartamentosPage = () => {
                     </div>
                   </td>
                 </tr>
-              ) : filteredDepartamentos.length === 0 ? (
+              ) : departamentos.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="px-6 py-12 text-center text-gray-500">No se encontraron departamentos</td>
                 </tr>
               ) : (
-                paginatedDepartamentos.map((dep, index) => (
+                departamentos.map((dep, index) => (
                   <tr key={dep.id} className={`border-b border-gray-200/50 hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 transition-all ${index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}`}>
                     <td className="px-6 py-4 text-sm font-mono font-semibold text-gray-700">{dep.codigo || 'N/A'}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-gray-900">{dep.nombre}</td>
@@ -233,12 +210,16 @@ const DepartamentosPage = () => {
                     <td className="px-6 py-4 text-sm text-gray-600">{dep.region || 'N/A'}</td>
                     <td className="px-6 py-4">
                       <div className="flex justify-center space-x-2">
-                        <button onClick={() => handleEdit(dep)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all transform hover:scale-110">
-                          <EditIcon className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDelete(dep.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all transform hover:scale-110">
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
+                        <Can permission="departamentos.change">
+                          <button onClick={() => handleEdit(dep)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all transform hover:scale-110">
+                            <EditIcon className="w-4 h-4" />
+                          </button>
+                        </Can>
+                        <Can permission="departamentos.delete">
+                          <button onClick={() => handleDelete(dep.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all transform hover:scale-110">
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </Can>
                       </div>
                     </td>
                   </tr>
@@ -248,75 +229,15 @@ const DepartamentosPage = () => {
           </table>
         </div>
 
-        {/* Paginación */}
-        {filteredDepartamentos.length > pageSize && (
-          <div className="bg-gradient-to-r from-teal-50 to-cyan-50 px-6 py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Mostrando <span className="font-semibold text-gray-900">{startIndex + 1}</span> a{' '}
-                <span className="font-semibold text-gray-900">{Math.min(endIndex, filteredDepartamentos.length)}</span> de{' '}
-                <span className="font-semibold text-gray-900">{filteredDepartamentos.length}</span> departamentos
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handlePageChange(1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Primera
-                </button>
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Anterior
-                </button>
-                <div className="flex items-center space-x-2">
-                  {[...Array(Math.min(5, filteredTotalPages))].map((_, i) => {
-                    let pageNum
-                    if (filteredTotalPages <= 5) {
-                      pageNum = i + 1
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1
-                    } else if (currentPage >= filteredTotalPages - 2) {
-                      pageNum = filteredTotalPages - 4 + i
-                    } else {
-                      pageNum = currentPage - 2 + i
-                    }
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => handlePageChange(pageNum)}
-                        className={`px-4 py-2 rounded-lg transition-all ${
-                          currentPage === pageNum
-                            ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-bold shadow-lg'
-                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
-                </div>
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === filteredTotalPages}
-                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Siguiente
-                </button>
-                <button
-                  onClick={() => handlePageChange(filteredTotalPages)}
-                  disabled={currentPage === filteredTotalPages}
-                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Última
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Paginacion */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          itemLabel="departamentos"
+        />
       </div>
 
       {/* Create/Edit Modal */}

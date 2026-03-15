@@ -27,48 +27,14 @@ app.autodiscover_tasks()
 
 # Configuración de beat schedule (tareas programadas)
 app.conf.beat_schedule = {
-    # ===== TAREAS DE NÓMINA (FASE 3) =====
-    # Verificar estado de nóminas enviadas cada 30 minutos
-    'verificar-estado-nominas-dian': {
-        'task': 'payroll.tasks.verificar_estado_nominas_dian',
-        'schedule': crontab(minute='*/30'),
+    # ===== TAREAS CONTABILIDAD =====
+    'auditoria-puc-diaria': {
+        'task': 'contabilidad.tasks.auditoria_puc_diaria',
+        'schedule': crontab(minute=0, hour=6),
     },
-    # Generar nóminas pendientes cada hora
-    'procesar-nominas-pendientes': {
-        'task': 'payroll.tasks.procesar_nominas_pendientes',
-        'schedule': crontab(minute=0, hour='*'),
-    },
-    # Enviar recordatorios de nóminas sin firmar cada día a las 9 AM
-    'recordatorio-nominas-sin-firmar': {
-        'task': 'payroll.tasks.recordatorio_nominas_sin_firmar',
-        'schedule': crontab(minute=0, hour=9),
-    },
-    # Limpiar XMLs antiguos cada domingo a las 2 AM
-    'limpiar-xmls-antiguos': {
-        'task': 'payroll.tasks.limpiar_xmls_antiguos',
-        'schedule': crontab(minute=0, hour=2, day_of_week=0),
-    },
-    # Generar reporte de estadísticas semanal (lunes 8 AM)
-    'generar-reporte-semanal': {
-        'task': 'payroll.tasks.generar_reporte_semanal',
-        'schedule': crontab(minute=0, hour=8, day_of_week=1),
-    },
-    
-    # ===== TAREAS DE ROLES =====
-    # Verificar roles expirados cada hora
-    'verificar-roles-expirados-cada-hora': {
-        'task': 'roles.tasks.verificar_roles_expirados',
-        'schedule': crontab(minute=0, hour='*'),
-    },
-    # Notificar roles próximos a expirar cada día a las 9 AM
-    'notificar-roles-proximos-expirar-diario': {
-        'task': 'roles.tasks.notificar_roles_proximos_expirar',
-        'schedule': crontab(minute=0, hour=9),
-    },
-    # Actualizar estadísticas de roles cada noche a las 2 AM
-    'actualizar-estadisticas-roles-noche': {
-        'task': 'roles.tasks.actualizar_estadisticas_roles',
-        'schedule': crontab(minute=0, hour=2),
+    'auditoria-puc-semanal': {
+        'task': 'contabilidad.tasks.auditoria_puc_semanal',
+        'schedule': crontab(minute=0, hour=3, day_of_week=0),
     },
 }
 

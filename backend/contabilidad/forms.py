@@ -3,7 +3,7 @@ from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from decimal import Decimal
 
-from .models import PlanCuentas, ComprobanteContable, MovimientoContable, FlujoCaja
+from .models import PlanCuentas, ComprobanteContable, MovimientoContable, FlujoCaja, CentroCosto
 
 
 class PlanCuentasForm(forms.ModelForm):
@@ -168,9 +168,8 @@ class MovimientoContableForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Identificación o nombre del tercero'
             }),
-            'centro_costo': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Centro de costo'
+            'centro_costo': forms.Select(attrs={
+                'class': 'form-control'
             }),
         }
 
@@ -180,6 +179,9 @@ class MovimientoContableForm(forms.ModelForm):
         self.fields['cuenta'].queryset = PlanCuentas.objects.filter(
             activa=True, 
             acepta_movimientos=True
+        ).order_by('codigo')
+        self.fields['centro_costo'].queryset = CentroCosto.objects.filter(
+            activo=True
         ).order_by('codigo')
 
 

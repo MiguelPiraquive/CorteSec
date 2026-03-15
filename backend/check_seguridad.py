@@ -7,7 +7,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'contractor_management.settings'
 django.setup()
 
 from configuracion.models import ConfiguracionSeguridad
-from core.models import Organization
+from core.models import Organizacion
 
 print("=" * 80)
 print("CONFIGURACIÓN DE SEGURIDAD")
@@ -29,7 +29,7 @@ if config:
     # Verificar si tiene organization
     if not config.organization:
         print(f"\n⚠️  No tiene organization asignada!")
-        org = Organization.objects.first()
+        org = Organizacion.objects.first()
         if org:
             config.organization = org
             config.save()
@@ -38,7 +38,7 @@ if config:
             print("❌ No hay organizations en el sistema")
 else:
     print("❌ No existe ConfiguracionSeguridad, creando...")
-    org = Organization.objects.first()
+    org = Organizacion.objects.first()
     if org:
         config = ConfiguracionSeguridad.objects.create(organization=org)
         print(f"✅ Creada con ID: {config.id}")

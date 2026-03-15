@@ -1,17 +1,143 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.db.models import Sum, Count, Q, F
 from django.utils import timezone
+from django.conf import settings
 from datetime import datetime, timedelta
 from contabilidad.models import MovimientoContable, ComprobanteContable, FlujoCaja
 from cargos.models import Cargo
 from django.contrib.auth import get_user_model
+from core.models import Plan
+from core.policies.core_access import CoreAccessPolicy
+from dashboard.policies import DashboardViewPolicy
 
 User = get_user_model()
 
+
+def _get_public_plans():
+    """Retorna planes públicos configurables (landing).
+    Incluye features desde billing.PlanFeature si existen.
+    """
+    plans_queryset = Plan.objects.filter(is_public=True, is_active=True)
+    if plans_queryset.exists():
+        plans_data = []
+        for plan in plans_queryset:
+            plan_dict = plan.to_public_dict()
+            # Enriquecer con PlanFeatures de billing
+            try:
+                from billing.models import PlanFeature
+                pf_qs = PlanFeature.objects.filter(plan=plan, enabled=True)
+                if pf_qs.exists():
+                    plan_dict['features'] = [
+                        pf.feature_name for pf in pf_qs
+                    ]
+                    plan_dict['feature_details'] = [
+                        {
+                            'code': pf.feature_code,
+                            'name': pf.feature_name,
+                            'limit': pf.limit_value,
+                        }
+                        for pf in pf_qs
+                    ]
+            except Exception:
+                pass
+            plans_data.append(plan_dict)
+        return plans_data
+
+    if hasattr(settings, 'CORE_PUBLIC_PLANS'):
+        return settings.CORE_PUBLIC_PLANS
+
+    return [
+        {
+            'id': 'FREE',
+            'name': 'Free',
+            'price_monthly_cop': 0,
+            'price_yearly_cop': 0,
+            'limits': {
+                'max_users': 5,
+                'max_storage_mb': 1024
+            },
+            'features': [
+                'Nómina básica',
+                'Préstamos y deducciones',
+                'Dashboard básico'
+            ]
+        },
+        {
+            'id': 'BASIC',
+            'name': 'Básico',
+            'price_monthly_cop': 99000,
+            'price_yearly_cop': 990000,
+            'limits': {
+                'max_users': 20,
+                'max_storage_mb': 5120
+            },
+            'features': [
+                'Nómina completa',
+                'Reportes estándar',
+                'Soporte por email'
+            ]
+        },
+        {
+            'id': 'PRO',
+            'name': 'Profesional',
+            'price_monthly_cop': 199000,
+            'price_yearly_cop': 1990000,
+            'limits': {
+                'max_users': 100,
+                'max_storage_mb': 20480
+            },
+            'features': [
+                'Analítica avanzada',
+                'Exportaciones',
+                'Soporte prioritario'
+            ]
+        },
+        {
+            'id': 'ENTERPRISE',
+            'name': 'Enterprise',
+            'price_monthly_cop': None,
+            'price_yearly_cop': None,
+            'limits': {
+                'max_users': 1000,
+                'max_storage_mb': 102400
+            },
+            'features': [
+                'SLA dedicado',
+                'Integraciones',
+                'Onboarding personalizado'
+            ]
+        }
+    ]
+
+
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
+def public_plans(request):
+    """API pública para planes de la landing."""
+    return Response({
+        'currency': 'COP',
+        'intervals': ['monthly', 'yearly'],
+        'plans': _get_public_plans()
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_landing_info(request):
+    """API pública para contenido de landing/configuración general."""
+    landing = getattr(settings, 'CORE_LANDING_CONFIG', {
+        'brand': 'CorteSec',
+        'tagline': 'Gestión empresarial y nómina en un solo lugar',
+        'cta': 'Comienza ahora',
+        'contact_email': 'ventas@cortesec.com'
+    })
+
+    return Response({'landing': landing})
+
+@api_view(['GET'])
+@permission_classes([DashboardViewPolicy])
 def dashboard_metrics_api(request):
     """API para métricas del dashboard con datos reales"""
     try:
@@ -59,7 +185,7 @@ def dashboard_metrics_api(request):
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def dashboard_activity_heatmap(request):
     """API para datos de actividad real del sistema"""
     try:
@@ -110,7 +236,7 @@ def dashboard_activity_heatmap(request):
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def dashboard_historical_data(request):
     """API para datos históricos reales para predicciones"""
     try:
@@ -179,7 +305,7 @@ def dashboard_historical_data(request):
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def dashboard_kpi_trends(request):
     """API para tendencias de KPIs del dashboard"""
     try:
@@ -247,7 +373,7 @@ def dashboard_kpi_trends(request):
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def dashboard_department_activity(request):
     """API para actividad por departamentos/cargos"""
     try:
@@ -301,7 +427,7 @@ def dashboard_department_activity(request):
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def dashboard_hourly_patterns(request):
     """API para patrones de actividad por horas"""
     try:
@@ -358,7 +484,7 @@ def dashboard_hourly_patterns(request):
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def dashboard_productivity_heatmap(request):
     """API para heatmap de productividad por empleados y días"""
     try:
@@ -429,7 +555,7 @@ def dashboard_productivity_heatmap(request):
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([DashboardViewPolicy])
 def dashboard_search_suggestions(request):
     """API para sugerencias de búsqueda en el dashboard"""
     try:

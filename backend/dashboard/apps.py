@@ -11,6 +11,9 @@ Fecha: 2025-07-12
 """
 
 from django.apps import AppConfig
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DashboardConfig(AppConfig):
@@ -22,5 +25,5 @@ class DashboardConfig(AppConfig):
         # Importar señales cuando la aplicación esté lista
         try:
             from . import signals
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.debug('No se pudieron cargar signals de dashboard: %s', exc)

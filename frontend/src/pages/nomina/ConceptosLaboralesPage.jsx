@@ -1,5 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
+import { useConfiguracion } from '../../context/ConfiguracionContext'
 import useAudit from '../../hooks/useAudit'
+import useServerPagination from '../../hooks/useServerPagination'
+import Pagination from '../../components/Pagination'
 import conceptosLaboralesService from '../../services/conceptosLaboralesService'
 import {
   DollarSignIcon,
@@ -18,27 +23,39 @@ import {
 
 const TIPOS_CONCEPTO = [
   { value: 'DEVENGADO', label: 'Devengado', color: 'green', icon: TrendingUpIcon },
-  { value: 'DEDUCCION', label: 'Deducción', color: 'red', icon: TrendingDownIcon },
+  { value: 'DEDUCCION', label: 'Deduccion', color: 'red', icon: TrendingDownIcon },
 ]
 
 const BASES_CALCULO = [
   { value: 'SALARIO', label: 'Salario' },
-  { value: 'IBC', label: 'Ingreso Base de Cotización (IBC)' },
+  { value: 'IBC', label: 'Ingreso Base de Cotizacion (IBC)' },
   { value: 'DEVENGADO', label: 'Total Devengado' },
 ]
 
 const ConceptosLaboralesPage = () => {
+  const { hasPermission, initialized } = usePermissions()
   const audit = useAudit('Conceptos Laborales')
-  const [conceptos, setConceptos] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterTipo, setFilterTipo] = useState('')
-  const [filterActivo, setFilterActivo] = useState('')
+  const { formatCurrency: cfgFormatCurrency } = useConfiguracion()
   const [showModal, setShowModal] = useState(false)
   const [editingConcepto, setEditingConcepto] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize] = useState(12)
-  
+  const [filterTipo, setFilterTipo] = useState('')
+  const [filterActivo, setFilterActivo] = useState('')
+
+  const fetchConceptos = useCallback((params) => conceptosLaboralesService.getAll(params), [])
+  const {
+    data: conceptos,
+    loading,
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    searchTerm,
+    setSearchTerm,
+    setCurrentPage,
+    setFilters,
+    refresh,
+  } = useServerPagination(fetchConceptos, { pageSize: 12 })
+
   const [formData, setFormData] = useState({
     codigo: '',
     nombre: '',
@@ -55,26 +72,20 @@ const ConceptosLaboralesPage = () => {
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
 
-  useEffect(() => {
-    loadConceptos()
-  }, [])
+  const handleFilterTipo = (value) => {
+    setFilterTipo(value)
+    const filters = {}
+    if (value) filters.tipo = value
+    if (filterActivo !== '') filters.activo = filterActivo
+    setFilters(filters)
+  }
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, filterTipo, filterActivo])
-
-  const loadConceptos = async () => {
-    try {
-      setLoading(true)
-      const data = await conceptosLaboralesService.getAll()
-      const results = Array.isArray(data) ? data : data.results || []
-      setConceptos(results)
-    } catch (error) {
-      showNotification('error', 'Error al cargar conceptos laborales')
-      console.error('Error:', error)
-    } finally {
-      setLoading(false)
-    }
+  const handleFilterActivo = (value) => {
+    setFilterActivo(value)
+    const filters = {}
+    if (filterTipo) filters.tipo = filterTipo
+    if (value !== '') filters.activo = value
+    setFilters(filters)
   }
 
   const showNotification = (type, message) => {
@@ -84,18 +95,17 @@ const ConceptosLaboralesPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    // Validaciones
+
     if (!formData.codigo?.trim()) {
-      showNotification('error', 'El código es obligatorio')
+      showNotification('error', 'El codigo es obligatorio')
       return
     }
-    
+
     if (!formData.nombre?.trim()) {
       showNotification('error', 'El nombre es obligatorio')
       return
     }
-    
+
     if (formData.aplica_porcentaje) {
       if (!formData.porcentaje || parseFloat(formData.porcentaje) < 0 || parseFloat(formData.porcentaje) > 100) {
         showNotification('error', 'El porcentaje debe estar entre 0 y 100')
@@ -123,8 +133,6 @@ const ConceptosLaboralesPage = () => {
         activo: formData.activo,
       }
 
-      console.log('Enviando concepto:', dataToSend)
-
       if (editingConcepto) {
         await conceptosLaboralesService.update(editingConcepto.id, dataToSend)
         audit.button('modificar_concepto_laboral', { concepto_id: editingConcepto.id, codigo: dataToSend.codigo })
@@ -134,15 +142,14 @@ const ConceptosLaboralesPage = () => {
         audit.button('crear_concepto_laboral', { codigo: dataToSend.codigo, nombre: dataToSend.nombre })
         showNotification('success', 'Concepto laboral creado exitosamente')
       }
-      
+
       setShowModal(false)
       resetForm()
-      await loadConceptos()
+      refresh()
     } catch (error) {
       console.error('Error guardando:', error)
-      console.error('Detalle:', error.response?.data)
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.codigo?.[0] || 
+      const errorMsg = error.response?.data?.message ||
+                       error.response?.data?.codigo?.[0] ||
                        Object.values(error.response?.data || {})[0] ||
                        'Error al guardar concepto laboral'
       showNotification('error', errorMsg)
@@ -152,9 +159,7 @@ const ConceptosLaboralesPage = () => {
   const handleEdit = (concepto) => {
     audit.modalOpen('editar_concepto_laboral', { concepto_id: concepto.id, codigo: concepto.codigo })
     setEditingConcepto(concepto)
-    
-    console.log('Editando concepto:', concepto)
-    
+
     setFormData({
       codigo: concepto.codigo || '',
       nombre: concepto.nombre || '',
@@ -168,16 +173,16 @@ const ConceptosLaboralesPage = () => {
       orden: concepto.orden || 100,
       activo: concepto.activo ?? true,
     })
-    
+
     setShowModal(true)
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Está seguro de eliminar este concepto laboral?')) return
+    if (!window.confirm('¿Esta seguro de eliminar este concepto laboral?')) return
     try {
       await conceptosLaboralesService.delete(id)
       showNotification('success', 'Concepto laboral eliminado exitosamente')
-      loadConceptos()
+      refresh()
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'Error al eliminar concepto laboral'
       showNotification('error', errorMsg)
@@ -201,37 +206,17 @@ const ConceptosLaboralesPage = () => {
     setEditingConcepto(null)
   }
 
-  const filteredConceptos = conceptos.filter(concepto => {
-    const matchSearch = (concepto.nombre?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                       (concepto.codigo?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                       (concepto.descripcion?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-    
-    const matchTipo = !filterTipo || concepto.tipo === filterTipo
-    const matchActivo = filterActivo === '' || (filterActivo === 'true' ? concepto.activo : !concepto.activo)
-    
-    return matchSearch && matchTipo && matchActivo
-  })
-
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const paginatedConceptos = filteredConceptos.slice(startIndex, endIndex)
-  const totalPages = Math.ceil(filteredConceptos.length / pageSize)
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
-
   const formatCurrency = (value) => {
-    if (!value) return '$0'
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value)
+    if (!value) return cfgFormatCurrency(0)
+    return cfgFormatCurrency(value)
   }
 
   const getTipoConfig = (tipo) => {
     return TIPOS_CONCEPTO.find(t => t.value === tipo) || TIPOS_CONCEPTO[0]
   }
+
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('conceptos_laborales.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta seccion</div>
 
   return (
     <div className="space-y-6">
@@ -253,16 +238,18 @@ const ConceptosLaboralesPage = () => {
             </div>
             <div>
               <h1 className="text-4xl font-bold">Conceptos Laborales</h1>
-              <p className="text-emerald-100 mt-1">Devengados y deducciones de nómina</p>
+              <p className="text-emerald-100 mt-1">Devengados y deducciones de nomina</p>
             </div>
           </div>
-          <button 
-            onClick={() => { setShowModal(true); resetForm() }} 
-            className="flex items-center space-x-2 px-5 py-3 bg-white text-emerald-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span>Nuevo Concepto</span>
-          </button>
+          <Can permission="conceptos_laborales.add">
+            <button
+              onClick={() => { setShowModal(true); resetForm() }}
+              className="flex items-center space-x-2 px-5 py-3 bg-white text-emerald-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>Nuevo Concepto</span>
+            </button>
+          </Can>
         </div>
       </div>
 
@@ -271,17 +258,17 @@ const ConceptosLaboralesPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
             <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input 
-              type="text" 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-              placeholder="Buscar por código, nombre o descripción..." 
-              className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all" 
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por codigo, nombre o descripcion..."
+              className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
             />
           </div>
-          <select 
-            value={filterTipo} 
-            onChange={(e) => setFilterTipo(e.target.value)} 
+          <select
+            value={filterTipo}
+            onChange={(e) => handleFilterTipo(e.target.value)}
             className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
           >
             <option value="">Todos los tipos</option>
@@ -289,9 +276,9 @@ const ConceptosLaboralesPage = () => {
               <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
             ))}
           </select>
-          <select 
-            value={filterActivo} 
-            onChange={(e) => setFilterActivo(e.target.value)} 
+          <select
+            value={filterActivo}
+            onChange={(e) => handleFilterActivo(e.target.value)}
             className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
           >
             <option value="">Todos los estados</option>
@@ -310,22 +297,22 @@ const ConceptosLaboralesPage = () => {
               <span className="text-gray-600">Cargando conceptos...</span>
             </div>
           </div>
-        ) : paginatedConceptos.length === 0 ? (
+        ) : conceptos.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-500">
             No se encontraron conceptos laborales
           </div>
         ) : (
-          paginatedConceptos.map(concepto => {
+          conceptos.map(concepto => {
             const tipoConfig = getTipoConfig(concepto.tipo)
             const TipoIcon = tipoConfig.icon
-            
+
             return (
-              <div 
-                key={concepto.id} 
+              <div
+                key={concepto.id}
                 className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 border border-gray-200/50 overflow-hidden"
               >
                 <div className={`h-2 ${concepto.activo ? `bg-gradient-to-r from-${tipoConfig.color}-400 to-${tipoConfig.color}-600` : 'bg-gray-400'}`}></div>
-                
+
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
@@ -333,7 +320,7 @@ const ConceptosLaboralesPage = () => {
                         <TipoIcon className={`w-4 h-4 text-${tipoConfig.color}-500`} />
                         <h3 className="text-lg font-bold text-gray-800">{concepto.nombre}</h3>
                       </div>
-                      <p className="text-sm text-gray-500">Código: {concepto.codigo}</p>
+                      <p className="text-sm text-gray-500">Codigo: {concepto.codigo}</p>
                     </div>
                     <div className="flex flex-col items-end space-y-1">
                       <span className={`px-2 py-1 rounded-full text-xs font-bold ${concepto.activo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
@@ -367,7 +354,7 @@ const ConceptosLaboralesPage = () => {
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>Orden: {concepto.orden}</span>
                       {concepto.es_legal && (
@@ -377,19 +364,23 @@ const ConceptosLaboralesPage = () => {
                   </div>
 
                   <div className="flex space-x-2">
-                    <button 
-                      onClick={() => handleEdit(concepto)} 
-                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-emerald-500 text-white hover:bg-emerald-600 rounded-lg transition-colors text-sm font-semibold"
-                    >
-                      <EditIcon className="w-4 h-4" />
-                      <span>Editar</span>
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(concepto.id)} 
-                      className="flex items-center justify-center px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
+                    <Can permission="conceptos_laborales.change">
+                      <button
+                        onClick={() => handleEdit(concepto)}
+                        className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-emerald-500 text-white hover:bg-emerald-600 rounded-lg transition-colors text-sm font-semibold"
+                      >
+                        <EditIcon className="w-4 h-4" />
+                        <span>Editar</span>
+                      </button>
+                    </Can>
+                    <Can permission="conceptos_laborales.delete">
+                      <button
+                        onClick={() => handleDelete(concepto.id)}
+                        className="flex items-center justify-center px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </Can>
                   </div>
                 </div>
               </div>
@@ -399,35 +390,14 @@ const ConceptosLaboralesPage = () => {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center space-x-2 mt-6">
-          <button 
-            onClick={() => handlePageChange(currentPage - 1)} 
-            disabled={currentPage === 1} 
-            className="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            Anterior
-          </button>
-          <div className="flex space-x-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button 
-                key={page} 
-                onClick={() => handlePageChange(page)} 
-                className={`px-3 py-1 rounded-lg transition-all ${currentPage === page ? 'bg-emerald-500 text-white' : 'bg-white hover:bg-gray-100'}`}
-              >
-                {page}
-              </button>
-            ))}
-          </div>
-          <button 
-            onClick={() => handlePageChange(currentPage + 1)} 
-            disabled={currentPage === totalPages} 
-            className="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            Siguiente
-          </button>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        itemLabel="conceptos"
+      />
 
       {/* Modal */}
       {showModal && (
@@ -444,47 +414,44 @@ const ConceptosLaboralesPage = () => {
 
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-88px)]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Código */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Código <span className="text-red-500">*</span>
+                    Codigo <span className="text-red-500">*</span>
                   </label>
-                  <input 
-                    type="text" 
-                    value={formData.codigo} 
-                    onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })} 
-                    required 
+                  <input
+                    type="text"
+                    value={formData.codigo}
+                    onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })}
+                    required
                     maxLength={20}
-                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all" 
+                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all"
                     placeholder="Ej: BONIF01"
                   />
                 </div>
 
-                {/* Nombre */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Nombre <span className="text-red-500">*</span>
                   </label>
-                  <input 
-                    type="text" 
-                    value={formData.nombre} 
-                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} 
-                    required 
+                  <input
+                    type="text"
+                    value={formData.nombre}
+                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                    required
                     maxLength={100}
-                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all" 
-                    placeholder="Ej: Bonificación por Desempeño"
+                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all"
+                    placeholder="Ej: Bonificacion por Desempeno"
                   />
                 </div>
 
-                {/* Tipo */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Tipo <span className="text-red-500">*</span>
                   </label>
-                  <select 
-                    value={formData.tipo} 
-                    onChange={(e) => setFormData({ ...formData, tipo: e.target.value })} 
-                    required 
+                  <select
+                    value={formData.tipo}
+                    onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                    required
                     className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all"
                   >
                     {TIPOS_CONCEPTO.map(tipo => (
@@ -493,64 +460,61 @@ const ConceptosLaboralesPage = () => {
                   </select>
                 </div>
 
-                {/* Orden */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Orden de Aplicación</label>
-                  <input 
-                    type="number" 
-                    value={formData.orden} 
-                    onChange={(e) => setFormData({ ...formData, orden: e.target.value })} 
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Orden de Aplicacion</label>
+                  <input
+                    type="number"
+                    value={formData.orden}
+                    onChange={(e) => setFormData({ ...formData, orden: e.target.value })}
                     min="1"
                     max="999"
-                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all" 
+                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all"
                     placeholder="100"
                   />
                 </div>
 
-                {/* Aplica Porcentaje */}
                 <div className="md:col-span-2">
                   <label className="flex items-center space-x-3 cursor-pointer bg-gray-50 p-4 rounded-xl border-2 border-gray-200 hover:border-emerald-300 transition-all">
-                    <input 
-                      type="checkbox" 
-                      checked={formData.aplica_porcentaje} 
-                      onChange={(e) => setFormData({ ...formData, aplica_porcentaje: e.target.checked, porcentaje: '', monto_fijo: '' })} 
-                      className="w-5 h-5 text-emerald-500 rounded focus:ring-2 focus:ring-emerald-500" 
+                    <input
+                      type="checkbox"
+                      checked={formData.aplica_porcentaje}
+                      onChange={(e) => setFormData({ ...formData, aplica_porcentaje: e.target.checked, porcentaje: '', monto_fijo: '' })}
+                      className="w-5 h-5 text-emerald-500 rounded focus:ring-2 focus:ring-emerald-500"
                     />
                     <div className="flex-1">
-                      <span className="text-gray-700 font-semibold">¿Se calcula como porcentaje?</span>
-                      <p className="text-xs text-gray-500 mt-1">Si no, se aplicará un monto fijo</p>
+                      <span className="text-gray-700 font-semibold">Se calcula como porcentaje?</span>
+                      <p className="text-xs text-gray-500 mt-1">Si no, se aplicara un monto fijo</p>
                     </div>
                   </label>
                 </div>
 
-                {/* Porcentaje o Monto Fijo */}
                 {formData.aplica_porcentaje ? (
                   <>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Porcentaje (%) <span className="text-red-500">*</span>
                       </label>
-                      <input 
-                        type="number" 
-                        value={formData.porcentaje} 
-                        onChange={(e) => setFormData({ ...formData, porcentaje: e.target.value })} 
+                      <input
+                        type="number"
+                        value={formData.porcentaje}
+                        onChange={(e) => setFormData({ ...formData, porcentaje: e.target.value })}
                         required={formData.aplica_porcentaje}
                         min="0"
                         max="100"
                         step="0.001"
-                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all" 
+                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all"
                         placeholder="10.000"
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Base de Cálculo <span className="text-red-500">*</span>
+                        Base de Calculo <span className="text-red-500">*</span>
                       </label>
-                      <select 
-                        value={formData.base_calculo} 
-                        onChange={(e) => setFormData({ ...formData, base_calculo: e.target.value })} 
-                        required 
+                      <select
+                        value={formData.base_calculo}
+                        onChange={(e) => setFormData({ ...formData, base_calculo: e.target.value })}
+                        required
                         className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all"
                       >
                         {BASES_CALCULO.map(base => (
@@ -564,49 +528,47 @@ const ConceptosLaboralesPage = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Monto Fijo (COP) <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      type="number" 
-                      value={formData.monto_fijo} 
-                      onChange={(e) => setFormData({ ...formData, monto_fijo: e.target.value })} 
+                    <input
+                      type="number"
+                      value={formData.monto_fijo}
+                      onChange={(e) => setFormData({ ...formData, monto_fijo: e.target.value })}
                       required={!formData.aplica_porcentaje}
                       min="0"
                       step="1000"
-                      className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all" 
+                      className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all"
                       placeholder="100000"
                     />
                   </div>
                 )}
 
-                {/* Descripción */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Descripción</label>
-                  <textarea 
-                    value={formData.descripcion} 
-                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })} 
-                    rows={3} 
-                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all resize-none" 
-                    placeholder="Descripción opcional del concepto..."
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Descripcion</label>
+                  <textarea
+                    value={formData.descripcion}
+                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-all resize-none"
+                    placeholder="Descripcion opcional del concepto..."
                   />
                 </div>
 
-                {/* Checkboxes */}
                 <div className="md:col-span-2">
                   <div className="grid grid-cols-2 gap-4">
                     <label className="flex items-center space-x-2 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={formData.es_legal} 
-                        onChange={(e) => setFormData({ ...formData, es_legal: e.target.checked })} 
-                        className="w-5 h-5 text-emerald-500 rounded focus:ring-2 focus:ring-emerald-500" 
+                      <input
+                        type="checkbox"
+                        checked={formData.es_legal}
+                        onChange={(e) => setFormData({ ...formData, es_legal: e.target.checked })}
+                        className="w-5 h-5 text-emerald-500 rounded focus:ring-2 focus:ring-emerald-500"
                       />
-                      <span className="text-gray-700">Es concepto legal (salud, pensión, etc.)</span>
+                      <span className="text-gray-700">Es concepto legal (salud, pension, etc.)</span>
                     </label>
                     <label className="flex items-center space-x-2 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={formData.activo} 
-                        onChange={(e) => setFormData({ ...formData, activo: e.target.checked })} 
-                        className="w-5 h-5 text-emerald-500 rounded focus:ring-2 focus:ring-emerald-500" 
+                      <input
+                        type="checkbox"
+                        checked={formData.activo}
+                        onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
+                        className="w-5 h-5 text-emerald-500 rounded focus:ring-2 focus:ring-emerald-500"
                       />
                       <span className="text-gray-700">Activo</span>
                     </label>
@@ -615,16 +577,16 @@ const ConceptosLaboralesPage = () => {
               </div>
 
               <div className="flex space-x-4 mt-8">
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-emerald-500 text-white hover:bg-emerald-600 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg"
                 >
                   <CheckIcon className="w-5 h-5" />
                   <span>{editingConcepto ? 'Actualizar' : 'Guardar'}</span>
                 </button>
-                <button 
-                  type="button" 
-                  onClick={() => { setShowModal(false); resetForm() }} 
+                <button
+                  type="button"
+                  onClick={() => { setShowModal(false); resetForm() }}
                   className="px-6 py-3 bg-gray-300 text-gray-700 hover:bg-gray-400 rounded-xl transition-all duration-300 font-semibold"
                 >
                   Cancelar

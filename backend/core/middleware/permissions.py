@@ -64,54 +64,27 @@ class PermissionMiddleware(MiddlewareMixin):
         super().__init__(get_response)
 
     def __call__(self, request):
-        # LOG DETALLADO PARA AUDITORÍA
-        if request.path.startswith('/api/auditoria/'):
-            logger.info(f"🔒 PERMISSIONS: Procesando request a auditoría")
-            logger.info(f"   Path: {request.path}")
-            logger.info(f"   User: {request.user}")
-            logger.info(f"   User type: {type(request.user)}")
-            logger.info(f"   Authenticated: {request.user.is_authenticated}")
-            logger.info(f"   Authorization header: {request.headers.get('Authorization', 'NO AUTH HEADER')}")
-            logger.info(f"   META HTTP_AUTHORIZATION: {request.META.get('HTTP_AUTHORIZATION', 'NO META AUTH')}")
-            logger.info(f"   All headers: {dict(request.headers)}")
-        
         # Verificar permisos antes de procesar la request
         permission_check = self._should_check_permissions(request)
         
-        # LOG del resultado de permission_check
-        if request.path.startswith('/api/auditoria/'):
-            logger.info(f"   Permission check result: {permission_check}")
-            logger.info(f"   Permission check type: {type(permission_check)}")
-        
         # Si retorna una JsonResponse, es un error que debemos devolver inmediatamente
         if isinstance(permission_check, JsonResponse):
-            if request.path.startswith('/api/auditoria/'):
-                logger.error(f"❌ PERMISSIONS: Retornando JsonResponse error")
             return permission_check
-        
+
         # Si retorna False, no necesita verificación adicional
         if not permission_check:
-            if request.path.startswith('/api/auditoria/'):
-                logger.info(f"✅ PERMISSIONS: No requiere verificación, pasando al siguiente middleware")
             return self.get_response(request)
-        
+
         if not request.user.is_authenticated:
-            if request.path.startswith('/api/auditoria/'):
-                logger.error(f"❌ PERMISSIONS: Usuario no autenticado, retornando 401")
             # Para APIs REST, retornar 401 en lugar de redirect
             if request.path.startswith('/api/'):
                 return JsonResponse({'error': 'Authentication required'}, status=401)
             return redirect('/api/auth/login/')
-        
+
         # Verificar permisos específicos
         if not self._has_permission(request):
-            if request.path.startswith('/api/auditoria/'):
-                logger.error(f"❌ PERMISSIONS: Usuario no tiene permisos")
             return self._handle_permission_denied(request)
-        
-        if request.path.startswith('/api/auditoria/'):
-            logger.info(f"✅ PERMISSIONS: Todos los checks pasados, procesando request")
-        
+
         # Procesar el request
         response = self.get_response(request)
         
@@ -180,8 +153,16 @@ class PermissionMiddleware(MiddlewareMixin):
         api_excluded_paths = [
             '/api/auth/',           # Autenticación
             '/api/auth',            # Autenticación (sin barra)
+            '/api/public/',         # APIs públicas (landing/planes)
+            '/api/public',          # APIs públicas (sin barra)
             '/api/organizations/',  # Organizaciones (ya tiene control en las vistas)
             '/api/organizations',   # Organizaciones (sin barra)
+            '/api/notificaciones/', # Notificaciones (DRF maneja autenticación)
+            '/api/notificaciones',  # Notificaciones (sin barra)
+            '/api/system-status/',  # Estado del sistema (DRF/Django maneja auth)
+            '/api/system-status',   # Estado del sistema (sin barra)
+            '/api/health-check/',   # Health check (DRF/Django maneja auth)
+            '/api/health-check',    # Health check (sin barra)
             '/api/dashboard/',      # Dashboard público
             '/api/dashboard',       # Dashboard público (sin barra)
             '/api/locations/',      # Ubicaciones públicas
@@ -198,6 +179,20 @@ class PermissionMiddleware(MiddlewareMixin):
             '/api/docs',           # Swagger UI (sin barra)
             '/api/redoc/',         # ReDoc UI (público)
             '/api/redoc',          # ReDoc UI (sin barra)
+            '/api/search/',        # Búsqueda global (DRF maneja autenticación)
+            '/api/search',         # Búsqueda global (sin barra)
+            '/api/plans/',         # Planes SaaS (DRF maneja autenticación)
+            '/api/plans',          # Planes SaaS (sin barra)
+            '/api/plan-changes/',  # Historial de planes (DRF maneja autenticación)
+            '/api/plan-changes',   # Historial de planes (sin barra)
+            '/api/roles/',         # Roles (DRF maneja autenticación)
+            '/api/roles',          # Roles (sin barra)
+            '/api/permisos/',      # Permisos (DRF maneja autenticación)
+            '/api/permisos',       # Permisos (sin barra)
+            '/api/permisos/check/',  # Verificacion de permisos del usuario
+            '/api/permisos/check',   # Verificacion de permisos (sin barra)
+            '/api/billing/',       # Billing/Suscripciones (DRF maneja autenticación)
+            '/api/billing',        # Billing (sin barra)
         ]
         
         # APIs que SÍ requieren verificación adicional de permisos
@@ -219,12 +214,12 @@ class PermissionMiddleware(MiddlewareMixin):
             '/api/nomina/',         # Nómina simple - CRÍTICO: requiere org
             '/api/reportes/',       # Reportes - CRÍTICO: requiere org
             '/api/items/',          # Gestión de items
-            '/api/permisos/',       # Permisos dentro de org
-            '/api/roles/',          # Gestión de roles
             '/api/perfil/',         # Gestión de perfil
             '/api/configuracion/',  # Configuración de org
             '/api/ayuda/',          # Sistema de ayuda
             '/api/documentacion/',  # Documentación
+            '/api/core/usuarios/',  # Compatibilidad usuarios (core)
+            '/api/usuarios/',       # Usuarios (API principal)
         ]
         
         # 1. Verificar APIs que requieren validación organizacional PRIMERO
@@ -235,8 +230,9 @@ class PermissionMiddleware(MiddlewareMixin):
                     # Si retorna una respuesta, significa que hay un error
                     return validation_result
                 else:
-                    # Si retorna None, significa que pasó la validación
-                    return False  # No verificar permisos adicionales
+                    # Organización validada. DRF AccessPolicies manejan RBAC.
+                    # No se requiere verificación adicional en el middleware.
+                    return False
         
         # 2. Si es una API protegida, SÍ verificar permisos
         for protected_path in api_protected_paths:
@@ -307,46 +303,77 @@ class PermissionMiddleware(MiddlewareMixin):
     
     def _authenticate_user(self, request):
         """
-        Autentica al usuario usando métodos de Django y DRF
+        Autentica al usuario usando métodos de Django y DRF (JWT via cookie o header)
         """
         # Si ya está autenticado por Django, usar eso
         if request.user.is_authenticated:
             return True
-        
-        # Intentar autenticación por token DRF
-        from rest_framework.authtoken.models import Token
-        from django.contrib.auth import get_user_model
-        
-        auth_header = request.META.get('HTTP_AUTHORIZATION')
-        if auth_header and auth_header.startswith('Token '):
-            token_key = auth_header.split(' ', 1)[1]
-            try:
-                token = Token.objects.select_related('user').get(key=token_key)
-                if token.user.is_active:
-                    request.user = token.user
+
+        # Intentar autenticación con CookieJWTAuthentication (cookie httpOnly + header fallback)
+        try:
+            from login.cookie_auth import CookieJWTAuthentication
+            from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+            jwt_auth = CookieJWTAuthentication()
+            result = jwt_auth.authenticate(request)
+            if result is not None:
+                user, token = result
+                if user.is_active:
+                    request.user = user
                     return True
-            except Token.DoesNotExist:
-                pass
-        
+        except (InvalidToken, TokenError, Exception):
+            pass
+
         return False
     
     def _has_permission(self, request):
-        """Verifica si el usuario tiene permisos para acceder a la URL"""
+        """
+        Verifica si el usuario tiene permisos para acceder a la URL.
+
+        Para rutas /api/, DRF AccessPolicies maneja la autorización granular.
+        Este middleware actúa como red de seguridad para rutas no-API
+        y para verificar permisos basados en el sistema RBAC.
+        """
         try:
             # Si es superusuario, permitir todo
             if request.user.is_superuser:
                 return True
-            
+
             # Verificar si la URL solo requiere autenticación
             path = request.path_info
             for auth_path in self.AUTH_ONLY_PATHS:
                 if re.match(auth_path, path):
                     return True
-            
-            # Aquí se implementaría la lógica específica de permisos
-            # Por ahora, permitir acceso a usuarios autenticados
-            return True
-            
+
+            # Para rutas API, DRF maneja permisos via AccessPolicies
+            # El middleware solo verifica que el usuario esté autenticado
+            if path.startswith('/api/'):
+                return request.user.is_authenticated
+
+            # Para rutas no-API protegidas, verificar permisos RBAC
+            if request.user.is_authenticated:
+                # Verificar rol del usuario en la organización
+                from roles.models import AsignacionRol
+                tiene_rol_activo = AsignacionRol.objects.filter(
+                    usuario=request.user,
+                    activa=True
+                ).exists()
+
+                # Usuarios con al menos un rol activo pueden acceder a rutas protegidas
+                # El control granular se maneja a nivel de vista/policy
+                if tiene_rol_activo or request.user.is_staff:
+                    return True
+
+                # Usuarios autenticados sin roles: solo acceso a perfil y dashboard básico
+                if any(re.match(p, path) for p in [r'^/dashboard/$', r'^/perfil/']):
+                    return True
+
+                logger.warning(
+                    f"Usuario {request.user.username} sin roles intentó acceder a {path}"
+                )
+                return False
+
+            return False
+
         except Exception as e:
             logger.error(f"Error verificando permisos para {request.user}: {e}")
             return False
@@ -372,8 +399,17 @@ class PermissionMiddleware(MiddlewareMixin):
 
 class AuditMiddleware(MiddlewareMixin):
     """
-    Middleware para auditoría de acciones del usuario
+    Middleware para auditoría de acciones CRUD del usuario.
+    Loguea POST/PUT/PATCH/DELETE a LogAuditoria.
+    Excluye paths ruidosos (health checks, frontend logs, media, static).
     """
+    
+    # Paths a ignorar (no loguear)
+    _SKIP_PATHS = (
+        '/api/health', '/health', '/static/', '/media/', '/favicon',
+        '/api/auditoria/log-frontend',  # Evitar loop infinito
+        '/api/search/', '/api/notificaciones/',
+    )
     
     def __init__(self, get_response):
         self.get_response = get_response
@@ -382,34 +418,60 @@ class AuditMiddleware(MiddlewareMixin):
     def __call__(self, request):
         response = self.get_response(request)
         
-        # Solo auditar para usuarios autenticados
-        if request.user.is_authenticated:
+        # Solo auditar para usuarios autenticados + métodos mutantes
+        if (request.user.is_authenticated 
+            and request.method in ('POST', 'PUT', 'PATCH', 'DELETE')
+            and not any(request.path_info.startswith(p) for p in self._SKIP_PATHS)
+            and response.status_code < 500):
             self._log_user_action(request, response)
         
         return response
     
     def _log_user_action(self, request, response):
-        """Registra la acción del usuario"""
+        """Registra la acción del usuario en LogAuditoria"""
         try:
-            # Solo log para métodos importantes
-            if request.method in ['POST', 'PUT', 'DELETE']:
-                from core.models import LogSistema
-                
-                LogSistema.objects.create(
-                    usuario=request.user,
-                    accion=f"{request.method}_{request.path_info}",
-                    descripcion=f"Usuario {request.user.username} realizó {request.method} en {request.path_info}",
-                    ip_address=self._get_client_ip(request),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
-                )
+            from core.models import LogAuditoria
+            
+            # Determinar acción legible
+            method_map = {'POST': 'crear', 'PUT': 'modificar', 'PATCH': 'modificar', 'DELETE': 'eliminar'}
+            accion = method_map.get(request.method, request.method.lower())
+            
+            # Extraer modelo del path (e.g. /api/empleados/ -> Empleados)
+            parts = [p for p in request.path_info.strip('/').split('/') if p and p != 'api']
+            modelo = parts[0].capitalize() if parts else 'Request'
+            
+            # Extraer objeto_id si está en el path
+            objeto_id = parts[1] if len(parts) > 1 and not parts[1].endswith('/') else None
+            
+            LogAuditoria.objects.create(
+                usuario=request.user,
+                accion=accion,
+                modelo=modelo,
+                objeto_id=objeto_id,
+                ip_address=self._get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
+                datos_antes=None,
+                datos_despues=None,
+                metadata={
+                    'path': request.path_info,
+                    'method': request.method,
+                    'status_code': response.status_code
+                }
+            )
         except Exception as e:
             logger.error(f"Error logging user action: {e}")
     
     def _get_client_ip(self, request):
-        """Obtiene la IP real del cliente"""
+        """Obtiene la IP real del cliente.
+        Cuando estamos detrás de un proxy confiable (Render),
+        usamos el último IP antes de REMOTE_ADDR para evitar IP spoofing."""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            # Tomar la IP más a la derecha (agregada por el proxy más confiable)
+            # El primer elemento puede ser falsificado por el cliente
+            ips = [ip.strip() for ip in x_forwarded_for.split(',')]
+            # Si hay múltiples proxies, el último antes del edge proxy es el cliente real
+            ip = ips[-1] if len(ips) == 1 else ips[-2] if len(ips) >= 2 else ips[0]
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
@@ -419,7 +481,12 @@ class SecurityAuditMiddleware(MiddlewareMixin):
     """
     Middleware para auditoría de seguridad del sistema.
     Registra intentos de acceso, errores de autenticación y actividad sospechosa.
+    Respeta la configuración habilitar_auditoria de ConfiguracionSeguridad.
     """
+    
+    # Cache para la configuración de auditoría
+    _AUDIT_CONFIG_CACHE_KEY = 'audit_config_enabled'
+    _AUDIT_CONFIG_CACHE_TTL = 60  # 1 minuto
     
     def __init__(self, get_response):
         self.get_response = get_response
@@ -436,16 +503,35 @@ class SecurityAuditMiddleware(MiddlewareMixin):
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
     
+    def _is_audit_enabled(self):
+        """Verifica si la auditoría está habilitada en ConfiguracionSeguridad"""
+        from django.core.cache import cache
+        cached = cache.get(self._AUDIT_CONFIG_CACHE_KEY)
+        if cached is not None:
+            return cached
+        
+        try:
+            from configuracion.models import ConfiguracionSeguridad
+            config = ConfiguracionSeguridad.get_config()
+            enabled = config.habilitar_auditoria
+            cache.set(self._AUDIT_CONFIG_CACHE_KEY, enabled, self._AUDIT_CONFIG_CACHE_TTL)
+            return enabled
+        except Exception:
+            return True  # Default: auditoría habilitada
+    
     def __call__(self, request):
         response = self.get_response(request)
         
-        # Auditar respuesta
-        self._audit_response(request, response)
+        # Solo auditar si está habilitado
+        if self._is_audit_enabled():
+            self._audit_response(request, response)
         
         return response
     
     def process_request(self, request):
         """Audita las solicitudes entrantes"""
+        if not self._is_audit_enabled():
+            return None
         # Registrar solicitudes a endpoints sensibles
         sensitive_paths = [
             '/admin/', '/api/admin/', '/manage/', '/settings/',
@@ -462,9 +548,14 @@ class SecurityAuditMiddleware(MiddlewareMixin):
                 )
                 break
         
-        # Detectar patrones sospechosos
-        self._detect_suspicious_activity(request)
-        
+        # Detectar patrones sospechosos y bloquear solicitudes maliciosas
+        is_malicious = self._detect_suspicious_activity(request)
+        if is_malicious:
+            return JsonResponse(
+                {'error': 'Request blocked by security policy.'},
+                status=403
+            )
+
         return None
     
     def _audit_response(self, request, response):
@@ -494,29 +585,35 @@ class SecurityAuditMiddleware(MiddlewareMixin):
             )
     
     def _detect_suspicious_activity(self, request):
-        """Detecta patrones de actividad sospechosa"""
+        """Detecta patrones de actividad sospechosa y bloquea solicitudes maliciosas.
+        Returns True si la solicitud es maliciosa y debe ser bloqueada."""
         user_agent = request.META.get('HTTP_USER_AGENT', '')
         ip_address = self._get_client_ip(request)
-        
+        is_malicious = False
+
         # Detectar bots maliciosos
         suspicious_user_agents = [
             'sqlmap', 'nikto', 'nmap', 'masscan', 'netsparker',
             'burpsuite', 'acunetix', 'scanner'
         ]
-        
+
         if any(bot in user_agent.lower() for bot in suspicious_user_agents):
             self._log_security_event(
                 'SUSPICIOUS_USER_AGENT',
                 request,
                 f"User-Agent sospechoso detectado: {user_agent}"
             )
-        
-        # Detectar patrones de URL sospechosos
+            is_malicious = True
+
+        # Detectar patrones de URL sospechosos (SQLi, XSS, path traversal)
         suspicious_patterns = [
             r'\.\./', r'<script', r'union\s+select', r'drop\s+table',
-            r'<iframe', r'javascript:', r'alert\(', r'eval\('
+            r'<iframe', r'javascript:', r'alert\(', r'eval\(',
+            r'exec\s*\(', r'sleep\s*\(', r'benchmark\s*\(',
+            r'0x[0-9a-f]+', r'char\s*\(', r'concat\s*\(',
+            r'--\s*$', r'/etc/passwd', r'/proc/self',
         ]
-        
+
         path_and_query = f"{request.path}?{request.META.get('QUERY_STRING', '')}"
         for pattern in suspicious_patterns:
             if re.search(pattern, path_and_query, re.IGNORECASE):
@@ -525,10 +622,30 @@ class SecurityAuditMiddleware(MiddlewareMixin):
                     request,
                     f"Patrón sospechoso en URL: {pattern}"
                 )
+                is_malicious = True
                 break
+
+        # Detectar payloads maliciosos en el body (POST/PUT/PATCH)
+        if request.method in ('POST', 'PUT', 'PATCH') and hasattr(request, 'body'):
+            try:
+                body_str = request.body.decode('utf-8', errors='ignore')[:2000]
+                body_patterns = [r'<script', r'javascript:', r'union\s+select', r'drop\s+table']
+                for pattern in body_patterns:
+                    if re.search(pattern, body_str, re.IGNORECASE):
+                        self._log_security_event(
+                            'SUSPICIOUS_BODY_PAYLOAD',
+                            request,
+                            f"Patrón malicioso en body: {pattern}"
+                        )
+                        is_malicious = True
+                        break
+            except Exception:
+                pass
+
+        return is_malicious
     
     def _log_security_event(self, event_type, request, description):
-        """Registra eventos de seguridad"""
+        """Registra eventos de seguridad al log de archivo Y a la base de datos"""
         try:
             ip_address = self._get_client_ip(request)
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
@@ -545,14 +662,37 @@ class SecurityAuditMiddleware(MiddlewareMixin):
             
             self.logger.warning(log_message)
             
+            # También escribir a LogAuditoria para que sea visible en la UI
+            try:
+                from core.models import LogAuditoria
+                LogAuditoria.objects.create(
+                    usuario=user if user and user.is_authenticated else None,
+                    accion=f'security_{event_type.lower()}',
+                    modelo='Security',
+                    objeto_id=None,
+                    ip_address=ip_address,
+                    user_agent=user_agent[:255],
+                    datos_antes=None,
+                    datos_despues=None,
+                    metadata={
+                        'event_type': event_type,
+                        'description': description,
+                        'path': request.path,
+                        'method': request.method,
+                    }
+                )
+            except Exception:
+                pass  # No fallar si la BD no está disponible
+            
         except Exception as e:
             self.logger.error(f"Error logging security event: {e}")
     
     def _get_client_ip(self, request):
-        """Obtiene la IP real del cliente"""
+        """Obtiene la IP real del cliente de forma segura."""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0].strip()
+            ips = [ip.strip() for ip in x_forwarded_for.split(',')]
+            ip = ips[-1] if len(ips) == 1 else ips[-2] if len(ips) >= 2 else ips[0]
         else:
             ip = request.META.get('REMOTE_ADDR', 'Unknown')
         return ip

@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { 
-  BookOpen, 
-  HelpCircle, 
-  GraduationCap, 
-  Headphones, 
-  Search, 
-  TrendingUp, 
-  Clock, 
+import {
+  BookOpen,
+  HelpCircle,
+  GraduationCap,
+  Headphones,
+  Search,
+  TrendingUp,
+  Clock,
   Eye,
   ArrowRight,
   Sparkles,
-  FileText
+  FileText,
+  Monitor
 } from 'lucide-react'
 import ayudaService from '../../services/ayudaService'
+import { usePermissions } from '../../context/PermissionsContext'
 
 /**
  * ════════════════════════════════════════════════════════════
@@ -30,6 +32,7 @@ import ayudaService from '../../services/ayudaService'
  * @component
  */
 const CentroAyudaPage = () => {
+  const { hasPermission, initialized } = usePermissions()
   const [searchQuery, setSearchQuery] = useState('')
   const [estadisticas, setEstadisticas] = useState(null)
   const [articulosPopulares, setArticulosPopulares] = useState([])
@@ -65,7 +68,7 @@ const CentroAyudaPage = () => {
   const handleSearch = (e) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      window.location.href = `/ayuda/buscar?q=${encodeURIComponent(searchQuery)}`
+      window.location.href = `/dashboard/ayuda/buscar?q=${encodeURIComponent(searchQuery)}`
     }
   }
 
@@ -75,7 +78,7 @@ const CentroAyudaPage = () => {
       descripcion: 'Guías completas y documentación',
       icon: BookOpen,
       color: 'bg-blue-500',
-      link: '/ayuda/articulos',
+      link: '/dashboard/ayuda/articulos',
       cantidad: estadisticas?.total_articulos || 0
     },
     {
@@ -83,7 +86,7 @@ const CentroAyudaPage = () => {
       descripcion: 'Respuestas rápidas a dudas comunes',
       icon: HelpCircle,
       color: 'bg-green-500',
-      link: '/ayuda/faqs',
+      link: '/dashboard/ayuda/faqs',
       cantidad: estadisticas?.total_faqs || 0
     },
     {
@@ -91,7 +94,7 @@ const CentroAyudaPage = () => {
       descripcion: 'Aprende paso a paso',
       icon: GraduationCap,
       color: 'bg-purple-500',
-      link: '/ayuda/tutoriales',
+      link: '/dashboard/ayuda/tutoriales',
       cantidad: estadisticas?.total_tutoriales || 0
     },
     {
@@ -99,10 +102,21 @@ const CentroAyudaPage = () => {
       descripcion: 'Crea un ticket de soporte',
       icon: Headphones,
       color: 'bg-orange-500',
-      link: '/ayuda/soporte',
+      link: '/dashboard/ayuda/soporte',
       cantidad: estadisticas?.solicitudes_abiertas || 0
+    },
+    {
+      titulo: 'Tours Interactivos',
+      descripcion: 'Recorridos guiados por el sistema',
+      icon: Monitor,
+      color: 'bg-cyan-500',
+      link: '/dashboard/ayuda/tours',
+      cantidad: null
     }
   ]
+
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('ayuda.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   if (loading) {
     return (
@@ -189,7 +203,7 @@ const CentroAyudaPage = () => {
               </div>
               <h2 className="text-2xl font-bold text-gray-900">Artículos Populares</h2>
             </div>
-            <Link to="/ayuda/articulos" className="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-2">
+            <Link to="/dashboard/ayuda/articulos" className="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-2">
               Ver todos
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -198,7 +212,7 @@ const CentroAyudaPage = () => {
             {articulosPopulares.map((articulo) => (
               <Link
                 key={articulo.id}
-                to={`/ayuda/articulos/${articulo.id}`}
+                to={`/dashboard/ayuda/articulos/${articulo.id}`}
                 className="group p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all"
               >
                 <h3 className="font-semibold text-gray-900 mb-2 group-hover:text-blue-600 line-clamp-2">
@@ -238,7 +252,7 @@ const CentroAyudaPage = () => {
               {articulosRecientes.map((articulo) => (
                 <Link
                   key={articulo.id}
-                  to={`/ayuda/articulos/${articulo.id}`}
+                  to={`/dashboard/ayuda/articulos/${articulo.id}`}
                   className="group flex gap-3 p-3 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-all"
                 >
                   <div className="bg-green-100 p-2 rounded-lg h-fit">
@@ -271,7 +285,7 @@ const CentroAyudaPage = () => {
               {faqsPopulares.map((faq) => (
                 <Link
                   key={faq.id}
-                  to={`/ayuda/faqs#faq-${faq.id}`}
+                  to={`/dashboard/ayuda/faqs#faq-${faq.id}`}
                   className="block p-3 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all"
                 >
                   <h3 className="font-semibold text-gray-900 hover:text-purple-600 line-clamp-2">
@@ -281,7 +295,7 @@ const CentroAyudaPage = () => {
               ))}
             </div>
             <Link
-              to="/ayuda/faqs"
+              to="/dashboard/ayuda/faqs"
               className="mt-4 block text-center text-purple-600 hover:text-purple-700 font-semibold text-sm"
             >
               Ver todas las preguntas →
@@ -300,7 +314,7 @@ const CentroAyudaPage = () => {
             </p>
           </div>
           <Link
-            to="/ayuda/soporte"
+            to="/dashboard/ayuda/soporte"
             className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl flex items-center gap-2"
           >
             <Headphones className="h-5 w-5" />

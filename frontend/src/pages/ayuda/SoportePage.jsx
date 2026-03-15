@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Headphones, Plus, Search, Filter, AlertCircle, Clock, CheckCircle2, XCircle, Loader } from 'lucide-react'
 import ayudaService from '../../services/ayudaService'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
 
 /**
  * ════════════════════════════════════════════════════════════
@@ -16,6 +18,7 @@ import ayudaService from '../../services/ayudaService'
  * @component
  */
 const SoportePage = () => {
+  const { hasPermission, initialized } = usePermissions()
   const [categorias, setCategorias] = useState([])
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -171,6 +174,9 @@ const SoportePage = () => {
     })
   }
 
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('ayuda.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
+
   return (
     <div className="space-y-6">
       {/* ═══════════ HEADER ═══════════ */}
@@ -188,13 +194,15 @@ const SoportePage = () => {
           >
             Ver Mis Tickets
           </Link>
-          <button
-            onClick={() => setMostrarFormulario(!mostrarFormulario)}
-            className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold"
-          >
-            <Plus className="h-5 w-5" />
-            Nuevo Ticket
-          </button>
+          <Can permission="ayuda.add">
+            <button
+              onClick={() => setMostrarFormulario(!mostrarFormulario)}
+              className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold"
+            >
+              <Plus className="h-5 w-5" />
+              Nuevo Ticket
+            </button>
+          </Can>
         </div>
       </div>
 
@@ -298,13 +306,15 @@ const SoportePage = () => {
 
             {/* Botones */}
             <div className="flex items-center gap-4">
-              <button
-                type="submit"
-                disabled={enviando}
-                className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-              >
-                {enviando ? 'Enviando...' : 'Crear Ticket'}
-              </button>
+              <Can permission="ayuda.add">
+                <button
+                  type="submit"
+                  disabled={enviando}
+                  className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                >
+                  {enviando ? 'Enviando...' : 'Crear Ticket'}
+                </button>
+              </Can>
               <button
                 type="button"
                 onClick={() => {
@@ -371,13 +381,15 @@ const SoportePage = () => {
           <p className="text-gray-600 mb-6">
             No se encontraron tickets con los filtros seleccionados
           </p>
-          <button
-            onClick={() => setMostrarFormulario(true)}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-          >
-            <Plus className="h-5 w-5" />
-            Crear Primer Ticket
-          </button>
+          <Can permission="ayuda.add">
+            <button
+              onClick={() => setMostrarFormulario(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+            >
+              <Plus className="h-5 w-5" />
+              Crear Primer Ticket
+            </button>
+          </Can>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">

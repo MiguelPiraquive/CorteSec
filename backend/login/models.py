@@ -13,6 +13,7 @@ Fecha: 2025-07-12
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import FileExtensionValidator
 
 
 class CustomUser(AbstractUser):
@@ -49,11 +50,14 @@ class CustomUser(AbstractUser):
     )
     
     avatar = models.ImageField(
-        _("Avatar"), 
-        upload_to="avatars/", 
-        blank=True, 
+        _("Avatar"),
+        upload_to="avatars/",
+        blank=True,
         null=True,
-        help_text=_("Imagen de perfil del usuario")
+        help_text=_("Imagen de perfil del usuario"),
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp']),
+        ]
     )
     
     bio = models.TextField(
@@ -105,9 +109,9 @@ class CustomUser(AbstractUser):
     
     totp_secret = models.CharField(
         _("Secreto TOTP"),
-        max_length=32,
+        max_length=256,
         blank=True,
-        help_text=_("Clave secreta para TOTP")
+        help_text=_("Clave secreta para TOTP (encriptada)")
     )
     
     # Campos para seguridad de sesión
@@ -245,13 +249,18 @@ class CustomUser(AbstractUser):
     
     # Métodos para 2FA y seguridad avanzada
     def generate_totp_secret(self):
-        """Genera una clave secreta para TOTP"""
+        """Genera una clave secreta para TOTP (encriptada en DB)"""
         import pyotp
+        from .crypto import encrypt_value
         if not self.totp_secret:
-            self.totp_secret = pyotp.random_base32()
+            secret = pyotp.random_base32()
+            self.totp_secret = encrypt_value(secret)
             self.save()
-        return self.totp_secret
-    
+            return secret
+        # If already set, decrypt and return
+        from .crypto import decrypt_value
+        return decrypt_value(self.totp_secret)
+
     def get_totp_uri(self):
         """Genera URI para QR code de TOTP"""
         import pyotp
@@ -260,27 +269,33 @@ class CustomUser(AbstractUser):
             name=self.email,
             issuer_name="CorteSec"
         )
-    
+
     def verify_totp(self, token):
         """Verifica token TOTP"""
         import pyotp
+        from .crypto import decrypt_value
         if not self.totp_secret:
             return False
-        totp = pyotp.TOTP(self.totp_secret)
+        secret = decrypt_value(self.totp_secret)
+        totp = pyotp.TOTP(secret)
         return totp.verify(token, valid_window=1)
-    
+
     def generate_backup_codes(self):
-        """Genera códigos de respaldo para 2FA"""
+        """Genera códigos de respaldo para 2FA (encriptados en DB)"""
         import secrets
+        from .crypto import encrypt_json
         codes = [secrets.token_hex(4).upper() for _ in range(10)]
-        self.backup_codes = codes
+        self.backup_codes = encrypt_json(codes)
         self.save()
         return codes
-    
+
     def use_backup_code(self, code):
         """Usa un código de respaldo"""
-        if code.upper() in self.backup_codes:
-            self.backup_codes.remove(code.upper())
+        from .crypto import decrypt_json, encrypt_json
+        codes = decrypt_json(self.backup_codes)
+        if code.upper() in codes:
+            codes.remove(code.upper())
+            self.backup_codes = encrypt_json(codes)
             self.save()
             return True
         return False
@@ -306,14 +321,20 @@ class CustomUser(AbstractUser):
         self.save()
     
     def password_needs_change(self):
-        """Verifica si la contraseña necesita ser cambiada"""
+        """Verifica si la contraseña necesita ser cambiada (lee config de DB)"""
         from django.utils import timezone
         from datetime import timedelta
         if self.require_password_change:
             return True
-        # Requerir cambio cada 90 días
+        # Leer días de expiración desde ConfiguracionSeguridad
+        try:
+            from configuracion.models import ConfiguracionSeguridad
+            config = ConfiguracionSeguridad.get_config()
+            max_days = config.dias_expiracion_password or 90
+        except Exception:
+            max_days = 90
         if self.password_changed_at:
-            return timezone.now() > self.password_changed_at + timedelta(days=90)
+            return timezone.now() > self.password_changed_at + timedelta(days=max_days)
         return False
 
     # Campos añadidos para soporte Multi-Tenant (coincide con migraciones)
@@ -342,6 +363,24 @@ class CustomUser(AbstractUser):
         default='MEMBER',
         help_text=_('Rol del usuario dentro de la organización')
     )
+
+    roles = models.ManyToManyField(
+        'roles.Rol',
+        through='roles.AsignacionRol',
+        through_fields=('usuario', 'rol'),
+        related_name='usuarios',
+        blank=True,
+        verbose_name=_('Roles')
+    )
+
+    @property
+    def organizacion(self):
+        """Alias para organization por compatibilidad"""
+        return self.organization
+
+    @organizacion.setter
+    def organizacion(self, value):
+        self.organization = value
 
 class LoginAttempt(models.Model):
     """Modelo para registrar intentos de login"""
@@ -389,3 +428,42 @@ class UserSession(models.Model):
     
     def __str__(self):
         return f"{self.user.email} - {self.ip_address}"
+
+
+class PasswordHistory(models.Model):
+    """Historial de contraseñas para prevenir reuso."""
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='password_history',
+        verbose_name=_("Usuario")
+    )
+    password_hash = models.CharField(
+        _("Hash de contraseña"),
+        max_length=256,
+        help_text=_("Hash de la contraseña anterior")
+    )
+    created_at = models.DateTimeField(
+        _("Creado"),
+        auto_now_add=True
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = _("Historial de contraseña")
+        verbose_name_plural = _("Historial de contraseñas")
+
+    def __str__(self):
+        return f"{self.user.email} - {self.created_at.strftime('%Y-%m-%d')}"
+
+    @classmethod
+    def record_password(cls, user):
+        """Records the current password hash for history tracking."""
+        cls.objects.create(
+            user=user,
+            password_hash=user.password
+        )
+        # Prune old entries (keep last 10)
+        old_entries = cls.objects.filter(user=user).order_by('-created_at')[10:]
+        if old_entries.exists():
+            cls.objects.filter(pk__in=old_entries.values_list('pk', flat=True)).delete()

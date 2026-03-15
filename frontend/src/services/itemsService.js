@@ -1,13 +1,13 @@
 import api from './api'
 
 const itemsService = {
-  getItems: async (page = 1) => {
-    const response = await api.get(`/api/items/items/?page=${page}`)
+  getItems: async (params = {}) => {
+    const response = await api.get('/api/items/items/', { params })
     return response.data
   },
 
   getAllItems: async () => {
-    const response = await api.get('/api/items/items/?page_size=1000')
+    const response = await api.get('/api/items/items/', { params: { page_size: 99999 } })
     return response.data.results || response.data
   },
 

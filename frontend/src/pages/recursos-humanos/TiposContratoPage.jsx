@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
 import useAudit from '../../hooks/useAudit'
+import useServerPagination from '../../hooks/useServerPagination'
+import Pagination from '../../components/Pagination'
 import tiposContratoService from '../../services/tiposContratoService'
 import {
   FileTextIcon,
@@ -16,15 +20,26 @@ import {
 } from 'lucide-react'
 
 const TiposContratoPage = () => {
+  const { hasPermission, initialized } = usePermissions()
   const audit = useAudit('Tipos de Contrato')
-  const [tiposContrato, setTiposContrato] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
   const [filterActivo, setFilterActivo] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingTipo, setEditingTipo] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize] = useState(12)
+
+  const fetchTiposContrato = useCallback((params) => tiposContratoService.getAll(params), [])
+  const {
+    data: tiposContrato,
+    loading,
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    searchTerm,
+    setSearchTerm,
+    setCurrentPage,
+    setFilters,
+    refresh,
+  } = useServerPagination(fetchTiposContrato, { pageSize: 12 })
   
   const [formData, setFormData] = useState({
     codigo: '',
@@ -41,24 +56,12 @@ const TiposContratoPage = () => {
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
 
-  useEffect(() => {
-    loadTiposContrato()
-  }, [])
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, filterActivo])
-
-  const loadTiposContrato = async () => {
-    try {
-      setLoading(true)
-      const data = await tiposContratoService.getAllTiposContrato()
-      setTiposContrato(data)
-    } catch (error) {
-      showNotification('error', 'Error al cargar tipos de contrato')
-      console.error('Error:', error)
-    } finally {
-      setLoading(false)
+  const handleFilterActivo = (value) => {
+    setFilterActivo(value)
+    if (value === '') {
+      setFilters({})
+    } else {
+      setFilters({ activo: value })
     }
   }
 
@@ -108,7 +111,7 @@ const TiposContratoPage = () => {
       
       setShowModal(false)
       resetForm()
-      await loadTiposContrato()
+      refresh()
     } catch (error) {
       console.error('Error guardando:', error)
       const errorMsg = error.response?.data?.message || 
@@ -142,7 +145,7 @@ const TiposContratoPage = () => {
     try {
       await tiposContratoService.delete(id)
       showNotification('success', 'Tipo de contrato eliminado exitosamente')
-      loadTiposContrato()
+      refresh()
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'Error al eliminar tipo de contrato'
       showNotification('error', errorMsg)
@@ -165,24 +168,8 @@ const TiposContratoPage = () => {
     setEditingTipo(null)
   }
 
-  const filteredTipos = tiposContrato.filter(tipo => {
-    const matchSearch = (tipo.nombre?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                       (tipo.codigo?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-    const matchActivo = filterActivo === '' || (filterActivo === 'true' ? tipo.activo : !tipo.activo)
-    return matchSearch && matchActivo
-  })
-
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const paginatedTipos = filteredTipos.slice(startIndex, endIndex)
-  const totalPages = Math.ceil(filteredTipos.length / pageSize)
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('tipos_contrato.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   return (
     <div className="space-y-6">
@@ -207,13 +194,15 @@ const TiposContratoPage = () => {
               <p className="text-blue-100 mt-1">Configuración de contratos laborales</p>
             </div>
           </div>
-          <button 
-            onClick={() => { setShowModal(true); resetForm() }} 
-            className="flex items-center space-x-2 px-5 py-3 bg-white text-blue-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span>Nuevo Tipo</span>
-          </button>
+          <Can permission="tipos_contrato.add">
+            <button
+              onClick={() => { setShowModal(true); resetForm() }}
+              className="flex items-center space-x-2 px-5 py-3 bg-white text-blue-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>Nuevo Tipo</span>
+            </button>
+          </Can>
         </div>
       </div>
 
@@ -230,9 +219,9 @@ const TiposContratoPage = () => {
               className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all" 
             />
           </div>
-          <select 
-            value={filterActivo} 
-            onChange={(e) => setFilterActivo(e.target.value)} 
+          <select
+            value={filterActivo}
+            onChange={(e) => handleFilterActivo(e.target.value)}
             className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
           >
             <option value="">Todos los estados</option>
@@ -251,12 +240,12 @@ const TiposContratoPage = () => {
               <span className="text-gray-600">Cargando tipos de contrato...</span>
             </div>
           </div>
-        ) : paginatedTipos.length === 0 ? (
+        ) : tiposContrato.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-500">
             No se encontraron tipos de contrato
           </div>
         ) : (
-          paginatedTipos.map(tipo => (
+          tiposContrato.map(tipo => (
             <div 
               key={tipo.id} 
               className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 border border-gray-200/50 overflow-hidden"
@@ -310,19 +299,23 @@ const TiposContratoPage = () => {
                 </div>
 
                 <div className="flex space-x-2">
-                  <button 
-                    onClick={() => handleEdit(tipo)} 
-                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors text-sm font-semibold"
-                  >
-                    <EditIcon className="w-4 h-4" />
-                    <span>Editar</span>
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(tipo.id)} 
-                    className="flex items-center justify-center px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
+                  <Can permission="tipos_contrato.change">
+                    <button
+                      onClick={() => handleEdit(tipo)}
+                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors text-sm font-semibold"
+                    >
+                      <EditIcon className="w-4 h-4" />
+                      <span>Editar</span>
+                    </button>
+                  </Can>
+                  <Can permission="tipos_contrato.delete">
+                    <button
+                      onClick={() => handleDelete(tipo.id)}
+                      className="flex items-center justify-center px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </Can>
                 </div>
               </div>
             </div>
@@ -331,35 +324,14 @@ const TiposContratoPage = () => {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center space-x-2 mt-6">
-          <button 
-            onClick={() => handlePageChange(currentPage - 1)} 
-            disabled={currentPage === 1} 
-            className="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            Anterior
-          </button>
-          <div className="flex space-x-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button 
-                key={page} 
-                onClick={() => handlePageChange(page)} 
-                className={`px-3 py-1 rounded-lg transition-all ${currentPage === page ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'}`}
-              >
-                {page}
-              </button>
-            ))}
-          </div>
-          <button 
-            onClick={() => handlePageChange(currentPage + 1)} 
-            disabled={currentPage === totalPages} 
-            className="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            Siguiente
-          </button>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        itemLabel="tipos de contrato"
+      />
 
       {/* Modal */}
       {showModal && (

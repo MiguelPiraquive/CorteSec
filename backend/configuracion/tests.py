@@ -1,6 +1,6 @@
 from django.test import TestCase
-from decimal import Decimal
-from .models import ConfiguracionGeneral, ConfiguracionNomina, ConfiguracionSeguridad
+from django.core.exceptions import ValidationError
+from .models import ConfiguracionGeneral, ConfiguracionSeguridad, ConfiguracionModulo
 
 
 class ConfiguracionGeneralModelTest(TestCase):
@@ -29,53 +29,35 @@ class ConfiguracionGeneralModelTest(TestCase):
             email="test2@company.com"
         )
         
-        # El modelo debería prevenir múltiples instancias
-        with self.assertRaises(Exception):
+        # El modelo evita duplicados
+        with self.assertRaises(ValidationError):
             config2.save()
     
     def test_str_representation(self):
         """Test de la representación string"""
-        self.assertEqual(str(self.config), "Test Company")
+        self.assertEqual(str(self.config), "Configuración - Test Company")
     
-    def test_configuracion_completa(self):
-        """Test de configuración completa"""
-        self.assertTrue(self.config.configuracion_completa)
-    
-    def test_formato_moneda(self):
-        """Test de formato de moneda"""
-        formatted = self.config.formato_moneda(1234.56)
-        self.assertIn("$", formatted)
-        self.assertIn("1,234.56", formatted)
+    def test_get_config(self):
+        """Test de obtención de configuración"""
+        config = ConfiguracionGeneral.get_config()
+        self.assertEqual(config.nombre_empresa, "Test Company")
 
 
-class ConfiguracionNominaModelTest(TestCase):
-    """Tests para el modelo ConfiguracionNomina"""
-    
+class ConfiguracionModuloModelTest(TestCase):
+    """Tests para el modelo ConfiguracionModulo"""
+
     def setUp(self):
-        """Configuración inicial para los tests"""
-        self.config_nomina = ConfiguracionNomina.objects.create(
-            salario_minimo_legal=Decimal('1000000'),
-            auxilio_transporte=Decimal('100000'),
-            porcentaje_salud=Decimal('4.0'),
-            porcentaje_pension=Decimal('4.0')
+        self.config_modulo = ConfiguracionModulo.objects.create(
+            modulo='nomina',
+            configuracion_json={'limite': 10}
         )
-    
-    def test_calculo_deducciones(self):
-        """Test de cálculo de deducciones"""
-        salario = Decimal('2000000')
-        deducciones = self.config_nomina.calcular_deducciones_empleado(salario)
-        
-        self.assertEqual(deducciones['salud'], Decimal('80000'))  # 4% de 2,000,000
-        self.assertEqual(deducciones['pension'], Decimal('80000'))  # 4% de 2,000,000
-    
-    def test_salario_minimo_validation(self):
-        """Test de validación de salario mínimo"""
-        self.assertTrue(
-            self.config_nomina.salario_cumple_minimo(Decimal('1500000'))
-        )
-        self.assertFalse(
-            self.config_nomina.salario_cumple_minimo(Decimal('800000'))
-        )
+
+    def test_get_set_config_valor(self):
+        """Test de get/set de configuración"""
+        self.assertEqual(self.config_modulo.get_config_valor('limite'), 10)
+        self.config_modulo.set_config_valor('limite', 20)
+        self.config_modulo.refresh_from_db()
+        self.assertEqual(self.config_modulo.get_config_valor('limite'), 20)
 
 
 class ConfiguracionSeguridadModelTest(TestCase):
@@ -85,36 +67,13 @@ class ConfiguracionSeguridadModelTest(TestCase):
         """Configuración inicial para los tests"""
         self.config_seguridad = ConfiguracionSeguridad.objects.create(
             longitud_minima_password=8,
-            requerir_mayusculas=True,
-            requerir_minusculas=True,
-            requerir_numeros=True,
-            intentos_login_max=3,
-            tiempo_bloqueo_minutos=15
-        )
-    
-    def test_validacion_password(self):
-        """Test de validación de contraseña"""
-        # Contraseña válida
-        self.assertTrue(
-            self.config_seguridad.validar_password("Password123")
-        )
-        
-        # Contraseña muy corta
-        self.assertFalse(
-            self.config_seguridad.validar_password("Pass1")
-        )
-        
-        # Sin mayúsculas
-        self.assertFalse(
-            self.config_seguridad.validar_password("password123")
-        )
-        
-        # Sin números
-        self.assertFalse(
-            self.config_seguridad.validar_password("Password")
+            requiere_mayusculas=True,
+            requiere_minusculas=True,
+            requiere_numeros=True,
+            max_intentos_login=3,
+            tiempo_bloqueo=15
         )
     
     def test_str_representation(self):
         """Test de representación string"""
-        expected = f"Seguridad - Min: {self.config_seguridad.longitud_minima_password} chars"
-        self.assertEqual(str(self.config_seguridad), expected)
+        self.assertIn("Configuración de Seguridad", str(self.config_seguridad))

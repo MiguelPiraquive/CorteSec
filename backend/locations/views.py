@@ -7,12 +7,13 @@ from django.shortcuts import redirect
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from .policies import DepartamentoAccessPolicy, MunicipioAccessPolicy
 from django_filters.rest_framework import DjangoFilterBackend
 import pandas as pd
 import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
+import logging
 
 from .models import Departamento, Municipio
 from .forms import DepartamentoForm, MunicipioForm
@@ -21,6 +22,8 @@ from .serializers import (
     MunicipioSerializer, MunicipioSimpleSerializer, MunicipioConDepartamentoSerializer,
     BusquedaUbicacionSerializer, UbicacionHierarcaSerializer
 )
+
+logger = logging.getLogger(__name__)
 
 
 # Vistas tradicionales de Django (para templates)
@@ -156,28 +159,17 @@ class DepartamentoViewSet(viewsets.ModelViewSet):
     """
     queryset = Departamento.objects.all()
     serializer_class = DepartamentoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DepartamentoAccessPolicy]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nombre', 'codigo']
     ordering_fields = ['nombre', 'created_at']
     ordering = ['nombre']
-    
-    def get_queryset(self):
-        """Filtrar por organización si es necesario"""
-        if hasattr(self.request.user, 'organization'):
-            return Departamento.objects.filter(organizacion=self.request.user.organizacion)
-        return Departamento.objects.all()
     
     def get_serializer_class(self):
         """Usar diferentes serializers según la acción"""
         if self.action == 'list':
             return DepartamentoSimpleSerializer
         return DepartamentoSerializer
-    
-    def perform_create(self, serializer):
-        """Asignar organización al crear"""
-        if hasattr(self.request.user, 'organization'):
-            serializer.save(organizacion=self.request.user.organizacion)
     
     @action(detail=True, methods=['get'])
     def municipios(self, request, pk=None):
@@ -238,16 +230,10 @@ class DepartamentoViewSet(viewsets.ModelViewSet):
                         'region': str(row['region']).strip() if 'region' in row and not pd.isna(row['region']) else '',
                     }
                     
-                    # Asignar organización
-                    if hasattr(request.user, 'organization'):
-                        departamento_data['organization'] = request.user.organizacion
-                    
                     # Verificar si ya existe
                     existing = Departamento.objects.filter(
                         nombre=departamento_data['nombre']
                     )
-                    if hasattr(request.user, 'organization'):
-                        existing = existing.filter(organizacion=request.user.organizacion)
                     
                     if existing.exists():
                         errores.append(f"Fila {index + 2}: Departamento '{departamento_data['nombre']}' ya existe")
@@ -312,8 +298,8 @@ class DepartamentoViewSet(viewsets.ModelViewSet):
                     try:
                         if len(str(cell.value)) > max_length:
                             max_length = len(str(cell.value))
-                    except:
-                        pass
+                    except Exception as exc:
+                        logger.debug('Error ajustando ancho columna %s: %s', column, exc)
                 adjusted_width = (max_length + 2) * 1.2
                 ws.column_dimensions[column].width = adjusted_width
             
@@ -412,20 +398,12 @@ class MunicipioViewSet(viewsets.ModelViewSet):
     """
     queryset = Municipio.objects.select_related('departamento')
     serializer_class = MunicipioSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [MunicipioAccessPolicy]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['departamento']
     search_fields = ['nombre', 'departamento__nombre', 'codigo']
     ordering_fields = ['nombre', 'departamento__nombre', 'created_at']
     ordering = ['departamento__nombre', 'nombre']
-    
-    def get_queryset(self):
-        """Filtrar por organización si es necesario"""
-        if hasattr(self.request.user, 'organization'):
-            return Municipio.objects.select_related('departamento').filter(
-                organizacion=self.request.user.organizacion
-            )
-        return Municipio.objects.select_related('departamento')
     
     def get_serializer_class(self):
         """Usar diferentes serializers según la acción"""
@@ -434,11 +412,6 @@ class MunicipioViewSet(viewsets.ModelViewSet):
         elif self.action in ['con_departamento', 'jerarquia']:
             return MunicipioConDepartamentoSerializer
         return MunicipioSerializer
-    
-    def perform_create(self, serializer):
-        """Asignar organización al crear"""
-        if hasattr(self.request.user, 'organization'):
-            serializer.save(organizacion=self.request.user.organizacion)
     
     @action(detail=False, methods=['post'])
     def buscar(self, request):
@@ -528,17 +501,11 @@ class MunicipioViewSet(viewsets.ModelViewSet):
                         'codigo': str(row['codigo']).strip() if not pd.isna(row['codigo']) else '',
                     }
                     
-                    # Asignar organización
-                    if hasattr(request.user, 'organization'):
-                        municipio_data['organization'] = request.user.organizacion
-                    
                     # Verificar si ya existe
                     existing = Municipio.objects.filter(
                         departamento=departamento,
                         nombre=municipio_data['nombre']
                     )
-                    if hasattr(request.user, 'organization'):
-                        existing = existing.filter(organizacion=request.user.organizacion)
                     
                     if existing.exists():
                         errores.append(f"Fila {index + 2}: Municipio '{municipio_data['nombre']}' ya existe en {departamento_nombre}")
@@ -601,8 +568,8 @@ class MunicipioViewSet(viewsets.ModelViewSet):
                     try:
                         if len(str(cell.value)) > max_length:
                             max_length = len(str(cell.value))
-                    except:
-                        pass
+                    except Exception as exc:
+                        logger.debug('Error ajustando ancho columna %s: %s', column, exc)
                 adjusted_width = (max_length + 2) * 1.2
                 ws.column_dimensions[column].width = adjusted_width
             

@@ -57,38 +57,39 @@ class MunicipioSerializer(serializers.ModelSerializer):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class EmpleadoListSerializer(serializers.ModelSerializer):
-    """Serializer para listado de empleados"""
-    
+    """Serializer para listado de empleados - datos mínimos por seguridad"""
+
     nombre_completo = serializers.CharField(read_only=True)
     contrato_activo = serializers.SerializerMethodField()
     cargo_actual = serializers.SerializerMethodField()
-    
+    numero_cuenta_masked = serializers.SerializerMethodField()
+
     # Información de usuario vinculado
     tiene_usuario = serializers.SerializerMethodField()
     usuario_id = serializers.PrimaryKeyRelatedField(source='usuario', read_only=True)
     email_usuario = serializers.SerializerMethodField()
     username_usuario = serializers.SerializerMethodField()
-    
+
     # Campos anidados para departamento y ciudad
     departamento_detail = DepartamentoSerializer(source='departamento', read_only=True)
     ciudad_detail = MunicipioSerializer(source='ciudad', read_only=True)
-    
+
     # Aliases para compatibilidad con frontend
     nombres = serializers.CharField(source='nombre_completo', read_only=True)
     apellidos = serializers.CharField(source='primer_apellido', read_only=True)
     documento = serializers.CharField(source='numero_documento', read_only=True)
     correo = serializers.CharField(source='email', read_only=True)
     municipio = serializers.CharField(source='ciudad', read_only=True)
-    
+
     class Meta:
         model = Empleado
         fields = [
             'id', 'tipo_documento', 'numero_documento',
-            'nombre_completo', 'primer_nombre', 'segundo_nombre', 
+            'nombre_completo', 'primer_nombre', 'segundo_nombre',
             'primer_apellido', 'segundo_apellido',
-            'email', 'telefono', 'direccion', 'estado', 'fecha_ingreso', 'fecha_retiro',
-            'genero', 'fecha_nacimiento', 'departamento', 'ciudad', 'foto',
-            'banco', 'tipo_cuenta', 'numero_cuenta', 'observaciones',
+            'email', 'telefono', 'estado', 'fecha_ingreso', 'fecha_retiro',
+            'departamento', 'ciudad', 'foto',
+            'banco', 'tipo_cuenta', 'numero_cuenta_masked',
             'departamento_detail', 'ciudad_detail',
             'contrato_activo', 'cargo_actual',
             # Usuario vinculado
@@ -96,23 +97,39 @@ class EmpleadoListSerializer(serializers.ModelSerializer):
             # Aliases
             'nombres', 'apellidos', 'documento', 'correo', 'municipio',
         ]
+
+    def get_numero_cuenta_masked(self, obj):
+        """Enmascara el número de cuenta, mostrando solo los últimos 4 dígitos"""
+        cuenta = obj.numero_cuenta
+        if cuenta and len(cuenta) > 4:
+            return f"****{cuenta[-4:]}"
+        return '****' if cuenta else None
     
     def get_cargo_actual(self, obj):
         """Retorna el cargo del contrato activo"""
         contrato = obj.contrato_activo
-        if contrato:
-            return contrato.cargo
+        if contrato and contrato.cargo:
+            return {
+                'id': contrato.cargo.id,
+                'nombre': contrato.cargo.nombre,
+            }
         return None
     
     def get_contrato_activo(self, obj):
         """Retorna información básica del contrato activo"""
         contrato = obj.contrato_activo
         if contrato:
+            cargo_data = None
+            if contrato.cargo:
+                cargo_data = {
+                    'id': contrato.cargo.id,
+                    'nombre': contrato.cargo.nombre,
+                }
             return {
                 'id': str(contrato.id),
                 'tipo_contrato': contrato.tipo_contrato.nombre,
                 'salario': str(contrato.salario),
-                'cargo': contrato.cargo,
+                'cargo': cargo_data,
             }
         return None
     
@@ -176,8 +193,11 @@ class EmpleadoDetailSerializer(serializers.ModelSerializer):
     def get_cargo_actual(self, obj):
         """Retorna el cargo del contrato activo"""
         contrato = obj.contrato_activo
-        if contrato:
-            return contrato.cargo
+        if contrato and contrato.cargo:
+            return {
+                'id': contrato.cargo.id,
+                'nombre': contrato.cargo.nombre,
+            }
         return None
     
     def get_contrato_activo(self, obj):
@@ -306,6 +326,12 @@ class ContratoCreateSerializer(serializers.ModelSerializer):
         fecha_fin = attrs.get('fecha_fin')
         fecha_inicio = attrs.get('fecha_inicio')
         
+        # Validar que el tipo de contrato esté activo
+        if tipo_contrato and not tipo_contrato.activo:
+            raise serializers.ValidationError({
+                'tipo_contrato': 'No se puede asignar un tipo de contrato inactivo.'
+            })
+        
         # Validar fecha fin si el tipo lo requiere
         if tipo_contrato and tipo_contrato.requiere_fecha_fin and not fecha_fin:
             raise serializers.ValidationError({
@@ -341,7 +367,7 @@ class ParametroLegalSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'organization', 'created_at', 'updated_at']
     
     def validate(self, attrs):
-        """Validar consistencia de porcentajes"""
+        """Validar consistencia de porcentajes y vigencia no solapada"""
         porcentaje_total = attrs.get('porcentaje_total', Decimal('0'))
         porcentaje_empleado = attrs.get('porcentaje_empleado', Decimal('0'))
         porcentaje_empleador = attrs.get('porcentaje_empleador', Decimal('0'))
@@ -352,6 +378,35 @@ class ParametroLegalSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'porcentaje_total': f'El total ({porcentaje_total}%) debe ser igual a empleado ({porcentaje_empleado}%) + empleador ({porcentaje_empleador}%).'
             })
+        
+        # Validar que no exista otro parámetro del mismo concepto con vigencia solapada
+        concepto = attrs.get('concepto')
+        vigente_desde = attrs.get('vigente_desde')
+        vigente_hasta = attrs.get('vigente_hasta')
+        
+        if concepto and vigente_desde:
+            from django.db.models import Q
+            organization = self.context['request'].user.organization
+            
+            solapado = ParametroLegal.objects.filter(
+                organization=organization,
+                concepto=concepto,
+                activo=True,
+                vigente_desde__lte=vigente_hasta if vigente_hasta else vigente_desde,
+            ).filter(
+                Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=vigente_desde)
+            )
+            
+            if self.instance:
+                solapado = solapado.exclude(pk=self.instance.pk)
+            
+            if solapado.exists():
+                existente = solapado.first()
+                raise serializers.ValidationError({
+                    'concepto': f'Ya existe un parámetro activo de "{existente.get_concepto_display()}" '
+                                f'vigente desde {existente.vigente_desde}. '
+                                f'Desactívelo primero o ajuste las fechas de vigencia.'
+                })
         
         return attrs
 
@@ -465,11 +520,11 @@ class NominaPrestamoSerializer(serializers.ModelSerializer):
 
 class NominaSimpleListSerializer(serializers.ModelSerializer):
     """Serializer para listado de nóminas"""
-    
+
     empleado_nombre = serializers.CharField(source='contrato.empleado.nombre_completo', read_only=True)
     empleado_documento = serializers.CharField(source='contrato.empleado.numero_documento', read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
-    
+
     class Meta:
         model = NominaSimple
         fields = [
@@ -479,6 +534,10 @@ class NominaSimpleListSerializer(serializers.ModelSerializer):
             'estado', 'estado_display',
             'total_devengado', 'total_deducciones', 'total_pagar',
             'created_at',
+        ]
+        read_only_fields = [
+            'id', 'numero', 'estado', 'total_devengado',
+            'total_deducciones', 'total_pagar',
         ]
 
 
@@ -511,6 +570,12 @@ class NominaSimpleDetailSerializer(serializers.ModelSerializer):
             'salario_base', 'ibc',
             'total_items', 'total_devengado', 'total_deducciones',
             'total_prestamos', 'total_pagar',
+            # Configuración de deducciones
+            'tiene_deduccion_restaurante', 'valor_restaurante',
+            'prestamos_seleccionados',
+            'conceptos_seleccionados',
+            'incluir_salario_base',
+            'cuotas_a_descontar',
             # Aportes empleador
             'aporte_salud_empleador', 'aporte_pension_empleador',
             'aporte_arl', 'aporte_caja', 'aporte_sena', 'aporte_icbf',
@@ -541,9 +606,16 @@ class NominaSimpleCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = NominaSimple
         fields = [
+            'id',
             'contrato', 'periodo_inicio', 'periodo_fin',
             'fecha_pago', 'observaciones', 'items',
+            'tiene_deduccion_restaurante', 'valor_restaurante',
+            'prestamos_seleccionados',
+            'conceptos_seleccionados',
+            'incluir_salario_base',
+            'cuotas_a_descontar',
         ]
+        read_only_fields = ['id']
     
     def validate(self, attrs):
         """Validaciones de la nómina"""
@@ -563,22 +635,24 @@ class NominaSimpleCreateSerializer(serializers.ModelSerializer):
                 'periodo_fin': 'El fin del período debe ser posterior al inicio.'
             })
         
-        # Validar que no exista nómina para el mismo período
+        # Validar que no exista nómina con período solapado
         organization = self.context['request'].user.organization
         if contrato and periodo_inicio and periodo_fin:
-            existe = NominaSimple.objects.filter(
+            solapada = NominaSimple.objects.filter(
                 organization=organization,
                 contrato=contrato,
-                periodo_inicio=periodo_inicio,
-                periodo_fin=periodo_fin,
+                periodo_inicio__lte=periodo_fin,
+                periodo_fin__gte=periodo_inicio,
             ).exclude(estado='anulada')
             
             if self.instance:
-                existe = existe.exclude(pk=self.instance.pk)
+                solapada = solapada.exclude(pk=self.instance.pk)
             
-            if existe.exists():
+            if solapada.exists():
+                nomina_existente = solapada.first()
                 raise serializers.ValidationError(
-                    'Ya existe una nómina para este contrato y período.'
+                    f'El período se solapa con la nómina #{nomina_existente.numero} '
+                    f'({nomina_existente.periodo_inicio} al {nomina_existente.periodo_fin}).'
                 )
         
         return attrs
@@ -587,19 +661,15 @@ class NominaSimpleCreateSerializer(serializers.ModelSerializer):
         """Crear nómina con items"""
         items_data = validated_data.pop('items', [])
         
-        # Generar número consecutivo
-        organization = self.context['request'].user.organization
-        anio = timezone.now().year
-        ultimo = NominaSimple.objects.filter(
-            organization=organization,
-            numero__startswith=f'NOM-{anio}'
-        ).count()
-        numero = f'NOM-{anio}-{ultimo + 1:06d}'
+        # Extraer organization de validated_data (viene del mixin)
+        organization = validated_data.pop('organization', None) or self.context['request'].user.organization
+        
+        # El número se genera automáticamente en el signal pre_save
+        # usando Max() para evitar colisiones al borrar nóminas
         
         # Crear nómina
         nomina = NominaSimple.objects.create(
             organization=organization,
-            numero=numero,
             salario_base=validated_data['contrato'].salario,
             **validated_data
         )
@@ -613,6 +683,27 @@ class NominaSimpleCreateSerializer(serializers.ModelSerializer):
             )
         
         return nomina
+
+    def update(self, instance, validated_data):
+        """Actualizar nómina con items"""
+        items_data = validated_data.pop('items', None)
+
+        # Actualizar campos simples
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Reemplazar items si vienen en el payload
+        if items_data is not None:
+            instance.items.all().delete()
+            for item_data in items_data:
+                NominaItem.objects.create(
+                    organization=instance.organization,
+                    nomina=instance,
+                    **item_data
+                )
+
+        return instance
 
 
 # ══════════════════════════════════════════════════════════════════════════════

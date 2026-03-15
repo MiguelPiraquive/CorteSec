@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 app_name = 'permisos'
@@ -93,9 +93,23 @@ urlpatterns = [
     
     # ==================== APIs ====================
     
+    # API REST endpoints
+    # Note: Django views are handled by other URLs, APIs are handled separately
+    
     # API para datos de dashboard
     #path('api/dashboard-data/', views.dashboard_data_api, name='dashboard_data_api'),
     
     # API para búsqueda de permisos
     #path('api/search-permisos/', views.search_permisos_api, name='search_permisos_api'),
 ]
+
+# Incluir las URLs de API al final para evitar conflictos
+from django.urls import path as api_path
+from django.urls import include as api_include
+
+# Agregar las APIs DRF como patrones separados
+api_patterns = [
+    api_path('', api_include('apps.permisos.api_urls')),
+]
+
+urlpatterns += api_patterns

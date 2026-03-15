@@ -1,3 +1,13 @@
+# ══════════════════════════════════════════════════════════════════════════
+# DEPRECADO: Este archivo completo ya NO se usa.
+# El sistema de notificaciones fue reemplazado por:
+#   - core.models.Notificacion (modelo)
+#   - core.notification_engine.NotificationEngine (motor centralizado)
+#   - core.notification_signals (señales automáticas)
+# Se mantiene únicamente para no romper migraciones existentes.
+# NO IMPORTAR NI USAR EN CÓDIGO NUEVO.
+# ══════════════════════════════════════════════════════════════════════════
+
 # dashboard/push_notifications.py
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -7,7 +17,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import json
 import requests
-from django.core.mail import send_mail
+from core.email_service import send_system_email
 from django.template.loader import render_to_string
 from django.db import models
 from core.models import AuditedModel as BaseModel
@@ -73,7 +83,7 @@ class PushNotificationService:
         self.channel_layer = get_channel_layer()
         self.vapid_private_key = getattr(settings, 'VAPID_PRIVATE_KEY', '')
         self.vapid_public_key = getattr(settings, 'VAPID_PUBLIC_KEY', '')
-        self.vapid_subject = getattr(settings, 'VAPID_SUBJECT', 'mailto:admin@contractor.com')
+        self.vapid_subject = getattr(settings, 'VAPID_SUBJECT', 'mailto:admin@cortesec.com')
     
     def send_push_notification(self, user_id, title, message, data=None, url=None):
         """Envía notificación push a un usuario específico"""
@@ -153,13 +163,13 @@ class PushNotificationService:
     def send_role_notification(self, role, title, message, organizacion=None, data=None):
         """Envía notificación a usuarios con un rol específico"""
         users_query = User.objects.filter(is_active=True)
-        
-        if organization:
-            users_query = users_query.filter(organizacion=organization)
+
+        if organizacion:
+            users_query = users_query.filter(organization=organizacion)
         
         if role == 'admin':
             users_query = users_query.filter(is_staff=True)
-        elif role == 'contractor':
+        elif role == 'employee':
             users_query = users_query.filter(is_staff=False)
         
         user_ids = list(users_query.values_list('id', flat=True))
@@ -234,7 +244,7 @@ class EmailNotificationService:
             context = context or {}
             context.update({
                 'user': user,
-                'organization': user.organizacion,
+                'organization': getattr(user, 'organization', None),
                 'base_url': settings.FRONTEND_URL
             })
             
@@ -249,10 +259,9 @@ class EmailNotificationService:
                 plain_message = self._render_template_content(template.contenido, context)
             
             # Enviar email
-            send_mail(
+            send_system_email(
                 subject=subject,
                 message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[user.email],
                 html_message=html_message,
                 fail_silently=False
@@ -488,8 +497,8 @@ def send_project_notification(project, event_type, user_ids=None):
     notification_config = notifications_map[event_type]
     
     if user_ids is None:
-        # Notificar a todos los contratistas del proyecto
-        user_ids = list(project.contratistas.values_list('id', flat=True))
+        # Notificar a los usuarios relevantes
+        user_ids = []
     
     results = []
     for user_id in user_ids:
@@ -506,42 +515,6 @@ def send_project_notification(project, event_type, user_ids=None):
     
     return results
 
-def send_payment_notification(payment, event_type):
-    """Envía notificación relacionada con pago"""
-    manager = NotificationManager()
-    
-    notifications_map = {
-        'pending': {
-            'title': 'Pago Pendiente',
-            'message': f'Tienes un pago pendiente de ${payment.monto}',
-            'template': 'payment_pending'
-        },
-        'completed': {
-            'title': 'Pago Completado',
-            'message': f'Tu pago de ${payment.monto} ha sido procesado',
-            'template': 'payment_completed'
-        },
-        'failed': {
-            'title': 'Error en Pago',
-            'message': f'Hubo un error procesando tu pago de ${payment.monto}',
-            'template': 'payment_failed'
-        }
-    }
-    
-    if event_type not in notifications_map:
-        return {'success': False, 'error': 'Tipo de evento no válido'}
-    
-    notification_config = notifications_map[event_type]
-    
-    return manager.send_multi_channel_notification(
-        payment.contratista.id,
-        ['push', 'email'],
-        title=notification_config['title'],
-        message=notification_config['message'],
-        template_name=notification_config['template'],
-        context={'payment': payment},
-        data={'payment_id': payment.id, 'event': event_type}
-    )
 
 def send_scheduled_notification(user_id, title, message, data=None):
     """Función para notificaciones programadas (Django-Q)"""
@@ -560,7 +533,7 @@ def get_notification_stats(organization_id, days=30):
     start_date = end_date - timedelta(days=days)
     
     stats = NotificationLog.objects.filter(
-        usuario__organizacion_id=organization_id,
+        usuario__organization_id=organization_id,
         fecha_envio__gte=start_date
     ).aggregate(
         total_sent=models.Count('id'),

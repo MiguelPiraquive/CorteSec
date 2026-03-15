@@ -17,7 +17,7 @@ Fecha: Enero 2026
 """
 
 from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator, FileExtensionValidator
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
@@ -145,7 +145,10 @@ class Empleado(TenantAwareModel):
         upload_to='empleados/fotos/',
         null=True,
         blank=True,
-        verbose_name='Foto de Perfil'
+        verbose_name='Foto de Perfil',
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp']),
+        ]
     )
     
     # Estado
@@ -361,6 +364,15 @@ class Contrato(TenantAwareModel):
         verbose_name='Tipo de Contrato'
     )
     
+    proyecto = models.ForeignKey(
+        'dashboard.Project',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='contratos',
+        verbose_name='Proyecto',
+        help_text='Proyecto al que está asignado este contrato'
+    )
+    
     # Datos del contrato
     salario = models.DecimalField(
         max_digits=12,
@@ -503,6 +515,13 @@ class ParametroLegal(TenantAwareModel):
         ('AUXILIO_TRANSPORTE', 'Auxilio de Transporte'),
         ('TOPE_AUXILIO_TRANSPORTE', 'Tope Auxilio Transporte'),
         ('IBC_SERVICIOS', 'IBC Servicios'),
+        # Retención en la fuente
+        ('UVT', 'Unidad de Valor Tributario'),
+        # Fondo de Solidaridad Pensional
+        ('TOPE_FSP', 'Tope Fondo Solidaridad Pensional'),
+        ('TOPE_SUBSISTENCIA', 'Tope Aporte Subsistencia'),
+        ('FSP', 'Fondo de Solidaridad Pensional'),
+        ('SUBSISTENCIA', 'Aporte Subsistencia'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -785,8 +804,9 @@ class NominaSimple(TenantAwareModel):
     # Número consecutivo
     numero = models.CharField(
         max_length=20,
+        blank=True,
         verbose_name='Número',
-        help_text='Número consecutivo de la nómina'
+        help_text='Número consecutivo de la nómina (se genera automáticamente)'
     )
     
     # Relación con contrato
@@ -795,6 +815,15 @@ class NominaSimple(TenantAwareModel):
         on_delete=models.PROTECT,
         related_name='nominas',
         verbose_name='Contrato'
+    )
+    
+    proyecto = models.ForeignKey(
+        'dashboard.Project',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='nominas',
+        verbose_name='Proyecto',
+        help_text='Proyecto al que pertenece esta nómina'
     )
     
     # Período
@@ -874,6 +903,49 @@ class NominaSimple(TenantAwareModel):
         default=Decimal('0.00'),
         verbose_name='Total a Pagar',
         help_text='Total Devengado - Total Deducciones - Préstamos'
+    )
+
+    # Deducción restaurante (configurable por nómina)
+    tiene_deduccion_restaurante = models.BooleanField(
+        default=False,
+        verbose_name='Tiene Deducción Restaurante'
+    )
+    valor_restaurante = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name='Valor Restaurante'
+    )
+
+    # Selección específica de préstamos
+    prestamos_seleccionados = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        verbose_name='Préstamos Seleccionados'
+    )
+
+    # Cantidad de cuotas a descontar por cada préstamo
+    cuotas_a_descontar = models.JSONField(
+        null=True,
+        blank=True,
+        default=dict,
+        verbose_name='Cuotas a Descontar por Préstamo',
+        help_text='Diccionario {prestamo_id: cantidad_cuotas}'
+    )
+
+    # Selección manual de conceptos laborales
+    conceptos_seleccionados = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        verbose_name='Conceptos Seleccionados'
+    )
+
+    # Control de salario base en cálculo
+    incluir_salario_base = models.BooleanField(
+        default=False,
+        verbose_name='Incluir Salario Base'
     )
     
     # ══════════════════════════════════════════════════════════════════════════

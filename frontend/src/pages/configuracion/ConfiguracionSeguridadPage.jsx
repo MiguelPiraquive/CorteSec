@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import useAudit from '../../hooks/useAudit'
+import { usePermissions } from '../../context/PermissionsContext'
 import configuracionService from '../../services/configuracionService'
 import {
   ShieldIcon,
@@ -18,6 +19,7 @@ import {
 
 const ConfiguracionSeguridadPage = () => {
   const audit = useAudit('Configuración de Seguridad')
+  const { hasPermission, initialized } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('sesiones')
@@ -59,7 +61,6 @@ const ConfiguracionSeguridadPage = () => {
     try {
       setLoading(true)
       const data = await configuracionService.getConfiguracionSeguridad()
-      console.log('🔒 Configuración de seguridad cargada:', data)
       setFormData({
         ...formData,
         ...data
@@ -116,6 +117,9 @@ const ConfiguracionSeguridadPage = () => {
     { id: 'acceso', label: 'Control de Acceso', icon: UsersIcon },
     { id: 'notificaciones', label: 'Notificaciones', icon: BellIcon },
   ]
+
+  if (!initialized) return <div className="flex items-center justify-center h-screen"><Loader2Icon className="w-8 h-8 text-green-500 animate-spin" /></div>
+  if (!hasPermission('configuracion.manage_seguridad')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   if (loading) {
     return (

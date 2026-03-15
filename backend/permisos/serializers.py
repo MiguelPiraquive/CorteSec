@@ -28,14 +28,14 @@ User = get_user_model()
 class UserBasicSerializer(serializers.ModelSerializer):
     """Serializer básico para usuarios"""
     full_name = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'is_active']
-        read_only_fields = ['id', 'username']
-    
+        fields = ['id', 'email', 'first_name', 'last_name', 'full_name', 'is_active']
+        read_only_fields = ['id', 'email']
+
     def get_full_name(self, obj):
-        return obj.get_full_name() or obj.username
+        return getattr(obj, 'full_name', '') or f"{obj.first_name} {obj.last_name}".strip() or obj.email
 
 
 class ContentTypeSerializer(serializers.ModelSerializer):
@@ -81,7 +81,7 @@ class ModuloSistemaBasicSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ModuloSistema
-        fields = ['id', 'nombre', 'codigo', 'icono', 'color', 'nivel', 'activo']
+        fields = ['id', 'nombre', 'codigo', 'icono', 'color', 'nivel', 'activo', 'es_sistema', 'version', 'orden', 'descripcion']
 
 
 class ModuloSistemaTreeSerializer(serializers.ModelSerializer):
@@ -91,7 +91,7 @@ class ModuloSistemaTreeSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ModuloSistema
-        fields = ['id', 'nombre', 'codigo', 'icono', 'color', 'nivel', 'children']
+        fields = ['id', 'nombre', 'codigo', 'icono', 'color', 'nivel', 'activo', 'children']
     
     def get_children(self, obj):
         """Obtiene los hijos recursivamente"""
@@ -126,7 +126,7 @@ class TipoPermisoBasicSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = TipoPermiso
-        fields = ['id', 'nombre', 'codigo', 'categoria', 'icono', 'color']
+        fields = ['id', 'nombre', 'codigo', 'categoria', 'icono', 'color', 'descripcion', 'activo']
 
 
 # ==================== SERIALIZERS DE CONDICIONES ====================
@@ -156,13 +156,13 @@ class CondicionPermisoBasicSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CondicionPermiso
-        fields = ['id', 'nombre', 'codigo', 'tipo', 'activa']
+        fields = ['id', 'nombre', 'codigo', 'tipo', 'activa', 'descripcion', 'configuracion']
 
 
 class CondicionPermisoEvaluationSerializer(serializers.Serializer):
     """Serializer para evaluar condiciones"""
     
-    usuario_id = serializers.IntegerField()
+    usuario_id = serializers.CharField()  # Cambiar a CharField para UUIDs
     contexto = serializers.JSONField(required=False, allow_null=True)
     
     def validate_usuario_id(self, value):
@@ -186,13 +186,12 @@ class PermisoSerializer(serializers.ModelSerializer):
     
     ambito_display = serializers.CharField(source='get_ambito_display', read_only=True)
     esta_vigente = serializers.ReadOnlyField()
-    organizacion_nombre = serializers.CharField(source='Organizacion.nombre', read_only=True)
     
     class Meta:
         model = Permiso
         fields = [
             'id', 'nombre', 'codigo', 'descripcion', 'modulo', 'modulo_info',
-            'tipo_permiso', 'tipo_permiso_info', 'Organizacion', 'organizacion_nombre',
+            'tipo_permiso', 'tipo_permiso_info',
             'ambito', 'ambito_display', 'content_type', 'content_type_info',
             'object_id', 'condiciones', 'condiciones_info', 'es_heredable',
             'es_revocable', 'prioridad', 'vigencia_inicio', 'vigencia_fin',
@@ -219,7 +218,8 @@ class PermisoBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Permiso
         fields = [
-            'id', 'nombre', 'codigo', 'modulo_nombre', 'tipo_nombre', 'activo'
+            'id', 'nombre', 'codigo', 'modulo', 'modulo_nombre', 'tipo_nombre',
+            'ambito', 'es_heredable', 'activo'
         ]
 
 
@@ -230,7 +230,7 @@ class PermisoCreateUpdateSerializer(serializers.ModelSerializer):
         model = Permiso
         fields = [
             'nombre', 'codigo', 'descripcion', 'modulo', 'tipo_permiso',
-            'Organizacion', 'ambito', 'content_type', 'object_id', 'condiciones',
+            'ambito', 'content_type', 'object_id', 'condiciones',
             'es_heredable', 'es_revocable', 'prioridad', 'vigencia_inicio',
             'vigencia_fin', 'activo'
         ]
@@ -299,13 +299,16 @@ class PermisoDirectoSerializer(serializers.ModelSerializer):
 
 class PermisoDirectoCreateSerializer(serializers.ModelSerializer):
     """Serializer para crear permisos directos"""
-    
+
     class Meta:
         model = PermisoDirecto
         fields = [
             'usuario', 'permiso', 'tipo', 'fecha_inicio', 'fecha_fin',
             'asignado_por', 'motivo', 'activo'
         ]
+        extra_kwargs = {
+            'asignado_por': {'required': False},
+        }
     
     def validate(self, data):
         """Validaciones para creación"""
@@ -368,7 +371,6 @@ class EstadisticasPermisosSerializer(serializers.Serializer):
     total_permisos = serializers.IntegerField()
     permisos_activos = serializers.IntegerField()
     tipos_permiso = serializers.IntegerField()
-    organizaciones = serializers.IntegerField()
     modulos = serializers.IntegerField()
     condiciones = serializers.IntegerField()
     permisos_directos = serializers.IntegerField()

@@ -11,10 +11,10 @@ Fecha: 2026-01-01
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views_new import UsuarioViewSet
+from .views import UserViewSet
 
 router = DefaultRouter()
-router.register(r'usuarios', UsuarioViewSet, basename='usuario')
+router.register(r'usuarios', UserViewSet, basename='usuario')
 
 app_name = 'usuarios'
 

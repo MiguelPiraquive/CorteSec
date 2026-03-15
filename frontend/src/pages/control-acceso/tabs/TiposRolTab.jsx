@@ -1,337 +1,593 @@
-import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
-import tiposRolService from '../../../services/tiposRolService'
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Shield,
-  PlusIcon,
-  EditIcon,
-  TrashIcon,
-  SearchIcon,
-  XIcon,
-  CheckIcon,
-  AlertCircleIcon,
-  TypeIcon,
-  FileTextIcon,
-} from 'lucide-react'
+  Users, Plus, Edit2, Trash2, Search, Filter,
+  CheckCircle, XCircle, AlertCircle, Save, X,
+  LayoutGrid, List, Download, ArrowUpDown
+} from 'lucide-react';
+import tiposRolService from '../../../services/tiposRolService';
+import useAudit from '../../../hooks/useAudit';
+import Can from '../../../components/permissions/Can';
+import { usePermissions } from '../../../context/PermissionsContext';
+import useServerPagination from '../../../hooks/useServerPagination';
+import Pagination from '../../../components/Pagination';
 
 const TiposRolTab = () => {
-  const [tiposRol, setTiposRol] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterActivo, setFilterActivo] = useState('')
-  const [showModal, setShowModal] = useState(false)
-  const [editingTipo, setEditingTipo] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize] = useState(15)
-  
+  const { hasPermission, initialized } = usePermissions();
+  const audit = useAudit('Tipos de Rol');
+
+  // ============================================================================
+  // SERVER-SIDE PAGINATION
+  // ============================================================================
+
+  const fetchTipos = useCallback((params) => {
+    return tiposRolService.getAllTiposRol(params);
+  }, []);
+
+  const {
+    data: tipos, loading, currentPage, totalPages, totalCount, pageSize,
+    searchTerm, setSearchTerm, setCurrentPage, setFilters, refresh,
+  } = useServerPagination(fetchTipos, { pageSize: 20 });
+
+  // ============================================================================
+  // UI STATE
+  // ============================================================================
+
+  const [filterEstado, setFilterEstado] = useState('all');
+  const [sortBy, setSortBy] = useState('nombre');
+  const [sortDir, setSortDir] = useState('asc');
+  const [displayMode, setDisplayMode] = useState('tabla');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [detailTipo, setDetailTipo] = useState(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editingTipo, setEditingTipo] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
     activo: true
-  })
+  });
+  const [error, setError] = useState('');
 
-  const [notification, setNotification] = useState({ show: false, type: '', message: '' })
+  // ============================================================================
+  // FILTERS (server-side)
+  // ============================================================================
 
-  useEffect(() => {
-    loadTiposRol()
-  }, [])
+  const applyFilters = (estado, sort, dir) => {
+    const f = {};
+    if (estado === 'active') f.activo = true;
+    if (estado === 'inactive') f.activo = false;
+    f.ordering = dir === 'desc' ? `-${sort}` : sort;
+    setFilters(f);
+  };
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, filterActivo])
+  const handleFilterEstado = (val) => { setFilterEstado(val); applyFilters(val, sortBy, sortDir); };
+  const handleSortBy = (val) => { setSortBy(val); applyFilters(filterEstado, val, sortDir); };
+  const handleSortDir = () => { const nd = sortDir === 'asc' ? 'desc' : 'asc'; setSortDir(nd); applyFilters(filterEstado, sortBy, nd); };
 
-  const loadTiposRol = async () => {
-    try {
-      setLoading(true)
-      const data = await tiposRolService.getAllTiposRol()
-      const tipos = data.results || data
-      setTiposRol(Array.isArray(tipos) ? tipos : [])
-    } catch (error) {
-      showNotification('error', 'Error al cargar tipos de rol')
-      console.error(error)
-      setTiposRol([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  // ============================================================================
+  // CRUD HANDLERS
+  // ============================================================================
 
-  const showNotification = (type, message) => {
-    setNotification({ show: true, type, message })
-    setTimeout(() => setNotification({ show: false, type: '', message: '' }), 4000)
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    try {
-      if (editingTipo) {
-        await tiposRolService.updateTipoRol(editingTipo.id, formData)
-        showNotification('success', 'Tipo de rol actualizado exitosamente')
-      } else {
-        await tiposRolService.createTipoRol(formData)
-        showNotification('success', 'Tipo de rol creado exitosamente')
-      }
-      setShowModal(false)
-      resetForm()
-      loadTiposRol()
-    } catch (error) {
-      showNotification('error', error.response?.data?.message || 'Error al guardar')
-      console.error(error)
-    }
-  }
+  const handleCreate = () => {
+    setEditingTipo(null);
+    setFormData({ nombre: '', descripcion: '', activo: true });
+    setShowModal(true);
+  };
 
   const handleEdit = (tipo) => {
-    setEditingTipo(tipo)
+    setEditingTipo(tipo);
     setFormData({
       nombre: tipo.nombre,
-      descripcion: tipo.descripcion || '',
+      descripcion: tipo.descripcion,
       activo: tipo.activo
-    })
-    setShowModal(true)
-  }
+    });
+    setShowModal(true);
+  };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Está seguro de eliminar este tipo de rol?')) return
+    if (!window.confirm('¿Estas seguro de eliminar este tipo de rol?')) return;
     try {
-      await tiposRolService.deleteTipoRol(id)
-      showNotification('success', 'Tipo de rol eliminado exitosamente')
-      loadTiposRol()
-    } catch (error) {
-      showNotification('error', 'Error al eliminar tipo de rol')
+      await tiposRolService.deleteTipoRol(id);
+      audit.log('Elimino tipo de rol', { id });
+      refresh();
+    } catch (err) {
+      setError('Error al eliminar');
     }
-  }
+  };
 
-  const resetForm = () => {
-    setFormData({
-      nombre: '',
-      descripcion: '',
-      activo: true
-    })
-    setEditingTipo(null)
-  }
-
-  const filteredTipos = tiposRol.filter(tipo => {
-    const matchSearch = 
-      tipo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (tipo.descripcion && tipo.descripcion.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchActivo = filterActivo === '' || tipo.activo.toString() === filterActivo
-    return matchSearch && matchActivo
-  })
-
-  const totalPages = Math.ceil(filteredTipos.length / pageSize)
-  const paginatedTipos = filteredTipos.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingTipo) {
+        await tiposRolService.updateTipoRol(editingTipo.id, formData);
+        audit.log('Actualizo tipo de rol', { id: editingTipo.id, ...formData });
+      } else {
+        await tiposRolService.createTipoRol(formData);
+        audit.log('Creo tipo de rol', formData);
+      }
+      setShowModal(false);
+      refresh();
+    } catch (err) {
+      setError('Error al guardar');
     }
-  }
+  };
+
+  // ============================================================================
+  // SELECTION & BULK
+  // ============================================================================
+
+  const allVisibleSelected = tipos.length > 0 && tipos.every((t) => selectedIds.has(t.id));
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        tipos.forEach((t) => next.delete(t.id));
+      } else {
+        tipos.forEach((t) => next.add(t.id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkToggle = async (activo) => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) => tiposRolService.patchTipoRol(id, { activo }))
+      );
+      clearSelection();
+      refresh();
+    } catch (err) {
+      setError('Error al actualizar en lote');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleExportCsv = () => {
+    const headers = ['Nombre', 'Descripcion', 'Activo', 'ID'];
+    const rows = tipos.map((t) => ([
+      t.nombre || '',
+      (t.descripcion || '').replace(/\s+/g, ' ').trim(),
+      t.activo ? 'Si' : 'No',
+      t.id,
+    ]));
+    const escape = (value) => {
+      const str = String(value ?? '');
+      if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tipos_rol_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('roles.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta seccion</div>
 
   return (
-    <div className="space-y-6">
-      {notification.show && (
-        <div className={`fixed top-20 right-6 z-50 backdrop-blur-xl rounded-2xl shadow-2xl p-4 border animate-slide-in-from-top ${notification.type === 'success' ? 'bg-green-500/90 border-green-400 text-white' : 'bg-red-500/90 border-red-400 text-white'}`}>
-          <div className="flex items-center space-x-3">
-            {notification.type === 'success' ? <CheckIcon className="w-6 h-6" /> : <AlertCircleIcon className="w-6 h-6" />}
-            <span className="font-semibold">{notification.message}</span>
+    <div className="space-y-6 animate-fadeIn">
+      {/* Header Actions */}
+      <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Buscar tipos de rol..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span>{totalCount} Tipos</span>
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                type="button"
+                onClick={() => setDisplayMode('cards')}
+                className={`px-2.5 py-1.5 border rounded-lg text-xs ${displayMode === 'cards' ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'border-gray-200 text-gray-600'}`}
+                title="Vista cards"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayMode('tabla')}
+                className={`px-2.5 py-1.5 border rounded-lg text-xs ${displayMode === 'tabla' ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'border-gray-200 text-gray-600'}`}
+                title="Vista tabla"
+              >
+                <List className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50"
+                title="Exportar CSV"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <select
+            value={filterEstado}
+            onChange={(e) => handleFilterEstado(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          >
+            <option value="all">Todos los estados</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+          </select>
+
+          <div className="flex gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => handleSortBy(e.target.value)}
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            >
+              <option value="nombre">Ordenar por nombre</option>
+              <option value="descripcion">Ordenar por descripcion</option>
+            </select>
+            <button
+              type="button"
+              onClick={handleSortDir}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
+              title="Cambiar direccion"
+            >
+              <ArrowUpDown className="h-4 w-4 text-gray-500" />
+            </button>
+          </div>
+
+          <Can permission="roles.add">
+            <button
+              onClick={handleCreate}
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
+            >
+              <Plus className="h-5 w-5" />
+              <span>Nuevo Tipo</span>
+            </button>
+          </Can>
+        </div>
+      </div>
+
+      {/* Detail Modal */}
+      {detailTipo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-700 p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-teal-100">Detalle de tipo de rol</div>
+                  <h2 className="text-2xl font-bold text-white">{detailTipo.nombre}</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailTipo(null)}
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-medium"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+            <div className="p-5 grid grid-cols-1 gap-4">
+              <div>
+                <div className="text-xs text-gray-500">Descripcion</div>
+                <div className="text-sm text-gray-700">{detailTipo.descripcion || 'Sin descripcion disponible.'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Estado</div>
+                <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${detailTipo.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                  {detailTipo.activo ? 'Activo' : 'Inactivo'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">ID</div>
+                <div className="font-mono text-xs text-gray-500">{detailTipo.id}</div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex justify-end">
-        <button onClick={() => { setShowModal(true); resetForm() }} className="flex items-center space-x-2 px-5 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg">
-          <PlusIcon className="w-5 h-5" />
-          <span>Nuevo Tipo</span>
-        </button>
-      </div>
+      {/* Bulk Actions */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-cyan-100">
+          <div className="text-sm text-gray-600">
+            Seleccionados: <span className="font-semibold">{selectedIds.size}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleBulkToggle(true)}
+              disabled={bulkLoading}
+              className="inline-flex items-center gap-1 px-3 py-1.5 border border-emerald-200 text-emerald-700 rounded-lg text-sm hover:bg-emerald-50 disabled:opacity-50"
+            >
+              <CheckCircle className="h-4 w-4" /> Activar
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulkToggle(false)}
+              disabled={bulkLoading}
+              className="inline-flex items-center gap-1 px-3 py-1.5 border border-rose-200 text-rose-700 rounded-lg text-sm hover:bg-rose-50 disabled:opacity-50"
+            >
+              <XCircle className="h-4 w-4" /> Desactivar
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="backdrop-blur-xl bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-lg p-6 text-white border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-indigo-100 text-sm">Total Tipos</p>
-              <p className="text-3xl font-bold">{tiposRol.length}</p>
-            </div>
-            <Shield className="w-16 h-16 text-white/30" />
-          </div>
-        </div>
-        <div className="backdrop-blur-xl bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm">Activos</p>
-              <p className="text-3xl font-bold">{tiposRol.filter(t => t.activo).length}</p>
-            </div>
-            <CheckIcon className="w-16 h-16 text-white/30" />
-          </div>
-        </div>
-        <div className="backdrop-blur-xl bg-gradient-to-br from-gray-500 to-gray-600 rounded-2xl shadow-lg p-6 text-white border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-100 text-sm">Inactivos</p>
-              <p className="text-3xl font-bold">{tiposRol.filter(t => !t.activo).length}</p>
-            </div>
-            <XIcon className="w-16 h-16 text-white/30" />
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg p-6 border border-gray-200/50">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="relative">
-            <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre o descripción..." className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all" />
-          </div>
-          <select value={filterActivo} onChange={(e) => setFilterActivo(e.target.value)} className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all">
-            <option value="">Todos los estados</option>
-            <option value="true">Activos</option>
-            <option value="false">Inactivos</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg overflow-hidden border border-gray-200/50">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
-              <tr>
-                <th className="px-6 py-4 text-left font-semibold">Nombre</th>
-                <th className="px-6 py-4 text-left font-semibold">Descripción</th>
-                <th className="px-6 py-4 text-center font-semibold">Estado</th>
-                <th className="px-6 py-4 text-center font-semibold">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="4" className="px-6 py-12 text-center">
-                    <div className="flex justify-center items-center space-x-3">
-                      <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-gray-600">Cargando...</span>
-                    </div>
-                  </td>
+      {/* Tabla / Cards */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-gray-500">Cargando...</div>
+        ) : displayMode === 'tabla' ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-6 py-4">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleSelectAllVisible}
+                      className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                    />
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nombre</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Descripcion</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Acciones</th>
                 </tr>
-              ) : paginatedTipos.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
-                    No se encontraron tipos de rol
-                  </td>
-                </tr>
-              ) : (
-                paginatedTipos.map((tipo, index) => (
-                  <tr key={tipo.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-indigo-50 transition-colors`}>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {tipos.map((tipo) => (
+                  <tr key={tipo.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="bg-indigo-100 p-2 rounded-lg">
-                          <Shield className="w-5 h-5 text-indigo-600" />
-                        </div>
-                        <span className="font-semibold text-gray-800">{tipo.nombre}</span>
-                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(tipo.id)}
+                        onChange={() => toggleSelect(tipo.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                      />
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{tipo.descripcion || '-'}</td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${tipo.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {tipo.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{tipo.nombre}</td>
+                    <td className="px-6 py-4 text-gray-600">{tipo.descripcion}</td>
                     <td className="px-6 py-4">
-                      <div className="flex justify-center space-x-2">
-                        <button onClick={() => handleEdit(tipo)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all">
-                          <EditIcon className="w-4 h-4" />
+                      {tipo.activo ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <CheckCircle className="w-3 h-3 mr-1" /> Activo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <XCircle className="w-3 h-3 mr-1" /> Inactivo
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right space-x-2">
+                      <button
+                        onClick={() => setDetailTipo(tipo)}
+                        className="text-gray-400 hover:text-cyan-600 transition-colors p-1"
+                        title="Detalle"
+                      >
+                        <List className="h-4 w-4" />
+                      </button>
+                      <Can permission="roles.change">
+                        <button
+                          onClick={() => handleEdit(tipo)}
+                          className="text-gray-400 hover:text-indigo-600 transition-colors p-1"
+                          title="Editar"
+                        >
+                          <Edit2 className="h-4 w-4" />
                         </button>
-                        <button onClick={() => handleDelete(tipo.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all">
-                          <TrashIcon className="w-4 h-4" />
+                      </Can>
+                      <Can permission="roles.delete">
+                        <button
+                          onClick={() => handleDelete(tipo.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </button>
-                      </div>
+                      </Can>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-between items-center px-6 py-4 bg-gray-50 border-t border-gray-200">
-            <div className="text-sm text-gray-600">
-              Mostrando {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, filteredTipos.length)} de {filteredTipos.length}
-            </div>
-            <div className="flex space-x-2">
-              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                Anterior
-              </button>
-              <span className="px-4 py-2 bg-indigo-600 text-white rounded-lg">
-                {currentPage} / {totalPages}
-              </span>
-              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                Siguiente
-              </button>
-            </div>
+                ))}
+                {tipos.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                      No se encontraron tipos de rol
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemLabel="tipos de rol"
+            />
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+              {tipos.map((tipo) => (
+                <div key={tipo.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="font-semibold text-gray-900">{tipo.nombre}</div>
+                      <div className="text-xs text-gray-500">{tipo.descripcion || 'Sin descripcion'}</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(tipo.id)}
+                      onChange={() => toggleSelect(tipo.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 mb-4">
+                    {tipo.activo ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Activo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Inactivo
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDetailTipo(tipo)}
+                      className="text-xs text-cyan-700 hover:underline"
+                    >
+                      Ver detalle
+                    </button>
+                    <Can permission="roles.change">
+                      <button
+                        onClick={() => handleEdit(tipo)}
+                        className="text-gray-400 hover:text-indigo-600 transition-colors p-1"
+                        title="Editar"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                    </Can>
+                  </div>
+                </div>
+              ))}
+              {tipos.length === 0 && (
+                <div className="col-span-full px-6 py-8 text-center text-gray-500">No se encontraron tipos de rol</div>
+              )}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemLabel="tipos de rol"
+            />
+          </>
         )}
       </div>
 
-      {/* Modal */}
-      {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-4 flex justify-between items-center rounded-t-2xl">
-              <h2 className="text-2xl font-bold">{editingTipo ? 'Editar Tipo de Rol' : 'Nuevo Tipo de Rol'}</h2>
-              <button onClick={() => { setShowModal(false); resetForm() }} className="p-2 hover:bg-white/20 rounded-lg transition-all">
-                <XIcon className="w-6 h-6" />
-              </button>
+      {/* Modal CRUD */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scaleIn">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-700 p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold text-white">
+                {editingTipo ? 'Editar Tipo de Rol' : 'Nuevo Tipo de Rol'}
+              </h2>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Nombre */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Nombre *
-                </label>
-                <div className="relative">
-                  <TypeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="text" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:border-indigo-500 focus:outline-none transition-all" placeholder="Administrativo, Operativo..." required />
-                </div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.nombre}
+                  onChange={e => setFormData({...formData, nombre: e.target.value})}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all"
+                  placeholder="Ej: Administrativo"
+                />
               </div>
 
-              {/* Descripción */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Descripción
-                </label>
-                <div className="relative">
-                  <FileTextIcon className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                  <textarea value={formData.descripcion} onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })} className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:border-indigo-500 focus:outline-none transition-all" placeholder="Descripción del tipo de rol" rows={3} />
-                </div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Descripcion</label>
+                <textarea
+                  value={formData.descripcion}
+                  onChange={e => setFormData({...formData, descripcion: e.target.value})}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all"
+                  rows="3"
+                  placeholder="Descripcion breve..."
+                />
               </div>
 
-              {/* Activo */}
-              <div className="flex items-center space-x-3 bg-gray-50 p-4 rounded-xl">
-                <input type="checkbox" id="activo" checked={formData.activo} onChange={(e) => setFormData({ ...formData, activo: e.target.checked })} className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="activo"
+                  checked={formData.activo}
+                  onChange={e => setFormData({...formData, activo: e.target.checked})}
+                  className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                />
                 <label htmlFor="activo" className="text-sm font-medium text-gray-700">
-                  Tipo activo
+                  Activo (Disponible para uso)
                 </label>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold transition-all">
+              {error && (
+                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  {error}
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                >
                   Cancelar
                 </button>
-                <button type="submit" className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 font-semibold transition-all transform hover:scale-105 shadow-lg">
-                  {editingTipo ? 'Actualizar' : 'Crear'}
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-700 text-white rounded-lg hover:from-teal-700 hover:to-cyan-800 transition-colors shadow-md font-medium flex items-center"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar Tipo
                 </button>
               </div>
             </form>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default TiposRolTab
+export default TiposRolTab;

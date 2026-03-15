@@ -15,6 +15,7 @@ import {
   ExternalLink
 } from 'lucide-react'
 import ayudaService from '../../services/ayudaService'
+import { usePermissions } from '../../context/PermissionsContext'
 
 /**
  * ════════════════════════════════════════════════════════════
@@ -31,6 +32,7 @@ import ayudaService from '../../services/ayudaService'
  * @component
  */
 const TutorialDetailPage = () => {
+  const { hasPermission, initialized } = usePermissions()
   const { id } = useParams()
   const navigate = useNavigate()
   const [tutorial, setTutorial] = useState(null)
@@ -142,6 +144,9 @@ const TutorialDetailPage = () => {
     const mins = minutos % 60
     return mins > 0 ? `${horas}h ${mins}min` : `${horas}h`
   }
+
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('ayuda.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   if (loading) {
     return (

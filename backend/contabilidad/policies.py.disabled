@@ -1,0 +1,134 @@
+"""
+Contabilidad Access Policies
+=============================
+Políticas de acceso para contabilidad.
+
+Policies:
+- TransaccionAccessPolicy: Transacciones contables
+- CuentaAccessPolicy: Plan de cuentas
+- AsientoAccessPolicy: Asientos contables
+"""
+
+from core.policies import (
+    BaseAccessPolicy,
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    RowLevelSecurityMixin
+)
+
+
+class TransaccionAccessPolicy(
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    BaseAccessPolicy
+):
+    """
+    Policy para transacciones contables.
+    """
+    
+    id = 'transaccion_access_policy'
+    resource_name = 'transaccion'
+    
+    action_map = {
+        'list': 'ver',
+        'retrieve': 'ver',
+        'create': 'crear',
+        'update': 'editar',
+        'partial_update': 'editar',
+        'destroy': 'eliminar',
+        'aprobar': 'aprobar',
+        'anular': 'anular',
+    }
+    
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["create", "update", "partial_update"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["destroy", "aprobar", "anular"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+    ]
+
+
+class CuentaAccessPolicy(
+    RBACPermissionMixin,
+    BaseAccessPolicy
+):
+    """
+    Policy para plan de cuentas.
+    """
+    
+    id = 'cuenta_access_policy'
+    resource_name = 'cuenta'
+    
+    action_map = {
+        'list': 'ver',
+        'retrieve': 'ver',
+        'create': 'crear',
+        'update': 'editar',
+        'partial_update': 'editar',
+        'destroy': 'eliminar',
+    }
+    
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["create", "update", "partial_update", "destroy"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+    ]
+
+
+class AsientoAccessPolicy(
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    BaseAccessPolicy
+):
+    """
+    Policy para asientos contables.
+    """
+    
+    id = 'asiento_access_policy'
+    resource_name = 'asiento'
+    
+    action_map = {
+        'list': 'ver',
+        'retrieve': 'ver',
+        'create': 'crear',
+        'update': 'editar',
+        'partial_update': 'editar',
+        'destroy': 'eliminar',
+        'cerrar': 'cerrar',
+    }
+    
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["create", "update", "partial_update"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["destroy", "cerrar"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+    ]

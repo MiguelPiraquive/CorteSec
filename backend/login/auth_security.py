@@ -1,20 +1,63 @@
 """
 Sistema de seguridad avanzado para autenticación.
-Incluye límites de intentos, validación de tokens y auditoría.
+Incluye límites de intentos y auditoría.
+Lee configuración dinámica desde ConfiguracionSeguridad.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
+from django.utils import timezone
 from django.core.cache import cache
 from django.conf import settings
 from django.contrib.auth import authenticate
-from rest_framework.authtoken.models import Token
 from rest_framework.throttling import UserRateThrottle
 from rest_framework import status
 from rest_framework.response import Response
 import hashlib
 
 logger = logging.getLogger('security')
+
+# Cache key y TTL para la configuración de seguridad (evita hit a DB en cada request)
+_SECURITY_CONFIG_CACHE_KEY = 'security_config_cached'
+_SECURITY_CONFIG_CACHE_TTL = 60  # 1 minuto
+
+
+def _get_security_config():
+    """
+    Obtiene la configuración de seguridad desde DB con cache de 1 minuto.
+    Retorna dict con max_intentos_login, tiempo_bloqueo (en segundos), etc.
+    Si la tabla aún no existe (migraciones pendientes), retorna defaults.
+    """
+    cached = cache.get(_SECURITY_CONFIG_CACHE_KEY)
+    if cached is not None:
+        return cached
+
+    defaults = {
+        'max_intentos_login': 5,
+        'tiempo_bloqueo': 900,  # 15 min en segundos
+        'tiempo_sesion': 30,
+        'notificar_login_fallido': True,
+        'notificar_cambio_password': True,
+        'permitir_multiples_sesiones': False,
+        'ips_permitidas': '',
+    }
+
+    try:
+        from configuracion.models import ConfiguracionSeguridad
+        config = ConfiguracionSeguridad.get_config()
+        result = {
+            'max_intentos_login': config.max_intentos_login or 5,
+            'tiempo_bloqueo': (config.tiempo_bloqueo or 15) * 60,  # convertir minutos a segundos
+            'tiempo_sesion': config.tiempo_sesion or 30,
+            'notificar_login_fallido': config.notificar_login_fallido,
+            'notificar_cambio_password': config.notificar_cambio_password,
+            'permitir_multiples_sesiones': config.permitir_multiples_sesiones,
+            'ips_permitidas': config.ips_permitidas or '',
+        }
+        cache.set(_SECURITY_CONFIG_CACHE_KEY, result, _SECURITY_CONFIG_CACHE_TTL)
+        return result
+    except Exception:
+        return defaults
 
 
 class LoginRateThrottle(UserRateThrottle):
@@ -27,11 +70,18 @@ class LoginRateThrottle(UserRateThrottle):
 class AuthSecurityManager:
     """
     Gestor de seguridad para autenticación.
+    Lee max_intentos_login y tiempo_bloqueo desde ConfiguracionSeguridad.
     """
     
+    # Fallbacks (se usan solo si la DB no está disponible)
     MAX_LOGIN_ATTEMPTS = 5
     LOCKOUT_DURATION = 900  # 15 minutos en segundos
-    TOKEN_VALIDITY_HOURS = 24
+    
+    @classmethod
+    def _get_limits(cls):
+        """Obtiene límites dinámicos desde ConfiguracionSeguridad"""
+        config = _get_security_config()
+        return config['max_intentos_login'], config['tiempo_bloqueo']
     
     @classmethod
     def get_client_ip(cls, request):
@@ -56,7 +106,7 @@ class AuthSecurityManager:
         attempts_data = cache.get(cache_key, {'attempts': 0, 'locked_until': None})
         
         if attempts_data.get('locked_until'):
-            if datetime.now() < attempts_data['locked_until']:
+            if timezone.now() < attempts_data['locked_until']:
                 return True
             else:
                 # El bloqueo ha expirado, limpiar
@@ -68,25 +118,77 @@ class AuthSecurityManager:
     @classmethod
     def record_failed_attempt(cls, email, ip_address):
         """Registra un intento fallido de login"""
+        max_attempts, lockout_duration = cls._get_limits()
+        
         cache_key = cls.get_cache_key(email, ip_address)
         attempts_data = cache.get(cache_key, {'attempts': 0, 'locked_until': None})
         
         attempts_data['attempts'] += 1
         
         # Si se excede el límite, bloquear
-        if attempts_data['attempts'] >= cls.MAX_LOGIN_ATTEMPTS:
-            attempts_data['locked_until'] = datetime.now() + timedelta(seconds=cls.LOCKOUT_DURATION)
+        if attempts_data['attempts'] >= max_attempts:
+            attempts_data['locked_until'] = timezone.now() + timedelta(seconds=lockout_duration)
             logger.warning(
                 f"Account locked out for {email} from IP {ip_address} "
                 f"after {attempts_data['attempts']} failed attempts"
             )
+            # Enviar notificación si está habilitada
+            cls._notify_failed_login(email, ip_address, attempts_data['attempts'])
         
-        cache.set(cache_key, attempts_data, cls.LOCKOUT_DURATION + 60)
+        cache.set(cache_key, attempts_data, lockout_duration + 60)
         
         logger.warning(
-            f"Failed login attempt {attempts_data['attempts']}/{cls.MAX_LOGIN_ATTEMPTS} "
+            f"Failed login attempt {attempts_data['attempts']}/{max_attempts} "
             f"for {email} from IP {ip_address}"
         )
+    
+    @classmethod
+    def _notify_failed_login(cls, email, ip_address, attempt_count):
+        """Envía notificación por email al admin cuando se bloquea una cuenta"""
+        try:
+            config = _get_security_config()
+            if not config.get('notificar_login_fallido', False):
+                return
+            
+            from core.email_service import send_system_email, _get_email_config
+            
+            subject = f'[CorteSec] Alerta: Cuenta bloqueada - {email}'
+            message = (
+                f"Se ha bloqueado el acceso para el usuario {email}\n\n"
+                f"Detalles:\n"
+                f"- IP: {ip_address}\n"
+                f"- Intentos fallidos: {attempt_count}\n"
+                f"- Fecha: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                f"La cuenta será desbloqueada automáticamente después del tiempo configurado."
+            )
+            
+            # Enviar al email_administrador configurado, o a ADMINS de settings
+            email_config = _get_email_config()
+            admin_email = email_config.get('email_administrador', '') if email_config else ''
+            
+            if admin_email:
+                send_system_email(
+                    subject=subject,
+                    message=message,
+                    recipient_list=[admin_email],
+                    fail_silently=True,
+                )
+            else:
+                # Fallback: enviar a ADMINS de settings.py
+                from django.conf import settings as django_settings
+                admins = getattr(django_settings, 'ADMINS', [])
+                admin_emails = [a[1] for a in admins if len(a) > 1]
+                if admin_emails:
+                    send_system_email(
+                        subject=subject,
+                        message=message,
+                        recipient_list=admin_emails,
+                        fail_silently=True,
+                    )
+            
+            logger.info(f"Notificación de login fallido enviada para {email}")
+        except Exception as e:
+            logger.error(f"Error enviando notificación de login fallido: {e}")
     
     @classmethod
     def record_successful_login(cls, email, ip_address):
@@ -95,53 +197,14 @@ class AuthSecurityManager:
         cache.delete(cache_key)
         
         logger.info(f"Successful login for {email} from IP {ip_address}")
-    
-    @classmethod
-    def is_token_valid(cls, token):
-        """Verifica si un token es válido y no ha expirado"""
-        try:
-            if not token or not token.created:
-                return False
-            
-            # Verificar si el token ha expirado
-            token_age = datetime.now() - token.created.replace(tzinfo=None)
-            max_age = timedelta(hours=cls.TOKEN_VALIDITY_HOURS)
-            
-            if token_age > max_age:
-                logger.info(f"Token expired for user {token.user.email}")
-                token.delete()
-                return False
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error validating token: {e}")
-            return False
-    
-    @classmethod
-    def clean_expired_tokens(cls):
-        """Limpia tokens expirados del sistema"""
-        try:
-            cutoff_time = datetime.now() - timedelta(hours=cls.TOKEN_VALIDITY_HOURS)
-            expired_tokens = Token.objects.filter(created__lt=cutoff_time)
-            count = expired_tokens.count()
-            expired_tokens.delete()
-            
-            if count > 0:
-                logger.info(f"Cleaned {count} expired tokens")
-            
-            return count
-            
-        except Exception as e:
-            logger.error(f"Error cleaning expired tokens: {e}")
-            return 0
-    
+
     @classmethod
     def secure_authenticate(cls, request, email, password):
         """
         Autenticación segura con verificación de intentos y auditoría.
         """
         ip_address = cls.get_client_ip(request)
+        _max_attempts, lockout_duration = cls._get_limits()
         
         # Verificar si está bloqueado
         if cls.is_locked_out(email, ip_address):
@@ -150,63 +213,32 @@ class AuthSecurityManager:
             )
             return None, {
                 'error': 'Cuenta temporalmente bloqueada debido a múltiples intentos fallidos.',
-                'locked_out': True
+                'locked_out': True,
+                'lockout_duration': lockout_duration
             }
         
         # Intentar autenticar
         user = authenticate(request, email=email, password=password)
-        
+
+        # Mensaje genérico para evitar account enumeration
+        generic_error = {
+            'error': 'Credenciales inválidas.',
+            'invalid_credentials': True
+        }
+
         if user:
             if not user.is_active:
                 cls.record_failed_attempt(email, ip_address)
-                return None, {
-                    'error': 'Esta cuenta está desactivada.',
-                    'account_disabled': True
-                }
-            
+                # Mismo mensaje genérico para evitar revelar que la cuenta existe
+                return None, generic_error
+
             # Login exitoso
             cls.record_successful_login(email, ip_address)
             return user, None
         else:
             # Login fallido
             cls.record_failed_attempt(email, ip_address)
-            return None, {
-                'error': 'Credenciales inválidas.',
-                'invalid_credentials': True
-            }
-    
-    @classmethod
-    def create_secure_token(cls, user):
-        """Crea un token seguro y limpia tokens antiguos del usuario"""
-        try:
-            # Eliminar tokens existentes del usuario
-            Token.objects.filter(user=user).delete()
-            
-            # Crear nuevo token
-            token = Token.objects.create(user=user)
-            
-            logger.info(f"New secure token created for user {user.email}")
-            return token
-            
-        except Exception as e:
-            logger.error(f"Error creating secure token for user {user.email}: {e}")
-            return None
-    
-    @classmethod
-    def validate_user_token(cls, user):
-        """Valida y renueva el token de un usuario si es necesario"""
-        try:
-            token = Token.objects.filter(user=user).first()
-            
-            if not token or not cls.is_token_valid(token):
-                # Crear nuevo token si no existe o ha expirado
-                token = cls.create_secure_token(user)
-            
-            return token
-            
-        except Exception as e:
-            logger.error(f"Error validating user token: {e}")
-            return None
+            return None, generic_error
 
 
 class SecurityAuditLogger:

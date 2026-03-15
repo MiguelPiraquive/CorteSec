@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
 from decimal import Decimal
 from core.mixins import TenantAwareModel
 
@@ -49,7 +49,10 @@ class ConfiguracionGeneral(TenantAwareModel):
         upload_to='configuracion/logos/',
         blank=True,
         null=True,
-        verbose_name=_("Logo de la empresa")
+        verbose_name=_("Logo de la empresa"),
+        validators=[FileExtensionValidator(
+            allowed_extensions=['jpg', 'jpeg', 'png', 'webp', 'svg']
+        )]
     )
     
     # Configuración de moneda
@@ -119,6 +122,38 @@ class ConfiguracionGeneral(TenantAwareModel):
         null=True,
         verbose_name=_("Cuenta de nómina por defecto"),
         help_text=_("Código de cuenta contable para nómina")
+    )
+
+    cuenta_prestamos_defecto = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name=_("Cuenta de préstamos por defecto"),
+        help_text=_("Código de cuenta contable para préstamos (cartera)")
+    )
+
+    cuenta_intereses_prestamo_defecto = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name=_("Cuenta de intereses de préstamos"),
+        help_text=_("Código de cuenta contable para intereses de préstamos")
+    )
+
+    cuenta_mora_prestamo_defecto = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name=_("Cuenta de mora de préstamos"),
+        help_text=_("Código de cuenta contable para mora de préstamos")
+    )
+
+    cuenta_otras_deducciones_defecto = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name=_("Cuenta otras deducciones"),
+        help_text=_("Código de cuenta contable para otras deducciones de nómina")
     )
     
     # Campos de auditoría
@@ -191,7 +226,6 @@ class ParametroSistema(TenantAwareModel):
     
     codigo = models.CharField(
         max_length=100,
-        unique=True,
         verbose_name=_("Código"),
         help_text=_("Código único del parámetro")
     )
@@ -253,6 +287,7 @@ class ParametroSistema(TenantAwareModel):
         verbose_name = _("Parámetro del Sistema")
         verbose_name_plural = _("Parámetros del Sistema")
         ordering = ['codigo']
+        unique_together = [['organization', 'codigo']]
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
@@ -353,7 +388,7 @@ class ConfiguracionModulo(TenantAwareModel):
     class Meta:
         verbose_name = _("Configuración de Módulo")
         verbose_name_plural = _("Configuraciones de Módulo")
-        unique_together = ['modulo']
+        unique_together = [['organization', 'modulo']]
         ordering = ['orden_menu', 'modulo']
 
     def __str__(self):
@@ -594,6 +629,13 @@ class ConfiguracionSeguridad(TenantAwareModel):
         if not self.pk and ConfiguracionSeguridad.objects.exists():
             raise ValueError(_("Solo puede existir una configuración de seguridad"))
         super().save(*args, **kwargs)
+        # Invalidar TODOS los caches de seguridad para que los cambios apliquen de inmediato
+        from django.core.cache import cache
+        cache.delete('security_config_cached')
+        cache.delete('pwd_security_config')
+        cache.delete('audit_config_enabled')
+        cache.delete('security_ips_permitidas')
+        cache.delete('security_session_config')
 
     @classmethod
     def get_config(cls):
@@ -610,6 +652,8 @@ class ConfiguracionEmail(TenantAwareModel):
     # Configuración del servidor SMTP
     servidor_smtp = models.CharField(
         max_length=255,
+        blank=True,
+        default='smtp.gmail.com',
         verbose_name=_("Servidor SMTP"),
         help_text=_("Dirección del servidor SMTP")
     )
@@ -622,12 +666,16 @@ class ConfiguracionEmail(TenantAwareModel):
     
     usuario_smtp = models.CharField(
         max_length=255,
+        blank=True,
+        default='',
         verbose_name=_("Usuario SMTP"),
         help_text=_("Usuario para autenticación SMTP")
     )
     
     password_smtp = models.CharField(
         max_length=255,
+        blank=True,
+        default='',
         verbose_name=_("Contraseña SMTP"),
         help_text=_("Contraseña para autenticación SMTP")
     )
@@ -646,12 +694,16 @@ class ConfiguracionEmail(TenantAwareModel):
     
     # Configuración de remitente
     email_remitente = models.EmailField(
+        blank=True,
+        default='',
         verbose_name=_("Email remitente"),
         help_text=_("Dirección de email que aparecerá como remitente")
     )
     
     nombre_remitente = models.CharField(
         max_length=255,
+        blank=True,
+        default='',
         verbose_name=_("Nombre remitente"),
         help_text=_("Nombre que aparecerá como remitente")
     )
@@ -743,6 +795,10 @@ class ConfiguracionEmail(TenantAwareModel):
         if not self.pk and ConfiguracionEmail.objects.exists():
             raise ValueError(_("Solo puede existir una configuración de email"))
         super().save(*args, **kwargs)
+        
+        # Invalidar cache del servicio de email para que los cambios apliquen inmediatamente
+        from django.core.cache import cache
+        cache.delete('email_config_cached')
 
     @classmethod
     def get_config(cls):

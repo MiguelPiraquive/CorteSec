@@ -1,658 +1,889 @@
 """
-ViewSets del Sistema de Roles
-==============================
+API Views para el Sistema de Roles
+==================================
 
-ViewSets completos para la API REST del sistema de roles.
-Incluye endpoints avanzados, acciones personalizadas y filtros.
+API REST completa para la gestión de roles, asignaciones y auditoría.
+Incluye todas las funcionalidades del sistema de roles empresarial.
 
 Autor: Sistema CorteSec
 Versión: 2.0.0
 """
 
-from rest_framework import viewsets, filters, permissions, status
+from rest_framework import generics, viewsets, status, permissions, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
+from django.db.models import Q, Count, Prefetch
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Q, Count
-from login.models import CustomUser
-from .models import TipoRol, Rol, AsignacionRol
-from .serializers import (
-    TipoRolSerializer,
-    RolSerializer, RolListSerializer, RolDetailSerializer, RolJerarquiaSerializer,
-    AsignacionRolSerializer, AsignacionRolListSerializer
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+import logging
+
+from .models import (
+    Rol, AsignacionRol, TipoRol, EstadoAsignacion, PlantillaRol,
+    MetaRol, RolCondicional, AuditoriaRol, ConfiguracionRol, HistorialAsignacion
 )
-from core.mixins import MultiTenantViewSetMixin
-from core.models import LogAuditoria
-from core.decorators import get_client_ip
+from .serializers import RolSerializer, AsignacionRolSerializer, TipoRolSerializer, HistorialAsignacionSerializer, AuditoriaRolSerializer
+from .policies import (
+    RolesAccessPolicy, TipoRolAccessPolicy, AsignacionRolAccessPolicy,
+    HistorialAsignacionPolicy, AuditoriaRolPolicy,
+)
+from core.pagination import StandardResultsSetPagination
+
+User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
-# ============================================================================
-# VIEWSET PARA TIPO DE ROL
-# ============================================================================
-
-class TipoRolViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
-    """ViewSet para gestión de tipos de rol"""
-    
-    queryset = TipoRol.objects.all()
-    serializer_class = TipoRolSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['activo']
-    search_fields = ['nombre', 'descripcion']
-    ordering_fields = ['nombre', 'orden', 'fecha_creacion']
-    ordering = ['orden', 'nombre']
-    
-    def get_queryset(self):
-        """Filtrar por organización"""
-        return self.queryset.filter(organization=self.request.user.organization)
-    
-    def perform_create(self, serializer):
-        """Asignar organización al crear"""
-        serializer.save(organization=self.request.user.organization)
-    
-    @action(detail=False, methods=['get'])
-    def activos(self, request):
-        """Obtener solo tipos activos"""
-        queryset = self.get_queryset().filter(activo=True)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
-
-# ============================================================================
-# VIEWSET PARA ROL
-# ============================================================================
-
-class RolViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
+class RolViewSet(viewsets.ModelViewSet):
     """
-    ViewSet Multi-Tenant para gestión completa de roles empresariales.
+    ViewSet completo para gestionar Roles.
     
-    Incluye:
-    - CRUD completo
+    Funcionalidades:
+    - CRUD completo de roles
+    - Búsqueda y filtrado avanzado
     - Gestión de jerarquía
-    - Activación/Desactivación
-    - Duplicación
-    - Asignación a usuarios
     - Estadísticas
+    - Exportación
     """
     
-    queryset = Rol.objects.select_related('organization', 'tipo_rol', 'rol_padre').all()
+    queryset = Rol.objects.select_related('tipo_rol').prefetch_related('roles_hijo')
     serializer_class = RolSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['tipo_rol', 'activo', 'es_sistema', 'es_publico', 'categoria', 'nivel_jerarquico']
     search_fields = ['nombre', 'codigo', 'descripcion', 'categoria']
     ordering_fields = ['nombre', 'codigo', 'nivel_jerarquico', 'prioridad', 'fecha_creacion']
-    ordering = ['nivel_jerarquico', 'prioridad', 'nombre']
+    ordering = ['nivel_jerarquico', 'nombre']
+    permission_classes = [RolesAccessPolicy]
     
     def get_queryset(self):
-        """Filtrar por organización"""
-        queryset = self.queryset.filter(organization=self.request.user.organization)
-        
-        # Filtros adicionales por query params
-        rol_padre_id = self.request.query_params.get('rol_padre')
-        if rol_padre_id:
-            if rol_padre_id == 'null':
-                queryset = queryset.filter(rol_padre__isnull=True)
-            else:
-                queryset = queryset.filter(rol_padre_id=rol_padre_id)
-        
+        """Optimiza queryset según la acción y filtra por tenant"""
+        queryset = self.queryset
+
+        # Tenant filtering
+        user = self.request.user
+        if not user.is_superuser:
+            org_id = str(user.organization_id) if user.organization_id else None
+            if not org_id:
+                return queryset.none()
+            queryset = queryset.filter(tenant_id=org_id)
+
+        if self.action == 'list':
+            # Para lista, cargar solo datos necesarios
+            queryset = queryset.select_related('tipo_rol').only(
+                'id', 'uuid', 'nombre', 'codigo', 'descripcion', 'activo',
+                'nivel_jerarquico', 'prioridad', 'fecha_creacion', 'tipo_rol__nombre'
+            )
+        elif self.action == 'retrieve':
+            # Para detalle, cargar todo incluyendo relaciones
+            queryset = queryset.prefetch_related(
+                'asignaciones__usuario',
+                'configuracion_dinamica'
+            )
+
         return queryset
     
-    def get_serializer_class(self):
-        """Usar serializador apropiado según la acción"""
-        if self.action == 'list':
-            return RolListSerializer
-        elif self.action == 'retrieve':
-            return RolDetailSerializer
-        elif self.action == 'jerarquia':
-            return RolJerarquiaSerializer
-        return self.serializer_class
-    
     def perform_create(self, serializer):
-        """Asignar organización y usuario al crear"""
-        rol = serializer.save(
-            organization=self.request.user.organization,
-            tenant_id=str(self.request.user.organization.id),
-            creado_por=self.request.user
+        """Personaliza la creación de roles"""
+        serializer.save(creado_por=self.request.user)
+
+        # Invalidar cache
+        cache.delete_many(['roles_activos', 'roles_publicos'])
+
+    def perform_destroy(self, instance):
+        """Protege roles del sistema contra eliminación"""
+        if instance.es_sistema:
+            raise serializers.ValidationError(
+                {'detail': 'Los roles del sistema no pueden ser eliminados.'}
+            )
+
+        # Verificar que no haya asignaciones activas
+        if AsignacionRol.objects.filter(rol=instance, activa=True).exists():
+            raise serializers.ValidationError(
+                {'detail': 'No se puede eliminar un rol con asignaciones activas. Desactive las asignaciones primero.'}
+            )
+
+        # Auditar eliminación
+        AuditoriaRol.objects.create(
+            rol=instance,
+            accion='eliminar_rol',
+            usuario_ejecutor=self.request.user,
+            detalles_anterior={'nombre': instance.nombre, 'codigo': instance.codigo}
         )
-        
-        # LOG DE AUDITORÍA
-        LogAuditoria.objects.create(
-            usuario=self.request.user,
-            accion='crear_rol',
-            modelo='Rol',
-            objeto_id=rol.id,
-            ip_address=get_client_ip(self.request),
-            user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:255],
-            datos_despues={'nombre': rol.nombre, 'codigo': rol.codigo},
-            metadata={'tipo_rol': rol.tipo_rol.nombre if rol.tipo_rol else None}
-        )
+
+        instance.delete()
+        cache.delete_many(['roles_activos', 'roles_publicos'])
     
     def perform_update(self, serializer):
-        """Asignar usuario al actualizar"""
-        rol = serializer.save(modificado_por=self.request.user)
-        
-        # LOG DE AUDITORÍA
-        LogAuditoria.objects.create(
-            usuario=self.request.user,
-            accion='modificar_rol',
-            modelo='Rol',
-            objeto_id=rol.id,
-            ip_address=get_client_ip(self.request),
-            user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:255],
-            datos_despues={'nombre': rol.nombre, 'codigo': rol.codigo, 'activo': rol.activo},
-            metadata={'tipo_rol': rol.tipo_rol.nombre if rol.tipo_rol else None}
-        )
-    
-    def perform_destroy(self, instance):
-        """Validar antes de eliminar"""
+        """Personaliza la actualización de roles"""
+        instance = self.get_object()
+
+        # Proteger roles del sistema
         if instance.es_sistema:
-            return Response(
-                {'error': 'No se pueden eliminar roles del sistema'},
-                status=status.HTTP_400_BAD_REQUEST
+            raise serializers.ValidationError(
+                {'detail': 'Los roles del sistema no pueden ser modificados.'}
             )
+
+        instance = serializer.save(modificado_por=self.request.user)
         
-        if instance.asignaciones_activas > 0:
-            return Response(
-                {'error': f'El rol tiene {instance.asignaciones_activas} asignaciones activas'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Preparar datos serializables para auditoría
+        detalles_serializables = {}
+        for key, value in serializer.validated_data.items():
+            if hasattr(value, 'id'):
+                # Para objetos relacionados, guardar solo el ID
+                detalles_serializables[key] = {
+                    'id': value.id,
+                    'nombre': getattr(value, 'nombre', str(value))
+                }
+            elif hasattr(value, '__dict__'):
+                # Para otros objetos complejos, convertir a string
+                detalles_serializables[key] = str(value)
+            else:
+                # Para tipos básicos, guardar tal como está
+                detalles_serializables[key] = value
         
-        # LOG DE AUDITORÍA ANTES DE ELIMINAR
-        LogAuditoria.objects.create(
-            usuario=self.request.user,
-            accion='eliminar_rol',
-            modelo='Rol',
-            objeto_id=instance.id,
-            ip_address=get_client_ip(self.request),
-            user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:255],
-            datos_antes={'nombre': instance.nombre, 'codigo': instance.codigo},
-            metadata={'tipo_rol': instance.tipo_rol.nombre if instance.tipo_rol else None}
+        # Crear auditoría
+        AuditoriaRol.objects.create(
+            rol=instance,
+            accion='modificar_rol',
+            usuario_ejecutor=self.request.user,
+            detalles_nuevo=detalles_serializables
         )
         
-        instance.delete()
+        # Invalidar cache
+        instance.invalidar_cache()
     
-    # ========================================================================
-    # ENDPOINTS DE ESTADÍSTICAS
-    # ========================================================================
-    
-    @action(detail=False, methods=['get'])
-    def estadisticas(self, request):
-        """Obtener estadísticas generales de roles"""
-        queryset = self.get_queryset()
+    @action(detail=True, methods=['post'])
+    def toggle_activo(self, request, pk=None):
+        """Activa/desactiva un rol"""
+        rol = self.get_object()
+
+        # Proteger roles del sistema
+        if rol.es_sistema:
+            return Response(
+                {'error': 'Los roles del sistema no pueden ser desactivados.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        rol.activo = not rol.activo
+        rol.modificado_por = request.user
+        rol.save()
         
-        total = queryset.count()
-        activos = queryset.filter(activo=True).count()
-        inactivos = queryset.filter(activo=False).count()
-        sistema = queryset.filter(es_sistema=True).count()
-        publicos = queryset.filter(es_publico=True).count()
-        con_restriccion_horario = queryset.filter(tiene_restriccion_horario=True).count()
-        
-        # Por tipo
-        por_tipo = queryset.values('tipo_rol__nombre').annotate(
-            total=Count('id')
-        ).order_by('-total')
-        
-        # Por nivel jerárquico
-        por_nivel = queryset.values('nivel_jerarquico').annotate(
-            total=Count('id')
-        ).order_by('nivel_jerarquico')
+        # Crear auditoría
+        AuditoriaRol.objects.create(
+            rol=rol,
+            accion='activar_rol' if rol.activo else 'desactivar_rol',
+            usuario_ejecutor=request.user
+        )
         
         return Response({
-            'total': total,
-            'activos': activos,
-            'inactivos': inactivos,
-            'sistema': sistema,
-            'publicos': publicos,
-            'con_restriccion_horario': con_restriccion_horario,
-            'por_tipo': list(por_tipo),
-            'por_nivel': list(por_nivel)
+            'message': f'Rol {"activado" if rol.activo else "desactivado"} exitosamente',
+            'activo': rol.activo
         })
     
-    # ========================================================================
-    # ENDPOINTS DE JERARQUÍA
-    # ========================================================================
-    
-    @action(detail=False, methods=['get'])
-    def jerarquia(self, request):
-        """Obtener árbol jerárquico completo de roles"""
-        # Obtener solo roles raíz (sin padre)
-        roles_raiz = self.get_queryset().filter(rol_padre__isnull=True).order_by('prioridad', 'nombre')
-        serializer = RolJerarquiaSerializer(roles_raiz, many=True)
-        return Response(serializer.data)
-    
     @action(detail=True, methods=['get'])
-    def jerarquia_completa(self, request, pk=None):
-        """Obtener la jerarquía completa de un rol específico"""
+    def jerarquia(self, request, pk=None):
+        """Obtiene la jerarquía completa del rol"""
         rol = self.get_object()
         jerarquia = rol.get_jerarquia_completa()
         
-        data = [{
-            'id': str(r.id),
-            'uuid': str(r.uuid),
-            'codigo': r.codigo,
-            'nombre': r.nombre,
-            'nivel_jerarquico': r.nivel_jerarquico
-        } for r in jerarquia]
-        
-        return Response(data)
+        serializer = RolSerializer(jerarquia, many=True)
+        return Response(serializer.data)
     
     @action(detail=True, methods=['get'])
     def descendientes(self, request, pk=None):
-        """Obtener todos los roles descendientes"""
+        """Obtiene todos los roles descendientes"""
         rol = self.get_object()
         descendientes = rol.get_roles_descendientes()
-        serializer = RolListSerializer(descendientes, many=True)
+        
+        serializer = RolSerializer(descendientes, many=True)
         return Response(serializer.data)
-    
-    # ========================================================================
-    # ENDPOINTS DE ACTIVACIÓN/DESACTIVACIÓN
-    # ========================================================================
-    
-    @action(detail=True, methods=['post'])
-    def activar(self, request, pk=None):
-        """Activar un rol"""
-        rol = self.get_object()
-        
-        if rol.activo:
-            return Response(
-                {'message': 'El rol ya está activo'},
-                status=status.HTTP_200_OK
-            )
-        
-        rol.activo = True
-        rol.modificado_por = request.user
-        rol.save()
-        
-        serializer = self.get_serializer(rol)
-        return Response({
-            'message': 'Rol activado exitosamente',
-            'rol': serializer.data
-        })
-    
-    @action(detail=True, methods=['post'])
-    def desactivar(self, request, pk=None):
-        """Desactivar un rol"""
-        rol = self.get_object()
-        
-        if rol.es_sistema:
-            return Response(
-                {'error': 'No se pueden desactivar roles del sistema'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if not rol.activo:
-            return Response(
-                {'message': 'El rol ya está inactivo'},
-                status=status.HTTP_200_OK
-            )
-        
-        rol.activo = False
-        rol.modificado_por = request.user
-        rol.save()
-        
-        serializer = self.get_serializer(rol)
-        return Response({
-            'message': 'Rol desactivado exitosamente',
-            'rol': serializer.data
-        })
-    
-    # ========================================================================
-    # ENDPOINTS DE DUPLICACIÓN
-    # ========================================================================
-    
-    @action(detail=True, methods=['post'])
-    def duplicar(self, request, pk=None):
-        """Duplicar un rol con nuevo código y nombre"""
-        rol_original = self.get_object()
-        nuevo_codigo = request.data.get('codigo')
-        nuevo_nombre = request.data.get('nombre')
-        
-        if not nuevo_codigo or not nuevo_nombre:
-            return Response(
-                {'error': 'Se requiere código y nombre para el nuevo rol'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Verificar que no exista el código
-        if Rol.objects.filter(
-            codigo=nuevo_codigo,
-            organization=request.user.organization
-        ).exists():
-            return Response(
-                {'error': f'Ya existe un rol con el código {nuevo_codigo}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Crear copia
-        rol_nuevo = Rol.objects.create(
-            organization=request.user.organization,
-            tenant_id=str(request.user.organization.id),
-            codigo=nuevo_codigo,
-            nombre=nuevo_nombre,
-            descripcion=rol_original.descripcion,
-            rol_padre=rol_original.rol_padre,
-            hereda_permisos=rol_original.hereda_permisos,
-            tipo_rol=rol_original.tipo_rol,
-            categoria=rol_original.categoria,
-            activo=True,
-            es_sistema=False,  # Las copias nunca son de sistema
-            es_publico=rol_original.es_publico,
-            requiere_aprobacion=rol_original.requiere_aprobacion,
-            tiene_restriccion_horario=rol_original.tiene_restriccion_horario,
-            hora_inicio=rol_original.hora_inicio,
-            hora_fin=rol_original.hora_fin,
-            dias_semana=rol_original.dias_semana,
-            fecha_inicio_vigencia=rol_original.fecha_inicio_vigencia,
-            fecha_fin_vigencia=rol_original.fecha_fin_vigencia,
-            prioridad=rol_original.prioridad,
-            peso=rol_original.peso,
-            color=rol_original.color,
-            icono=rol_original.icono,
-            metadatos=rol_original.metadatos.copy() if rol_original.metadatos else {},
-            configuracion=rol_original.configuracion.copy() if rol_original.configuracion else {},
-            creado_por=request.user
-        )
-        
-        serializer = self.get_serializer(rol_nuevo)
-        return Response({
-            'message': 'Rol duplicado exitosamente',
-            'rol': serializer.data
-        }, status=status.HTTP_201_CREATED)
-    
-    # ========================================================================
-    # ENDPOINTS DE ASIGNACIONES
-    # ========================================================================
     
     @action(detail=True, methods=['get'])
-    def asignaciones(self, request, pk=None):
-        """Obtener todas las asignaciones de un rol"""
+    def usuarios(self, request, pk=None):
+        """Obtiene usuarios asignados al rol"""
+        from .serializers import UsuarioSimpleSerializer
+
         rol = self.get_object()
-        asignaciones = rol.asignaciones.select_related('usuario', 'estado', 'asignado_por').all()
-        
-        # Filtrar por estado activo si se especifica
-        solo_activas = request.query_params.get('activas', 'false').lower() == 'true'
-        if solo_activas:
-            asignaciones = asignaciones.filter(activa=True)
-        
-        serializer = AsignacionRolListSerializer(asignaciones, many=True)
-        return Response(serializer.data)
+        asignaciones = AsignacionRol.objects.filter(
+            rol=rol,
+            activa=True,
+            usuario__organization=request.user.organization
+        ).select_related('usuario')
+
+        usuarios = [asig.usuario for asig in asignaciones]
+        return Response(UsuarioSimpleSerializer(usuarios, many=True).data)
     
     @action(detail=True, methods=['post'])
     def asignar_usuario(self, request, pk=None):
-        """Asignar rol a un usuario"""
+        """Asigna un usuario al rol"""
         rol = self.get_object()
         usuario_id = request.data.get('usuario_id')
-        
+
         if not usuario_id:
-            return Response(
-                {'error': 'Se requiere el ID del usuario'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Verificar que el rol esté activo
-        if not rol.activo:
-            return Response(
-                {'error': 'No se puede asignar un rol inactivo'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Crear asignación
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        
+            return Response({
+                'error': 'ID de usuario es requerido'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            usuario = User.objects.get(id=usuario_id)
+            usuario = User.objects.get(id=usuario_id, organization=request.user.organization)
         except User.DoesNotExist:
-            return Response(
-                {'error': 'Usuario no encontrado'},
-                status=status.HTTP_404_NOT_FOUND
+            return Response({
+                'error': 'Usuario no encontrado'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Hierarchy check: un usuario no puede asignar roles de nivel igual o superior al suyo
+        if not request.user.is_superuser:
+            asignaciones_admin = AsignacionRol.objects.filter(
+                usuario=request.user, activa=True
+            ).select_related('rol')
+            nivel_max_admin = max(
+                (a.rol.nivel_jerarquico for a in asignaciones_admin if a.esta_vigente()),
+                default=999
             )
-        
-        # Verificar si ya tiene el rol asignado
+            if rol.nivel_jerarquico <= nivel_max_admin:
+                return Response({
+                    'error': 'No tiene permisos para asignar un rol de nivel igual o superior al suyo.'
+                }, status=status.HTTP_403_FORBIDDEN)
+
+        # Verificar que no exista asignación activa
         asignacion_existente = AsignacionRol.objects.filter(
             usuario=usuario,
             rol=rol,
             activa=True
-        ).first()
+        ).exists()
         
         if asignacion_existente:
-            return Response(
-                {'error': 'El usuario ya tiene este rol asignado'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({
+                'error': 'El usuario ya tiene este rol asignado'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         # Crear asignación
-        from .models import EstadoAsignacion
-        estado_activo = EstadoAsignacion.objects.filter(nombre='ACTIVA').first()
-        
         asignacion = AsignacionRol.objects.create(
-            organization=request.user.organization,
-            tenant_id=str(request.user.organization.id),
             usuario=usuario,
             rol=rol,
-            estado=estado_activo,
-            activa=True,
-            justificacion=request.data.get('justificacion', ''),
-            observaciones=request.data.get('observaciones', ''),
+            asignado_por=request.user,
             fecha_inicio=request.data.get('fecha_inicio'),
             fecha_fin=request.data.get('fecha_fin'),
-            prioridad=request.data.get('prioridad', 0),
-            asignado_por=request.user
+            justificacion=request.data.get('justificacion', '')
         )
         
-        # Actualizar estadísticas del rol
-        rol.actualizar_estadisticas()
-        
-        serializer = AsignacionRolSerializer(asignacion)
         return Response({
-            'message': 'Rol asignado exitosamente',
-            'asignacion': serializer.data
+            'message': 'Usuario asignado exitosamente',
+            'asignacion_id': asignacion.id
         }, status=status.HTTP_201_CREATED)
-
-
-# ============================================================================
-# VIEWSET PARA ASIGNACIÓN DE ROL
-# ============================================================================
-
-class AsignacionRolViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
-    """ViewSet para gestión de asignaciones de roles"""
     
-    queryset = AsignacionRol.objects.select_related(
-        'usuario', 'rol', 'estado', 'asignado_por', 'aprobado_por', 'revocado_por'
-    ).all()
+    @action(detail=False, methods=['get'])
+    def estadisticas(self, request):
+        """Obtiene estadísticas de roles"""
+        organization = request.user.organization
+        cache_key = f'roles_estadisticas_{organization.id}'
+        stats = cache.get(cache_key)
+
+        if stats is None:
+            qs = self.get_queryset()
+            asignaciones_org = AsignacionRol.objects.filter(
+                usuario__organization=organization
+            )
+            stats = {
+                'total_roles': qs.count(),
+                'roles_activos': qs.filter(activo=True).count(),
+                'roles_inactivos': qs.filter(activo=False).count(),
+                'roles_sistema': qs.filter(es_sistema=True).count(),
+                'tipos_rol': TipoRol.objects.count(),
+                'total_asignaciones': asignaciones_org.count(),
+                'asignaciones_activas': asignaciones_org.filter(activa=True).count(),
+                'usuarios_con_roles': asignaciones_org.filter(
+                    activa=True
+                ).values('usuario').distinct().count(),
+                'por_tipo': list(
+                    TipoRol.objects.annotate(
+                        cantidad=Count('rol', filter=Q(rol__in=qs))
+                    ).values('nombre', 'cantidad')
+                ),
+                'por_nivel': list(
+                    qs.values('nivel_jerarquico').annotate(
+                        cantidad=Count('id')
+                    ).order_by('nivel_jerarquico')
+                )
+            }
+
+            cache.set(cache_key, stats, 300)  # Cache por 5 minutos
+
+        return Response(stats)
+    
+    @action(detail=False, methods=['get'])
+    def modulos(self, request):
+        """Obtiene módulos del sistema para roles"""
+        from permisos.models import ModuloSistema
+        from permisos.serializers import ModuloSistemaBasicSerializer
+        
+        modulos = ModuloSistema.objects.filter(activo=True).order_by('nivel', 'orden')
+        serializer = ModuloSistemaBasicSerializer(modulos, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def permisos(self, request):
+        """Obtiene permisos disponibles para asignar a roles"""
+        from permisos.models import Permiso
+        from permisos.serializers import PermisoBasicSerializer
+        
+        permisos = Permiso.objects.filter(activo=True).select_related('modulo', 'tipo_permiso')
+        serializer = PermisoBasicSerializer(permisos, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def publicos(self, request):
+        """Obtiene roles públicos que los usuarios pueden solicitar"""
+        roles_publicos = self.get_queryset().filter(
+            es_publico=True,
+            activo=True
+        ).select_related('tipo_rol')
+        
+        serializer = RolSerializer(roles_publicos, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def validar_codigo(self, request):
+        """Valida si un código de rol está disponible"""
+        codigo = request.data.get('codigo', '').strip()
+        if not codigo:
+            return Response({
+                'valido': False,
+                'mensaje': 'El código es requerido'
+            })
+        
+        existe = self.get_queryset().filter(codigo=codigo).exists()
+        return Response({
+            'valido': not existe,
+            'mensaje': 'Código disponible' if not existe else 'Código ya existe'
+        })
+    
+    @action(detail=True, methods=['get'])
+    def permisos_rol(self, request, pk=None):
+        """Obtiene los permisos de un rol específico"""
+        from .permisos_service import RolPermisosService
+        
+        rol = self.get_object()
+        incluir_heredados = request.query_params.get('incluir_heredados', 'true').lower() == 'true'
+        agrupar_por_modulo = request.query_params.get('agrupar_por_modulo', 'true').lower() == 'true'
+        
+        permisos = RolPermisosService.obtener_permisos_rol(
+            rol, incluir_heredados, agrupar_por_modulo
+        )
+        
+        estadisticas = RolPermisosService.obtener_estadisticas_permisos(rol)
+        
+        return Response({
+            'rol': {
+                'id': str(rol.id),
+                'nombre': rol.nombre,
+                'codigo': rol.codigo
+            },
+            'permisos': permisos,
+            'estadisticas': estadisticas
+        })
+    
+    @action(detail=True, methods=['post'])
+    def asignar_permisos(self, request, pk=None):
+        """Asigna permisos a un rol"""
+        from .permisos_service import RolPermisosService
+        
+        rol = self.get_object()
+        permisos_ids = request.data.get('permisos_ids', [])
+        motivo = request.data.get('motivo', '')
+        
+        if not permisos_ids:
+            return Response({
+                'error': 'Debe proporcionar al menos un permiso'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            resultado = RolPermisosService.asignar_permisos(
+                rol, permisos_ids, request.user, motivo
+            )
+            return Response(resultado)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['post'])
+    def revocar_permisos(self, request, pk=None):
+        """Revoca permisos de un rol"""
+        from .permisos_service import RolPermisosService
+        
+        rol = self.get_object()
+        permisos_ids = request.data.get('permisos_ids', [])
+        motivo = request.data.get('motivo', '')
+        
+        if not permisos_ids:
+            return Response({
+                'error': 'Debe proporcionar al menos un permiso'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            resultado = RolPermisosService.revocar_permisos(
+                rol, permisos_ids, request.user, motivo
+            )
+            return Response(resultado)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['post'])
+    def sincronizar_permisos(self, request, pk=None):
+        """Sincroniza todos los permisos de un rol"""
+        from .permisos_service import RolPermisosService
+        
+        rol = self.get_object()
+        permisos_ids = request.data.get('permisos_ids', [])
+        motivo = request.data.get('motivo', 'Sincronización de permisos')
+        
+        try:
+            resultado = RolPermisosService.sincronizar_permisos(
+                rol, permisos_ids, request.user, motivo
+            )
+            return Response(resultado)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['post'])
+    def copiar_permisos(self, request, pk=None):
+        """Copia permisos desde otro rol"""
+        from .permisos_service import RolPermisosService
+        
+        rol_destino = self.get_object()
+        rol_origen_id = request.data.get('rol_origen_id')
+        motivo = request.data.get('motivo', 'Copia de permisos')
+        
+        if not rol_origen_id:
+            return Response({
+                'error': 'Debe proporcionar el ID del rol origen'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            rol_origen = self.get_queryset().get(id=rol_origen_id)
+            resultado = RolPermisosService.copiar_permisos_entre_roles(
+                rol_origen, rol_destino, request.user, motivo
+            )
+            return Response(resultado)
+        except Rol.DoesNotExist:
+            return Response({
+                'error': 'Rol origen no encontrado'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['get'])
+    def permisos_disponibles(self, request):
+        """Obtiene todos los permisos disponibles agrupados por módulo"""
+        from .permisos_service import RolPermisosService
+        
+        agrupar_por_modulo = request.query_params.get('agrupar_por_modulo', 'true').lower() == 'true'
+        
+        permisos = RolPermisosService.obtener_permisos_disponibles(agrupar_por_modulo)
+        
+        return Response({
+            'permisos': permisos,
+            'total': sum(len(modulo['permisos']) for modulo in permisos) if agrupar_por_modulo else len(permisos)
+        })
+    
+    @action(detail=False, methods=['post'])
+    def comparar_roles(self, request):
+        """Compara permisos entre dos roles"""
+        from .permisos_service import RolPermisosService
+        
+        rol1_id = request.data.get('rol1_id')
+        rol2_id = request.data.get('rol2_id')
+        
+        if not rol1_id or not rol2_id:
+            return Response({
+                'error': 'Debe proporcionar ambos IDs de roles'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            rol1 = self.get_queryset().get(id=rol1_id)
+            rol2 = self.get_queryset().get(id=rol2_id)
+            
+            comparacion = RolPermisosService.comparar_permisos_roles(rol1, rol2)
+            
+            return Response({
+                'rol1': {'id': str(rol1.id), 'nombre': rol1.nombre},
+                'rol2': {'id': str(rol2.id), 'nombre': rol2.nombre},
+                'comparacion': comparacion
+            })
+        except Rol.DoesNotExist:
+            return Response({
+                'error': 'Uno o ambos roles no encontrados'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AsignacionRolViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar Asignaciones de Rol.
+    """
+    
+    queryset = AsignacionRol.objects.select_related('usuario', 'rol')
     serializer_class = AsignacionRolSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['usuario', 'rol', 'estado', 'activa']
-    search_fields = ['justificacion', 'observaciones']
-    ordering_fields = ['fecha_asignacion', 'fecha_inicio', 'fecha_fin', 'prioridad']
-    ordering = ['-fecha_asignacion']
-    
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [AsignacionRolAccessPolicy]
+
     def get_queryset(self):
-        """Filtrar por organización"""
-        return self.queryset.filter(organization=self.request.user.organization)
-    
+        """Filter assignments by tenant to prevent cross-tenant access"""
+        qs = super().get_queryset()
+        user = self.request.user
+        if user.is_superuser:
+            return qs
+        org_id = str(user.organization_id) if user.organization_id else None
+        if not org_id:
+            return qs.none()
+        return qs.filter(tenant_id=org_id)
+
     def get_serializer_class(self):
-        """Usar serializador apropiado"""
-        if self.action == 'list':
-            return AsignacionRolListSerializer
-        return self.serializer_class
-    
-    def perform_create(self, serializer):
-        """Asignar organización y usuario al crear"""
-        from .models import EstadoAsignacion
+        """Usa diferentes serializers según la acción"""
+        if self.action == 'create':
+            from .serializers import AsignacionRolCreateSerializer
+            return AsignacionRolCreateSerializer
+        return AsignacionRolSerializer
+
+    def create(self, request, *args, **kwargs):
+        """Crear una nueva asignación con logging detallado"""
         import logging
         logger = logging.getLogger(__name__)
         
-        # Determinar el estado inicial según si el rol requiere aprobación
-        rol = serializer.validated_data['rol']
+        logger.info("=== INICIO CREACIÓN DE ASIGNACIÓN ===")
+        logger.info(f"Usuario que hace la petición: {request.user}")
+        logger.info(f"Datos recibidos: {request.data}")
         
-        if rol.requiere_aprobacion:
-            # Si requiere aprobación, crear como PENDIENTE
-            estado = EstadoAsignacion._base_manager.filter(nombre='PENDIENTE').first()
-            logger.info(f"✅ Rol requiere aprobación, estado: PENDIENTE")
-        else:
-            # Si NO requiere aprobación, crear como ACTIVA directamente
-            estado = EstadoAsignacion._base_manager.filter(nombre='ACTIVA').first()
-            logger.info(f"✅ Rol NO requiere aprobación, estado: ACTIVA (auto-aprobado)")
+        try:
+            response = super().create(request, *args, **kwargs)
+            logger.info(f"Asignación creada exitosamente: {response.data}")
+            return response
+        except Exception as e:
+            logger.error(f"Error al crear asignación: {str(e)}")
+            logger.error(f"Tipo de error: {type(e)}")
+            
+            # Si es un error de validación, mostrar detalles
+            if hasattr(e, 'detail'):
+                logger.error(f"Detalles del error: {e.detail}")
+            
+            # Re-lanzar la excepción para que DRF la maneje
+            raise
+    
+    def perform_create(self, serializer):
+        """Asigna automáticamente el usuario que crea la asignación"""
+        import logging
+        logger = logging.getLogger(__name__)
         
-        # Fallback si no se encuentra el estado
-        if not estado:
-            estado = EstadoAsignacion._base_manager.filter(activo=True).first()
-            logger.warning(f"⚠️ Estado específico no encontrado, usando primer activo: {estado.nombre if estado else None}")
+        logger.info(f"perform_create - Datos validados: {serializer.validated_data}")
         
-        # Guardar la asignación
-        asignacion = serializer.save(
-            organization=self.request.user.organization,
-            tenant_id=str(self.request.user.organization.id),
-            asignado_por=self.request.user,
-            estado=estado,
-            activa=(not rol.requiere_aprobacion)  # Activa si no requiere aprobación
-        )
-        
-        # Si no requiere aprobación, marcar como auto-aprobada
-        if not rol.requiere_aprobacion:
-            asignacion.fecha_aprobacion = timezone.now()
-            asignacion.aprobado_por = self.request.user
-            asignacion.save(update_fields=['fecha_aprobacion', 'aprobado_por'])
-            logger.info(f"✅ Asignación auto-aprobada")
-        
-        logger.info(f"📝 Asignación guardada con estado: {asignacion.estado.nombre} (ID={asignacion.estado.id})")
-        
-        # Actualizar estadísticas del rol
-        rol.actualizar_estadisticas()
+        try:
+            instance = serializer.save(asignado_por=self.request.user)
+            logger.info(f"Asignación guardada con ID: {instance.id}")
+        except Exception as e:
+            logger.error(f"Error en perform_create: {str(e)}")
+            raise
     
     @action(detail=True, methods=['post'])
     def aprobar(self, request, pk=None):
-        """Aprobar una asignación"""
-        from .models import EstadoAsignacion
-        
+        """Aprueba una asignación pendiente"""
         asignacion = self.get_object()
         
-        if asignacion.fecha_aprobacion:
-            return Response(
-                {'error': 'Esta asignación ya fue aprobada'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Cambiar estado a ACTIVA
-        estado_activa = EstadoAsignacion._base_manager.filter(nombre='ACTIVA').first()
-        
-        asignacion.fecha_aprobacion = timezone.now()
-        asignacion.aprobado_por = request.user
-        asignacion.activa = True
-        asignacion.estado = estado_activa
-        asignacion.save()
-        
-        serializer = self.get_serializer(asignacion)
-        return Response({
-            'message': 'Asignación aprobada exitosamente',
-            'asignacion': serializer.data
-        })
+        try:
+            asignacion.aprobar(request.user)
+            return Response({
+                'message': 'Asignación aprobada exitosamente'
+            })
+        except ValidationError as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['post'])
     def revocar(self, request, pk=None):
-        """Revocar una asignación"""
-        from .models import EstadoAsignacion
-        
+        """Revoca una asignación activa"""
         asignacion = self.get_object()
+        razon = request.data.get('razon', '')
         
-        if not asignacion.puede_ser_revocada():
-            return Response(
-                {'error': 'Esta asignación no puede ser revocada'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Cambiar estado a REVOCADA
-        estado_revocada = EstadoAsignacion._base_manager.filter(nombre='REVOCADA').first()
-        
-        asignacion.fecha_revocacion = timezone.now()
-        asignacion.revocado_por = request.user
-        asignacion.activa = False
-        asignacion.estado = estado_revocada
-        asignacion.observaciones = f"{asignacion.observaciones}\n\nRevocada: {request.data.get('motivo', 'Sin motivo especificado')}"
-        asignacion.save()
-        
-        # Actualizar estadísticas del rol
-        asignacion.rol.actualizar_estadisticas()
-        
-        serializer = self.get_serializer(asignacion)
-        return Response({
-            'message': 'Asignación revocada exitosamente',
-            'asignacion': serializer.data
-        })
-    
-    @action(detail=True, methods=['post'])
-    def rechazar(self, request, pk=None):
-        """Rechazar una asignación pendiente"""
-        from .models import EstadoAsignacion
-        
-        asignacion = self.get_object()
-        
-        if asignacion.estado.nombre != 'PENDIENTE':
-            return Response(
-                {'error': 'Solo se pueden rechazar asignaciones pendientes'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Cambiar estado a RECHAZADA
-        estado_rechazada = EstadoAsignacion._base_manager.filter(nombre='RECHAZADA').first()
-        
-        asignacion.activa = False
-        asignacion.estado = estado_rechazada
-        asignacion.observaciones = f"{asignacion.observaciones}\n\nRechazada: {request.data.get('motivo', 'Sin motivo especificado')}"
-        asignacion.save()
-        
-        # Actualizar estadísticas del rol
-        asignacion.rol.actualizar_estadisticas()
-        
-        serializer = self.get_serializer(asignacion)
-        return Response({
-            'message': 'Asignación rechazada',
-            'asignacion': serializer.data
-        })
-    
-    @action(detail=True, methods=['post'])
-    def renovar(self, request, pk=None):
-        """Renovar una asignación (extender fecha de fin)"""
-        asignacion = self.get_object()
-        nueva_fecha_fin = request.data.get('nueva_fecha_fin')
-        
-        if not nueva_fecha_fin:
-            return Response(
-                {'error': 'Se requiere la nueva fecha de fin'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        asignacion.fecha_fin = nueva_fecha_fin
-        asignacion.observaciones = f"{asignacion.observaciones}\n\nRenovada hasta: {nueva_fecha_fin}"
-        asignacion.save()
-        
-        serializer = self.get_serializer(asignacion)
-        return Response({
-            'message': 'Asignación renovada exitosamente',
-            'asignacion': serializer.data
-        })
-    
+        try:
+            asignacion.revocar(request.user, razon)
+            return Response({
+                'message': 'Asignación revocada exitosamente'
+            })
+        except ValidationError as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=False, methods=['get'])
     def usuarios_disponibles(self, request):
-        """List users available for role assignment"""
-        org = request.user.organization
-        users = CustomUser.objects.filter(
-            organization=org,
-            is_active=True
-        ).values('id', 'username', 'first_name', 'last_name', 'email')
+        """Lista usuarios que pueden recibir asignaciones de rol"""
+        search = request.query_params.get('search', '')
+        queryset = User.objects.filter(
+            is_active=True,
+            organization=request.user.organization
+        ).order_by('first_name', 'last_name', 'email')
         
-        # Add nombre_completo
-        result = []
-        for user in users:
-            result.append({
-                'id': user['id'],
-                'username': user['username'],
-                'email': user['email'],
-                'nombre_completo': f"{user['first_name']} {user['last_name']}".strip() if user['first_name'] else user['username']
-            })
+        if search:
+            queryset = queryset.filter(
+                Q(email__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(username__icontains=search)
+            )
         
-        return Response(result)
+        usuarios = queryset[:50]  # Limitar resultados
+        data = [
+            {
+                'id': u.id,
+                'email': u.email,
+                'username': u.username,
+                'first_name': u.first_name,
+                'last_name': u.last_name,
+                'nombre_completo': f"{u.first_name} {u.last_name}".strip() or u.email,
+            }
+            for u in usuarios
+        ]
+        return Response(data)
+
+
+class TipoRolViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestionar Tipos de Rol"""
+
+    queryset = TipoRol.objects.all()
+    serializer_class = TipoRolSerializer
+    permission_classes = [TipoRolAccessPolicy]
+    ordering = ['orden', 'nombre']
+
+    def get_queryset(self):
+        """Limitar tipos de rol: solo staff/superuser pueden gestionar"""
+        qs = super().get_queryset()
+        if not self.request.user.is_staff and not self.request.user.is_superuser:
+            return qs.filter(activo=True)
+        return qs
+
+
+class EstadoAsignacionViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestionar Estados de Asignación"""
+
+    queryset = EstadoAsignacion.objects.all()
+    serializer_class = serializers.Serializer  # Placeholder temporal
+    permission_classes = [RolesAccessPolicy]
+
+    def list(self, request):
+        """Lista todos los estados de asignación"""
+        estados = [
+            {'id': 1, 'nombre': 'ACTIVA', 'descripcion': 'Asignación activa', 'color': '#10b981'},
+            {'id': 2, 'nombre': 'PENDIENTE', 'descripcion': 'Pendiente de aprobación', 'color': '#f59e0b'},
+            {'id': 3, 'nombre': 'REVOCADA', 'descripcion': 'Asignación revocada', 'color': '#ef4444'},
+            {'id': 4, 'nombre': 'EXPIRADA', 'descripcion': 'Asignación expirada', 'color': '#6b7280'},
+            {'id': 5, 'nombre': 'SUSPENDIDA', 'descripcion': 'Temporalmente suspendida', 'color': '#f97316'},
+        ]
+        return Response(estados)
+
+
+class HistorialAsignacionViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet de solo lectura para historial de asignaciones"""
+
+    queryset = HistorialAsignacion.objects.select_related(
+        'asignacion__usuario',
+        'asignacion__rol',
+        'usuario'
+    ).order_by('-fecha')
+    serializer_class = HistorialAsignacionSerializer
+    permission_classes = [HistorialAsignacionPolicy]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['asignacion__usuario__email', 'asignacion__rol__nombre', 'accion']
+    ordering_fields = ['fecha', 'accion']
+    ordering = ['-fecha']
+
+    def get_queryset(self):
+        """Filter history by tenant via assignment relationship"""
+        qs = super().get_queryset()
+        user = self.request.user
+        if user.is_superuser:
+            return qs
+        org_id = str(user.organization_id) if user.organization_id else None
+        if not org_id:
+            return qs.none()
+        return qs.filter(asignacion__tenant_id=org_id)
+
+
+class AuditoriaRolViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet de solo lectura para auditoría de roles"""
+
+    queryset = AuditoriaRol.objects.select_related(
+        'rol',
+        'usuario_ejecutor',
+        'usuario_afectado'
+    ).order_by('-timestamp')
+    serializer_class = AuditoriaRolSerializer
+    permission_classes = [AuditoriaRolPolicy]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['rol', 'accion', 'usuario_ejecutor', 'usuario_afectado']
+    search_fields = ['rol__nombre', 'accion', 'usuario_ejecutor__email', 'justificacion']
+    ordering_fields = ['timestamp', 'accion']
+    ordering = ['-timestamp']
+
+    def get_queryset(self):
+        """Filter audit records by tenant via role relationship"""
+        qs = super().get_queryset()
+        user = self.request.user
+        if user.is_superuser:
+            return qs
+        org_id = str(user.organization_id) if user.organization_id else None
+        if not org_id:
+            return qs.none()
+        return qs.filter(rol__tenant_id=org_id)
+
+
+class DashboardStatsAPIView(generics.GenericAPIView):
+    """API para estadísticas del dashboard"""
+    
+    permission_classes = [RolesAccessPolicy]
+    
+    def get(self, request):
+        """Obtiene estadísticas para el dashboard"""
+        organization = request.user.organization
+        org_roles = Rol.objects.filter(tenant_id=organization.id)
+        org_asignaciones = AsignacionRol.objects.filter(
+            usuario__organization=organization
+        )
+        stats = {
+            'roles': {
+                'total': org_roles.count(),
+                'activos': org_roles.filter(activo=True).count(),
+                'publicos': 0,  # Temporalmente 0 hasta que se sincronice la BD
+                'con_restriccion_horario': 0,  # Temporalmente 0 hasta que se sincronice la BD
+            },
+            'asignaciones': {
+                'total': org_asignaciones.count(),
+                'activas': org_asignaciones.filter(activa=True).count(),
+                'pendientes': org_asignaciones.filter(estado__nombre='PENDIENTE').count(),
+                'expiradas': org_asignaciones.filter(
+                    fecha_fin__lt=timezone.now(),
+                    activa=True
+                ).count(),
+            },
+            'usuarios': {
+                'total': User.objects.filter(organization=organization).count(),
+                'con_roles': org_asignaciones.filter(
+                    activa=True
+                ).values('usuario').distinct().count(),
+            },
+            'auditoria': {
+                'total_eventos': AuditoriaRol.objects.filter(
+                    rol__tenant_id=organization.id
+                ).count(),
+                'eventos_hoy': AuditoriaRol.objects.filter(
+                    rol__tenant_id=organization.id,
+                    timestamp__date=timezone.now().date()
+                ).count(),
+            }
+        }
+
+        return Response(stats)
+
+
+class JerarquiaAPIView(generics.GenericAPIView):
+    """API para obtener la jerarquía de roles reales"""
+    
+    permission_classes = [RolesAccessPolicy]
+    
+    def get(self, request):
+        """Obtiene la jerarquía de roles basada en datos reales de la BD"""
+        try:
+            organization = request.user.organization
+            # Obtener todos los roles ordenados por nivel jerárquico
+            roles = Rol.objects.filter(
+                activo=True,
+                tenant_id=organization.id
+            ).order_by('nivel_jerarquico', 'nombre')
+            
+            jerarquia = []
+            roles_mapeados = {}
+            
+            # Crear estructura de jerarquía
+            for rol in roles:
+                rol_data = {
+                    'id': rol.id,
+                    'nombre': rol.nombre,
+                    'codigo': rol.codigo,
+                    'descripcion': rol.descripcion,
+                    'nivel': rol.nivel_jerarquico,
+                    'color': rol.color or '#6366f1',
+                    'icono': rol.icono or '👤',
+                    'activo': rol.activo,
+                    'es_sistema': rol.es_sistema,
+                    'roles_hijo': [],
+                    'permisos_count': 0,  # Se puede calcular si hay relación con permisos
+                }
+                
+                roles_mapeados[rol.id] = rol_data
+                
+                # Si no tiene padre (es raíz), agregarlo directamente
+                if not rol.rol_padre:
+                    jerarquia.append(rol_data)
+                else:
+                    # Si tiene padre, agregarlo como hijo
+                    if rol.rol_padre.id in roles_mapeados:
+                        roles_mapeados[rol.rol_padre.id]['roles_hijo'].append(rol_data)
+            
+            return Response(jerarquia)
+            
+        except Exception as e:
+            logger.error(f"Error generando jerarquía: {e}")
+            return Response(
+                {'error': 'Error al cargar jerarquía de roles'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PlantillasAPIView(generics.GenericAPIView):
+    """API para obtener plantillas de roles"""
+    
+    permission_classes = [RolesAccessPolicy]
+    
+    def get(self, request):
+        """Obtiene plantillas de roles basadas en datos reales"""
+        try:
+            organization = request.user.organization
+            # Obtener plantillas reales si existen
+            # PlantillaRol no tiene campo organization/tenant_id,
+            # se filtra a través del creador o se muestran las de sistema
+            plantillas = PlantillaRol.objects.filter(
+                Q(activa=True, creado_por__organization=organization) |
+                Q(activa=True, es_sistema=True)
+            )
+            
+            plantillas_data = []
+            for plantilla in plantillas:
+                plantillas_data.append({
+                    'id': plantilla.id,
+                    'nombre': plantilla.nombre,
+                    'descripcion': plantilla.descripcion,
+                    'categoria': plantilla.categoria,
+                    'configuracion': plantilla.configuracion,
+                })
+            
+            # Si no hay plantillas reales, devolver array vacío
+            return Response(plantillas_data)
+            
+        except Exception as e:
+            logger.error(f"Error cargando plantillas: {e}")
+            return Response(
+                {'error': 'Error al cargar plantillas'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

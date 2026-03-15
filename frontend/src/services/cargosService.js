@@ -1,13 +1,15 @@
 import api from './api'
 
 const cargosService = {
-  getCargos: async (page = 1) => {
-    const response = await api.get(`/api/cargos/?page=${page}`)
+  // Paginación del servidor - retorna { results, count, total_pages, current_page }
+  getCargos: async (params = {}) => {
+    const response = await api.get('/api/cargos/', { params })
     return response.data
   },
 
+  // Obtener TODOS (sin paginación) - para dropdowns, exportación, etc.
   getAllCargos: async () => {
-    const response = await api.get('/api/cargos/?page_size=1000')
+    const response = await api.get('/api/cargos/', { params: { page_size: 99999 } })
     return response.data.results || response.data
   },
 
@@ -41,9 +43,9 @@ const cargosService = {
     return response.data
   },
 
-  // Alias para consistencia con otros servicios
+  // Alias
   getAll: async () => {
-    const response = await api.get('/api/cargos/?page_size=1000')
+    const response = await api.get('/api/cargos/', { params: { page_size: 99999 } })
     return response.data.results || response.data
   },
 }

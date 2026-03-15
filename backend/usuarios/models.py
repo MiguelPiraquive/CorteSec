@@ -16,6 +16,27 @@ from core.mixins import TenantAwareModel
 User = get_user_model()
 
 
+class GrupoUsuario(TenantAwareModel):
+    """Grupo de usuarios para agrupación interna (compatibilidad)."""
+
+    nombre = models.CharField(max_length=100, verbose_name="Nombre")
+    descripcion = models.TextField(blank=True, verbose_name="Descripción")
+    usuarios = models.ManyToManyField(
+        User,
+        related_name='grupos_usuario',
+        blank=True,
+        verbose_name="Usuarios"
+    )
+
+    class Meta:
+        verbose_name = "Grupo de Usuario"
+        verbose_name_plural = "Grupos de Usuario"
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
 class HistorialUsuario(TenantAwareModel):
     """Historial de actividades de usuarios con soporte multi-tenant"""
     

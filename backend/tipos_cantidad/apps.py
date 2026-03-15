@@ -1,4 +1,7 @@
 from django.apps import AppConfig
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TiposCantidadConfig(AppConfig):
@@ -11,4 +14,4 @@ class TiposCantidadConfig(AppConfig):
         Configuración que se ejecuta cuando la app está lista
         """
         # Aquí se pueden importar signals o realizar configuraciones iniciales
-        pass
+        logger.debug('TiposCantidadConfig listo sin acciones iniciales')

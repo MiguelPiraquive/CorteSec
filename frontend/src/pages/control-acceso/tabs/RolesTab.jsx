@@ -1,965 +1,788 @@
 /**
  * Tab de Gestión de Roles
  * Vista profesional con tabla, árbol jerárquico y modal multi-tab
+ * Server-side pagination
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Plus, Edit2, Trash2, Copy, CheckCircle, XCircle,
   Search, Filter, Download, Upload, TreePine, List, Users,
-  ChevronRight, ChevronDown, AlertCircle, Clock, Calendar
+  ChevronRight, ChevronDown, AlertCircle, Clock, Calendar, LayoutGrid, ArrowUpDown
 } from 'lucide-react';
 import rolesService from '../../../services/rolesService';
 import tiposRolService from '../../../services/tiposRolService';
+import permisosService from '../../../services/permisosService';
 import RolModal from '../../../components/administracion/RolModal';
+import Can from '../../../components/permissions/Can';
+import { usePermissions } from '../../../context/PermissionsContext';
+import useServerPagination from '../../../hooks/useServerPagination';
+import Pagination from '../../../components/Pagination';
 
 const RolesTab = () => {
+  const { hasPermission, initialized } = usePermissions();
+
   // ============================================================================
-  // ESTADO
+  // SERVER-SIDE PAGINATION
   // ============================================================================
-  
-  const [roles, setRoles] = useState([]);
+
+  const fetchRoles = useCallback((params) => {
+    return rolesService.getAllRoles(params);
+  }, []);
+
+  const {
+    data: roles, loading, currentPage, totalPages, totalCount, pageSize,
+    searchTerm, setSearchTerm, setCurrentPage, setFilters, refresh,
+  } = useServerPagination(fetchRoles, { pageSize: 20 });
+
+  // ============================================================================
+  // SUPPORT DATA (dropdowns, modal, stats, tree)
+  // ============================================================================
+
   const [tiposRol, setTiposRol] = useState([]);
-  const [filteredRoles, setFilteredRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingRol, setEditingRol] = useState(null);
-  const [activeTab, setActiveTab] = useState('basico');
-  const [viewMode, setViewMode] = useState('tabla'); // 'tabla' o 'jerarquia'
-  
-  // Filtros
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterTipo, setFilterTipo] = useState('all');
-  const [filterEstado, setFilterEstado] = useState('all');
-  const [filterNivel, setFilterNivel] = useState('all');
-  
-  // Estadísticas
-  const [stats, setStats] = useState({
-    total: 0,
-    activos: 0,
-    inactivos: 0,
-    sistema: 0
-  });
-  
-  // Paginación
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
-  
-  // Formulario
-  const [formData, setFormData] = useState({
-    codigo: '',
-    nombre: '',
-    descripcion: '',
-    tipo_rol: '',
-    rol_padre: '',
-    categoria: '',
-    hereda_permisos: true,
-    activo: true,
-    es_publico: false,
-    requiere_aprobacion: false,
-    tiene_restriccion_horario: false,
-    hora_inicio: '',
-    hora_fin: '',
-    dias_semana: '1234567',
-    fecha_inicio_vigencia: '',
-    fecha_fin_vigencia: '',
-    prioridad: 0,
-    peso: 1,
-    color: '#4F46E5',
-    icono: 'shield',
-    metadatos: {},
-    configuracion: {}
-  });
-  
-  const [errors, setErrors] = useState({});
-  
-  // Árbol jerárquico
+  const [allRoles, setAllRoles] = useState([]);
+  const [permisosCatalogo, setPermisosCatalogo] = useState([]);
+  const [stats, setStats] = useState({ total: 0, activos: 0, inactivos: 0, sistema: 0 });
   const [treeData, setTreeData] = useState([]);
   const [expandedNodes, setExpandedNodes] = useState(new Set());
 
   // ============================================================================
-  // EFECTOS
+  // UI STATE
   // ============================================================================
-  
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-  
-  useEffect(() => {
-    filterRoles();
-  }, [searchTerm, filterTipo, filterEstado, filterNivel, roles]);
-  
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingRol, setEditingRol] = useState(null);
+  const [activeTab, setActiveTab] = useState('basico');
+  const [displayMode, setDisplayMode] = useState('tabla');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [detailRol, setDetailRol] = useState(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  // Filtros
+  const [filterTipo, setFilterTipo] = useState('all');
+  const [filterEstado, setFilterEstado] = useState('all');
+  const [filterNivel, setFilterNivel] = useState('all');
+  const [filterSistema, setFilterSistema] = useState('all');
+  const [sortBy, setSortBy] = useState('nombre');
+  const [sortDir, setSortDir] = useState('asc');
+
+  // Formulario
+  const [formData, setFormData] = useState({
+    codigo: '', nombre: '', descripcion: '', tipo_rol: '', rol_padre: '',
+    categoria: '', hereda_permisos: true, activo: true, es_publico: false,
+    requiere_aprobacion: false, tiene_restriccion_horario: false,
+    hora_inicio: '', hora_fin: '', dias_semana: '1234567',
+    fecha_inicio_vigencia: '', fecha_fin_vigencia: '',
+    prioridad: 0, peso: 1, color: '#4F46E5', icono: 'shield',
+    metadatos: {}, configuracion: {}, permisos_asignados: []
+  });
+  const [errors, setErrors] = useState({});
+
   // ============================================================================
-  // CARGA DE DATOS
+  // LOAD SUPPORT DATA
   // ============================================================================
-  
-  const loadInitialData = async () => {
-    setLoading(true);
+
+  const loadSupportData = useCallback(async () => {
     try {
-      const [rolesData, tiposData, statsData] = await Promise.all([
-        rolesService.getAllRoles(),
-        tiposRolService.getActiveTiposRol(),
-        rolesService.getEstadisticas()
+      const [tiposData, statsData, allRolesData] = await Promise.all([
+        tiposRolService.getActiveTiposRol({ page_size: 1000 }),
+        rolesService.getEstadisticas(),
+        rolesService.getAllRoles({ page_size: 1000 }),
       ]);
-      
-      // Extraer results si viene paginado
-      const roles = rolesData.results || rolesData;
       const tipos = tiposData.results || tiposData;
-      
-      setRoles(Array.isArray(roles) ? roles : []);
       setTiposRol(Array.isArray(tipos) ? tipos : []);
       setStats(statsData);
-      
-      // Cargar jerarquía si está en modo árbol
-      if (viewMode === 'jerarquia') {
-        loadTreeData();
-      }
+      const allRolesList = allRolesData.results || allRolesData;
+      setAllRoles(Array.isArray(allRolesList) ? allRolesList : []);
     } catch (error) {
-      console.error('Error loading roles:', error);
-      alert('Error al cargar los roles: ' + (error.response?.data?.detail || error.message));
-    } finally {
-      setLoading(false);
+      console.error('Error loading support data:', error);
     }
-  };
-  
-  const loadTreeData = async () => {
     try {
-      const data = await rolesService.getJerarquia();
-      setTreeData(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error loading jerarquía:', error);
+      const permisosData = await permisosService.getAllPermisos({ activo: true, page_size: 2000 });
+      const permisosList = permisosData.results || permisosData;
+      setPermisosCatalogo(Array.isArray(permisosList) ? permisosList : []);
+    } catch (permError) {
+      console.error('Error loading permisos:', permError);
+      setPermisosCatalogo([]);
     }
+    try {
+      const treeRes = await rolesService.getJerarquia();
+      setTreeData(Array.isArray(treeRes) ? treeRes : []);
+    } catch (e) {
+      console.error('Error loading jerarquia:', e);
+    }
+  }, []);
+
+  useEffect(() => { loadSupportData(); }, [loadSupportData]);
+
+  // ============================================================================
+  // FILTERS (server-side)
+  // ============================================================================
+
+  const applyFilters = (tipo, estado, nivel, sistema, sort, dir) => {
+    const f = {};
+    if (tipo !== 'all') f.tipo_rol = tipo;
+    if (estado === 'active') f.activo = true;
+    if (estado === 'inactive') f.activo = false;
+    if (nivel !== 'all') f.nivel_jerarquico = nivel;
+    if (sistema === 'system') f.es_sistema = true;
+    if (sistema === 'custom') f.es_sistema = false;
+    const sortField = sort === 'tipo' ? 'tipo_rol_nombre' : sort === 'nivel' ? 'nivel_jerarquico' : sort;
+    f.ordering = dir === 'desc' ? `-${sortField}` : sortField;
+    setFilters(f);
   };
-  
+
+  const handleFilterTipo = (val) => { setFilterTipo(val); applyFilters(val, filterEstado, filterNivel, filterSistema, sortBy, sortDir); };
+  const handleFilterEstado = (val) => { setFilterEstado(val); applyFilters(filterTipo, val, filterNivel, filterSistema, sortBy, sortDir); };
+  const handleFilterNivel = (val) => { setFilterNivel(val); applyFilters(filterTipo, filterEstado, val, filterSistema, sortBy, sortDir); };
+  const handleFilterSistema = (val) => { setFilterSistema(val); applyFilters(filterTipo, filterEstado, filterNivel, val, sortBy, sortDir); };
+  const handleSortBy = (val) => { setSortBy(val); applyFilters(filterTipo, filterEstado, filterNivel, filterSistema, val, sortDir); };
+  const handleSortDir = () => { const nd = sortDir === 'asc' ? 'desc' : 'asc'; setSortDir(nd); applyFilters(filterTipo, filterEstado, filterNivel, filterSistema, sortBy, nd); };
+
   // ============================================================================
-  // FILTRADO Y BÚSQUEDA
+  // RELOAD ALL (after CRUD)
   // ============================================================================
-  
-  const filterRoles = () => {
-    let filtered = [...roles];
-    
-    // Búsqueda
-    if (searchTerm) {
-      filtered = filtered.filter(rol =>
-        rol.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rol.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rol.categoria?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rol.descripcion?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    // Filtro por tipo
-    if (filterTipo !== 'all') {
-      filtered = filtered.filter(rol => rol.tipo_rol === filterTipo);
-    }
-    
-    // Filtro por estado
-    if (filterEstado === 'active') {
-      filtered = filtered.filter(rol => rol.activo);
-    } else if (filterEstado === 'inactive') {
-      filtered = filtered.filter(rol => !rol.activo);
-    }
-    
-    // Filtro por nivel
-    if (filterNivel !== 'all') {
-      filtered = filtered.filter(rol => rol.nivel_jerarquico === parseInt(filterNivel));
-    }
-    
-    setFilteredRoles(filtered);
-    setCurrentPage(1);
+
+  const reloadAll = () => {
+    refresh();
+    loadSupportData();
   };
-  
+
   // ============================================================================
-  // PAGINACIÓN
+  // FORM HANDLERS
   // ============================================================================
-  
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredRoles.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredRoles.length / itemsPerPage);
-  
-  // ============================================================================
-  // MANEJO DE FORMULARIO
-  // ============================================================================
-  
+
   const resetForm = () => {
     setFormData({
-      codigo: '',
-      nombre: '',
-      descripcion: '',
-      tipo_rol: '',
-      rol_padre: '',
-      categoria: '',
-      hereda_permisos: true,
-      activo: true,
-      es_publico: false,
-      requiere_aprobacion: false,
-      tiene_restriccion_horario: false,
-      hora_inicio: '',
-      hora_fin: '',
-      dias_semana: '1234567',
-      fecha_inicio_vigencia: '',
-      fecha_fin_vigencia: '',
-      prioridad: 0,
-      peso: 1,
-      color: '#4F46E5',
-      icono: 'shield',
-      metadatos: {},
-      configuracion: {}
+      codigo: '', nombre: '', descripcion: '', tipo_rol: '', rol_padre: '',
+      categoria: '', hereda_permisos: true, activo: true, es_publico: false,
+      requiere_aprobacion: false, tiene_restriccion_horario: false,
+      hora_inicio: '', hora_fin: '', dias_semana: '1234567',
+      fecha_inicio_vigencia: '', fecha_fin_vigencia: '',
+      prioridad: 0, peso: 1, color: '#4F46E5', icono: 'shield',
+      metadatos: {}, configuracion: {}, permisos_asignados: []
     });
     setErrors({});
     setActiveTab('basico');
   };
-  
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.codigo) {
-      newErrors.codigo = 'El código es requerido';
-    } else if (!/^[A-Z0-9_]{2,50}$/.test(formData.codigo)) {
-      newErrors.codigo = 'El código debe contener solo letras mayúsculas, números y guiones bajos';
+
+  const handleOpenModal = (rol = null) => {
+    if (rol) {
+      setEditingRol(rol);
+    } else {
+      setEditingRol(null);
+      resetForm();
     }
-    
-    if (!formData.nombre) {
-      newErrors.nombre = 'El nombre es requerido';
-    }
-    
-    if (formData.tiene_restriccion_horario) {
-      if (!formData.hora_inicio) {
-        newErrors.hora_inicio = 'La hora de inicio es requerida';
-      }
-      if (!formData.hora_fin) {
-        newErrors.hora_fin = 'La hora de fin es requerida';
-      }
-    }
-    
-    if (formData.fecha_inicio_vigencia && formData.fecha_fin_vigencia) {
-      if (new Date(formData.fecha_inicio_vigencia) > new Date(formData.fecha_fin_vigencia)) {
-        newErrors.fecha_fin_vigencia = 'La fecha de fin debe ser posterior a la de inicio';
-      }
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setShowModal(true);
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      alert('Por favor corrija los errores en el formulario');
-      return;
-    }
-    
+    if (!formData.codigo) { setErrors({...errors, codigo: 'El codigo es requerido'}); return; }
+    if (!formData.nombre) { setErrors({...errors, nombre: 'El nombre es requerido'}); return; }
     try {
-      // Preparar datos - convertir strings vacíos a null
-      const dataToSend = {
-        ...formData,
-        tipo_rol: formData.tipo_rol || null,
-        rol_padre: formData.rol_padre || null,
-        hora_inicio: formData.hora_inicio || null,
-        hora_fin: formData.hora_fin || null,
-        fecha_inicio_vigencia: formData.fecha_inicio_vigencia || null,
-        fecha_fin_vigencia: formData.fecha_fin_vigencia || null,
-      };
-      
       if (editingRol) {
-        await rolesService.updateRol(editingRol.id, dataToSend);
-        alert('Rol actualizado exitosamente');
+        await rolesService.updateRol(editingRol.id, formData);
+        if (formData.permisos_asignados?.length > 0) {
+          await rolesService.asignarPermisos(editingRol.id, formData.permisos_asignados);
+        }
       } else {
-        await rolesService.createRol(dataToSend);
-        alert('Rol creado exitosamente');
-      }
-      
-      setShowModal(false);
-      resetForm();
-      loadInitialData();
-    } catch (error) {
-      console.error('Error saving rol:', error);
-      alert('Error al guardar: ' + (error.response?.data?.detail || JSON.stringify(error.response?.data) || error.message));
-    }
-  };
-  
-  // ============================================================================
-  // ACCIONES
-  // ============================================================================
-  
-  const handleEdit = async (rol) => {
-    try {
-      console.log('📝 Editando rol (datos de tabla):', rol);
-      
-      // IMPORTANTE: Obtener datos completos del backend
-      const rolCompleto = await rolesService.getRolById(rol.id);
-      console.log('📥 Datos completos del backend:', rolCompleto);
-      
-      setEditingRol(rolCompleto);
-      
-      // Convertir dias_semana de array a string si es necesario
-      let diasSemanaStr = '1234567';
-      if (rolCompleto.dias_semana) {
-        if (Array.isArray(rolCompleto.dias_semana)) {
-          diasSemanaStr = rolCompleto.dias_semana.join('');
-        } else if (typeof rolCompleto.dias_semana === 'string') {
-          diasSemanaStr = rolCompleto.dias_semana;
+        const newRol = await rolesService.createRol(formData);
+        if (formData.permisos_asignados?.length > 0) {
+          await rolesService.asignarPermisos(newRol.id, formData.permisos_asignados);
         }
       }
-      
-      // Convertir fechas ISO a formato date input (YYYY-MM-DD)
-      const formatearFecha = (fecha) => {
-        if (!fecha) return '';
-        // Si viene con hora, tomar solo la parte de la fecha
-        return fecha.split('T')[0];
-      };
-      
-      // Convertir horas si vienen con segundos (HH:MM:SS -> HH:MM)
-      const formatearHora = (hora) => {
-        if (!hora) return '';
-        // Si viene con segundos, tomar solo HH:MM
-        return hora.substring(0, 5);
-      };
-      
-      const formDataCargado = {
-        codigo: rolCompleto.codigo || '',
-        nombre: rolCompleto.nombre || '',
-        descripcion: rolCompleto.descripcion || '',
-        tipo_rol: rolCompleto.tipo_rol || '',
-        rol_padre: rolCompleto.rol_padre || '',
-        categoria: rolCompleto.categoria || '',
-        hereda_permisos: rolCompleto.hereda_permisos ?? true,
-        activo: rolCompleto.activo ?? true,
-        es_publico: rolCompleto.es_publico ?? false,
-        requiere_aprobacion: rolCompleto.requiere_aprobacion ?? false,
-        tiene_restriccion_horario: rolCompleto.tiene_restriccion_horario ?? false,
-        hora_inicio: formatearHora(rolCompleto.hora_inicio),
-        hora_fin: formatearHora(rolCompleto.hora_fin),
-        dias_semana: diasSemanaStr,
-        fecha_inicio_vigencia: formatearFecha(rolCompleto.fecha_inicio_vigencia),
-        fecha_fin_vigencia: formatearFecha(rolCompleto.fecha_fin_vigencia),
-        prioridad: rolCompleto.prioridad || 0,
-        peso: rolCompleto.peso || 1,
-        color: rolCompleto.color || '#4F46E5',
-        icono: rolCompleto.icono || 'shield',
-        metadatos: typeof rolCompleto.metadatos === 'object' ? rolCompleto.metadatos : {},
-        configuracion: typeof rolCompleto.configuracion === 'object' ? rolCompleto.configuracion : {}
-      };
-      
-      setFormData(formDataCargado);
-      console.log('✅ FormData cargado:', formDataCargado);
-      setShowModal(true);
+      setShowModal(false);
+      resetForm();
+      reloadAll();
     } catch (error) {
-      console.error('❌ Error al cargar datos del rol:', error);
-      alert('Error al cargar los datos del rol: ' + (error.response?.data?.detail || error.message));
+      console.error('Error saving rol:', error);
+      alert('Error al guardar el rol');
     }
   };
-  
+
   const handleDelete = async (id) => {
     if (!window.confirm('¿Está seguro de eliminar este rol?')) return;
-    
     try {
       await rolesService.deleteRol(id);
-      alert('Rol eliminado exitosamente');
-      loadInitialData();
+      reloadAll();
     } catch (error) {
       console.error('Error deleting rol:', error);
-      alert('Error al eliminar: ' + (error.response?.data?.error || error.message));
+      alert('Error al eliminar el rol');
     }
-  };
-  
-  const handleActivar = async (rol) => {
-    try {
-      await rolesService.activarRol(rol.id);
-      alert('Rol activado exitosamente');
-      loadInitialData();
-    } catch (error) {
-      console.error('Error activando rol:', error);
-      alert('Error al activar: ' + (error.response?.data?.error || error.message));
-    }
-  };
-  
-  const handleDesactivar = async (rol) => {
-    if (rol.es_sistema) {
-      alert('No se pueden desactivar roles del sistema');
-      return;
-    }
-    
-    if (!window.confirm('¿Está seguro de desactivar este rol?')) return;
-    
-    try {
-      await rolesService.desactivarRol(rol.id);
-      alert('Rol desactivado exitosamente');
-      loadInitialData();
-    } catch (error) {
-      console.error('Error desactivando rol:', error);
-      alert('Error al desactivar: ' + (error.response?.data?.error || error.message));
-    }
-  };
-  
-  const handleDuplicar = async (rol) => {
-    const nuevoCodigo = prompt('Ingrese el código para el nuevo rol:', `${rol.codigo}_COPY`);
-    if (!nuevoCodigo) return;
-    
-    const nuevoNombre = prompt('Ingrese el nombre para el nuevo rol:', `${rol.nombre} (Copia)`);
-    if (!nuevoNombre) return;
-    
-    try {
-      await rolesService.duplicarRol(rol.id, {
-        codigo: nuevoCodigo,
-        nombre: nuevoNombre
-      });
-      alert('Rol duplicado exitosamente');
-      loadInitialData();
-    } catch (error) {
-      console.error('Error duplicando rol:', error);
-      alert('Error al duplicar: ' + (error.response?.data?.error || error.message));
-    }
-  };
-  
-  // ============================================================================
-  // COMPONENTES DE UI
-  // ============================================================================
-  
-  const formatMoney = (value) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0
-    }).format(value || 0);
-  };
-  
-  const getRolBadgeClass = (rol) => {
-    if (!rol.activo) return 'bg-gray-100 text-gray-800';
-    if (rol.es_sistema) return 'bg-blue-100 text-blue-800';
-    if (rol.es_publico) return 'bg-green-100 text-green-800';
-    return 'bg-emerald-100 text-emerald-800';
-  };
-  
-  const getRolBadgeText = (rol) => {
-    if (!rol.activo) return 'Inactivo';
-    if (rol.es_sistema) return 'Sistema';
-    if (rol.es_publico) return 'Público';
-    return 'Activo';
   };
 
   // ============================================================================
-  // RENDERIZADO: VISTA DE TABLA
+  // SELECTION & BULK
   // ============================================================================
-  
-  const renderTablaView = () => (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white">
-          <tr>
-            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
-              Código
-            </th>
-            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
-              Nombre
-            </th>
-            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
-              Tipo / Categoría
-            </th>
-            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
-              Nivel
-            </th>
-            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
-              Asignaciones
-            </th>
-            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
-              Estado
-            </th>
-            <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider">
-              Acciones
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {loading ? (
-            <tr>
-              <td colSpan="7" className="px-6 py-12 text-center">
-                <div className="flex justify-center items-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                  <span className="ml-3 text-gray-600">Cargando roles...</span>
-                </div>
-              </td>
-            </tr>
-          ) : currentItems.length === 0 ? (
-            <tr>
-              <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                <Shield className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                No se encontraron roles
-              </td>
-            </tr>
-          ) : (
-            currentItems.map((rol, index) => (
-              <tr key={rol.id} className={`${
-                index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-              } hover:bg-cyan-50 transition-colors`}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div
-                      className="w-3 h-3 rounded-full mr-2"
-                      style={{ backgroundColor: rol.color || '#4F46E5' }}
-                    ></div>
-                    <span className="text-sm font-medium text-gray-900">{rol.codigo}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-gray-900">{rol.nombre}</div>
-                  {rol.descripcion && (
-                    <div className="text-sm text-gray-500 truncate max-w-xs">
-                      {rol.descripcion}
-                    </div>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {rol.tipo_rol_nombre || 'Sin tipo'}
-                  </div>
-                  {rol.categoria && (
-                    <div className="text-xs text-gray-500">{rol.categoria}</div>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                    Nivel {rol.nivel_jerarquico}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  <div className="flex items-center">
-                    <Users className="h-4 w-4 mr-1 text-gray-400" />
-                    {rol.asignaciones_activas || 0}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRolBadgeClass(rol)}`}>
-                    {getRolBadgeText(rol)}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <div className="flex items-center justify-end space-x-2">
-                    <button
-                      onClick={() => handleEdit(rol)}
-                      className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                      title="Editar"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    
-                    {rol.activo ? (
-                      <button
-                        onClick={() => handleDesactivar(rol)}
-                        className="p-2 bg-yellow-100 text-yellow-600 rounded-lg hover:bg-yellow-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Desactivar"
-                        disabled={rol.es_sistema}
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleActivar(rol)}
-                        className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                        title="Activar"
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </button>
-                    )}
-                    
-                    <button
-                      onClick={() => handleDuplicar(rol)}
-                      className="p-2 bg-cyan-100 text-cyan-600 rounded-lg hover:bg-cyan-200 transition-colors"
-                      title="Duplicar"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-                    
-                    {!rol.es_sistema && (
-                      <button
-                        onClick={() => handleDelete(rol.id)}
-                        className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
 
-  // ============================================================================
-  // RENDERIZADO: VISTA DE JERARQUÍA (continuará en siguiente mensaje...)
-  // ============================================================================
-  
-  const toggleNode = (nodeId) => {
-    const newExpanded = new Set(expandedNodes);
-    if (newExpanded.has(nodeId)) {
-      newExpanded.delete(nodeId);
-    } else {
-      newExpanded.add(nodeId);
+  const allVisibleSelected = roles.length > 0 && roles.every((rol) => selectedIds.has(rol.id));
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        roles.forEach((rol) => next.delete(rol.id));
+      } else {
+        roles.forEach((rol) => next.add(rol.id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkToggle = async (activo) => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) => rolesService.patchRol(id, { activo }))
+      );
+      clearSelection();
+      reloadAll();
+    } catch (error) {
+      console.error('Error bulk update roles:', error);
+    } finally {
+      setBulkLoading(false);
     }
-    setExpandedNodes(newExpanded);
   };
-  
-  const renderTreeNode = (node, level = 0) => {
-    const hasChildren = node.children && node.children.length > 0;
-    const isExpanded = expandedNodes.has(node.id);
-    
-    return (
-      <div key={node.id} className="select-none">
-        <div
-          className={`flex items-center py-2 px-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors ${
-            level > 0 ? 'ml-' + (level * 6) : ''
-          }`}
-          style={{ paddingLeft: `${level * 24 + 12}px` }}
-        >
-          {hasChildren && (
-            <button
-              onClick={() => toggleNode(node.id)}
-              className="mr-2 focus:outline-none"
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-gray-500" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-gray-500" />
-              )}
-            </button>
-          )}
-          
-          {!hasChildren && <div className="w-6 mr-2"></div>}
-          
-          <div
-            className="w-3 h-3 rounded-full mr-2"
-            style={{ backgroundColor: node.color || '#4F46E5' }}
-          ></div>
-          
-          <Shield className="h-4 w-4 mr-2 text-gray-400" />
-          
-          <div className="flex-1">
-            <div className="flex items-center">
-              <span className="text-sm font-medium text-gray-900 mr-2">
-                {node.nombre}
-              </span>
-              <span className="text-xs text-gray-500">({node.codigo})</span>
-              
-              {node.es_sistema && (
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                  Sistema
-                </span>
-              )}
-              
-              {!node.activo && (
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                  Inactivo
-                </span>
-              )}
-            </div>
-            
-            {node.descripcion && (
-              <div className="text-xs text-gray-500 truncate max-w-md">
-                {node.descripcion}
-              </div>
-            )}
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-500">
-              <Users className="h-3 w-3 inline mr-1" />
-              {node.total_asignaciones || 0}
-            </span>
-            
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEdit(node);
-              }}
-              className="text-indigo-600 hover:text-indigo-900"
-              title="Editar"
-            >
-              <Edit2 className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-        
-        {hasChildren && isExpanded && (
-          <div>
-            {node.children.map(child => renderTreeNode(child, level + 1))}
-          </div>
-        )}
-      </div>
-    );
-  };
-  
-  const renderJerarquiaView = () => (
-    <div className="bg-white rounded-lg p-6">
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <span className="ml-3 text-gray-600">Cargando jerarquía...</span>
-        </div>
-      ) : treeData.length === 0 ? (
-        <div className="text-center py-12">
-          <TreePine className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-          <p className="text-gray-500">No hay roles para mostrar en la jerarquía</p>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          {treeData.map(node => renderTreeNode(node))}
-        </div>
-      )}
-    </div>
-  );
 
-  // Este archivo continuará en el siguiente mensaje debido a su longitud...
-  // Ahora renderizaré el componente principal y el modal
-  
+  const handleExportCsv = () => {
+    const headers = ['Nombre', 'Codigo', 'Tipo', 'Nivel', 'Activo', 'Sistema', 'Descripcion', 'ID'];
+    const rows = roles.map((rol) => ([
+      rol.nombre || '', rol.codigo || '', rol.tipo_rol_nombre || '',
+      rol.nivel_jerarquico ?? '', rol.activo ? 'Si' : 'No',
+      rol.es_sistema ? 'Si' : 'No',
+      (rol.descripcion || '').replace(/\s+/g, ' ').trim(), rol.id,
+    ]));
+    const escape = (value) => {
+      const str = String(value ?? '');
+      if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `roles_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // ============================================================================
-  // RENDERIZADO PRINCIPAL
+  // RENDER
   // ============================================================================
-  
+
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('roles.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta seccion</div>
+
   return (
-    <div className="space-y-6">
-      {/* Botón Nuevo Rol */}
-      <div className="flex justify-end">
-        <button onClick={() => { resetForm(); setEditingRol(null); setShowModal(true) }} className="flex items-center space-x-2 px-5 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg">
-          <Plus className="w-5 h-5" />
-          <span>Nuevo Rol</span>
-        </button>
-      </div>
-        
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="backdrop-blur-xl bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-lg p-6 text-white border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-indigo-100 text-sm">Total Roles</p>
-              <p className="text-3xl font-bold">{stats.total}</p>
-            </div>
-            <Shield className="w-16 h-16 text-white/30" />
+    <div className="space-y-6 animate-fadeIn">
+       {/* Actions Bar */}
+       <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="relative flex-1 w-full md:max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+             type="text"
+             placeholder="Buscar roles..."
+             value={searchTerm}
+             onChange={(e) => setSearchTerm(e.target.value)}
+             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            />
           </div>
-        </div>
-        
-        <div className="backdrop-blur-xl bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm">Activos</p>
-              <p className="text-3xl font-bold">{stats.activos}</p>
+
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+             <Users className="h-4 w-4" />
+             <span>{totalCount} Roles</span>
             </div>
-            <CheckCircle className="w-16 h-16 text-white/30" />
-          </div>
-        </div>
-        
-        <div className="backdrop-blur-xl bg-gradient-to-br from-gray-500 to-gray-600 rounded-2xl shadow-lg p-6 text-white border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-100 text-sm">Inactivos</p>
-              <p className="text-3xl font-bold">{stats.inactivos}</p>
-            </div>
-            <XCircle className="w-16 h-16 text-white/30" />
-          </div>
-        </div>
-        
-        <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm">Sistema</p>
-              <p className="text-3xl font-bold">{stats.sistema}</p>
-            </div>
-            <AlertCircle className="w-16 h-16 text-white/30" />
-          </div>
-        </div>
-      </div>
-        
-      {/* Filtros */}
-      <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg p-6 border border-gray-200/50">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="md:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por código, nombre o categoría..." className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-cyan-500 focus:bg-white transition-all" />
+            <div className="flex items-center gap-2 ml-auto">
+             <button
+              type="button"
+              onClick={() => setDisplayMode('cards')}
+              className={`px-2.5 py-1.5 border rounded-lg text-xs ${displayMode === 'cards' ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'border-gray-200 text-gray-600'}`}
+              title="Vista cards"
+             >
+              <LayoutGrid className="h-4 w-4" />
+             </button>
+             <button
+              type="button"
+              onClick={() => setDisplayMode('tabla')}
+              className={`px-2.5 py-1.5 border rounded-lg text-xs ${displayMode === 'tabla' ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'border-gray-200 text-gray-600'}`}
+              title="Vista tabla"
+             >
+              <List className="h-4 w-4" />
+             </button>
+             <button
+              type="button"
+              onClick={handleExportCsv}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50"
+              title="Exportar CSV"
+             >
+              <Download className="h-4 w-4" />
+             </button>
             </div>
           </div>
-          
-          <div>
-            <select value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)} className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-cyan-500 focus:bg-white transition-all">
-              <option value="all">Todos los tipos</option>
-              {tiposRol.map(tipo => (
+         </div>
+
+         <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+           <select
+             value={filterTipo}
+             onChange={(e) => handleFilterTipo(e.target.value)}
+             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+           >
+             <option value="all">Todos los Tipos</option>
+             {tiposRol.map(tipo => (
                 <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
-              ))}
+             ))}
+           </select>
+
+           <select
+             value={filterEstado}
+             onChange={(e) => handleFilterEstado(e.target.value)}
+             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+           >
+             <option value="all">Todos los Estados</option>
+             <option value="active">Activos</option>
+             <option value="inactive">Inactivos</option>
+           </select>
+
+           <select
+             value={filterSistema}
+             onChange={(e) => handleFilterSistema(e.target.value)}
+             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+           >
+             <option value="all">Sistema y Custom</option>
+             <option value="system">Solo Sistema</option>
+             <option value="custom">Solo Custom</option>
+           </select>
+
+           <select
+             value={filterNivel}
+             onChange={(e) => handleFilterNivel(e.target.value)}
+             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+           >
+             <option value="all">Todos los niveles</option>
+             {[0, 1, 2, 3, 4, 5].map((nivel) => (
+              <option key={nivel} value={nivel}>Nivel {nivel}</option>
+             ))}
+           </select>
+
+           <div className="flex gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => handleSortBy(e.target.value)}
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            >
+              <option value="nombre">Ordenar por nombre</option>
+              <option value="codigo">Ordenar por codigo</option>
+              <option value="tipo">Ordenar por tipo</option>
+              <option value="nivel">Ordenar por nivel</option>
             </select>
-          </div>
-          
-          <div>
-            <select value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)} className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-cyan-500 focus:bg-white transition-all">
-              <option value="all">Todos los estados</option>
-              <option value="active">Activos</option>
-              <option value="inactive">Inactivos</option>
-            </select>
-          </div>
-          
-          <div>
-            <select value={filterNivel} onChange={(e) => setFilterNivel(e.target.value)} className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-cyan-500 focus:bg-white transition-all">
-              <option value="all">Todos los niveles</option>
-              {[0, 1, 2, 3, 4, 5].map(nivel => (
-                <option key={nivel} value={nivel}>Nivel {nivel}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-        
-      {/* Toggle View */}
-      <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
             <button
-              onClick={() => {
-                setViewMode('tabla');
-              }}
-              className={`flex items-center px-4 py-2 rounded-xl transition-colors ${
-                viewMode === 'tabla'
-                  ? 'bg-cyan-600 text-white shadow-lg'
-                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-              }`}
+              type="button"
+              onClick={handleSortDir}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
+              title="Cambiar direccion"
             >
-              <List className="h-5 w-5 mr-2" />
-              Tabla
+              <ArrowUpDown className="h-4 w-4 text-gray-500" />
             </button>
-            
-            <button
-              onClick={() => {
-                setViewMode('jerarquia');
-                if (treeData.length === 0) {
-                  loadTreeData();
-                }
-              }}
-              className={`flex items-center px-4 py-2 rounded-xl transition-colors ${
-                viewMode === 'jerarquia'
-                  ? 'bg-cyan-600 text-white shadow-lg'
-                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-              }`}
-            >
-              <TreePine className="h-5 w-5 mr-2" />
-              Jerarquía
-            </button>
+           </div>
+
+           <Can permission="roles.add">
+             <button
+               onClick={() => handleOpenModal(null)}
+               className="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-shadow shadow-md"
+             >
+               <Plus className="h-5 w-5" />
+               <span className="whitespace-nowrap">Nuevo Rol</span>
+             </button>
+           </Can>
+         </div>
+       </div>
+
+       {selectedIds.size > 0 && (
+         <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-cyan-100">
+           <div className="text-sm text-gray-600">
+             Seleccionados: <span className="font-semibold">{selectedIds.size}</span>
+           </div>
+           <div className="flex items-center gap-2">
+             <button
+               type="button"
+               onClick={() => handleBulkToggle(true)}
+               disabled={bulkLoading}
+               className="inline-flex items-center gap-1 px-3 py-1.5 border border-emerald-200 text-emerald-700 rounded-lg text-sm hover:bg-emerald-50 disabled:opacity-50"
+             >
+               <CheckCircle className="h-4 w-4" /> Activar
+             </button>
+             <button
+               type="button"
+               onClick={() => handleBulkToggle(false)}
+               disabled={bulkLoading}
+               className="inline-flex items-center gap-1 px-3 py-1.5 border border-rose-200 text-rose-700 rounded-lg text-sm hover:bg-rose-50 disabled:opacity-50"
+             >
+               <XCircle className="h-4 w-4" /> Desactivar
+             </button>
+             <button
+               type="button"
+               onClick={clearSelection}
+               className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+             >
+               Limpiar
+             </button>
+           </div>
+         </div>
+       )}
+
+       {/* Stats Grid */}
+       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+             <div>
+                <p className="text-gray-500 text-sm">Total Roles</p>
+                <h3 className="text-2xl font-bold text-gray-800">{stats.total}</h3>
+             </div>
+             <Shield className="h-8 w-8 text-indigo-100 bg-indigo-500 p-1.5 rounded-lg" />
           </div>
-          
-          <div className="text-sm text-gray-600">
-            Mostrando {currentItems.length} de {filteredRoles.length} roles
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+             <div>
+                <p className="text-gray-500 text-sm">Activos</p>
+                <h3 className="text-2xl font-bold text-green-600">{stats.activos}</h3>
+             </div>
+             <CheckCircle className="h-8 w-8 text-green-100 bg-green-500 p-1.5 rounded-lg" />
           </div>
-      </div>
-      
-      {/* Content */}
-      <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg border border-gray-200/50">
-        {viewMode === 'tabla' ? renderTablaView() : renderJerarquiaView()}
-      </div>
-      
-      {/* Pagination */}
-      {viewMode === 'tabla' && totalPages > 1 && (
-        <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg border border-gray-200/50 px-4 py-3 flex items-center justify-between sm:px-6">
-          <div className="flex-1 flex justify-between sm:hidden">
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              Anterior
-            </button>
-            <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              Siguiente
-            </button>
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+             <div>
+                <p className="text-gray-500 text-sm">Inactivos</p>
+                <h3 className="text-2xl font-bold text-gray-800">{stats.inactivos}</h3>
+             </div>
+             <XCircle className="h-8 w-8 text-gray-100 bg-gray-400 p-1.5 rounded-lg" />
           </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Página <span className="font-medium">{currentPage}</span> de{' '}
-                <span className="font-medium">{totalPages}</span>
-              </p>
-            </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                >
-                  Anterior
-                </button>
-                {[...Array(totalPages)].map((_, idx) => {
-                  const pageNum = idx + 1;
-                  if (
-                    pageNum === 1 ||
-                    pageNum === totalPages ||
-                    (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-                  ) {
-                    return (
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+             <div>
+                <p className="text-gray-500 text-sm">Sistema</p>
+                <h3 className="text-2xl font-bold text-blue-600">{stats.sistema}</h3>
+             </div>
+             <Users className="h-8 w-8 text-blue-100 bg-blue-500 p-1.5 rounded-lg" />
+          </div>
+       </div>
+
+       {/* Roles Table / Cards */}
+       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-gray-500">Cargando...</div>
+        ) : displayMode === 'tabla' ? (
+          <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                  <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                          <th className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={allVisibleSelected}
+                              onChange={toggleSelectAllVisible}
+                              className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                            />
+                          </th>
+                          <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Rol</th>
+                          <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Codigo</th>
+                          <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo</th>
+                          <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nivel</th>
+                          <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+                          <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sistema</th>
+                          <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Acciones</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                      {roles.map((rol) => (
+                          <tr key={rol.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIds.has(rol.id)}
+                                  onChange={() => toggleSelect(rol.id)}
+                                  className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                                />
+                              </td>
+                              <td className="px-6 py-4">
+                                  <div className="flex items-center">
+                                      <div
+                                          className="h-8 w-8 rounded-lg flex items-center justify-center mr-3 text-white text-xs font-bold"
+                                          style={{ backgroundColor: rol.color || '#6366f1' }}
+                                      >
+                                          {rol.nombre.substring(0,2).toUpperCase()}
+                                      </div>
+                                      <div>
+                                          <div className="font-medium text-gray-900">{rol.nombre}</div>
+                                          <div className="text-xs text-gray-500 line-clamp-1">{rol.descripcion}</div>
+                                      </div>
+                                  </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                  <code className="bg-gray-100 px-2 py-1 rounded text-xs text-gray-600 font-mono">
+                                      {rol.codigo}
+                                  </code>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                  {rol.tipo_rol_nombre || 'General'}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-indigo-50 text-indigo-700">
+                                      Nivel {rol.nivel_jerarquico}
+                                  </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                {rol.activo ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Activo
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    Inactivo
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4">
+                                {rol.es_sistema ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Sistema
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                    Custom
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-right space-x-2">
+                                  <button
+                                      onClick={() => setDetailRol(rol)}
+                                      className="text-gray-400 hover:text-cyan-600 transition-colors p-1"
+                                      title="Detalle"
+                                  >
+                                      <List className="h-4 w-4" />
+                                  </button>
+                                  <Can permission="roles.change">
+                                    <button
+                                        onClick={() => handleOpenModal(rol)}
+                                        className="text-gray-400 hover:text-indigo-600 transition-colors p-1"
+                                        title="Editar"
+                                    >
+                                        <Edit2 className="h-4 w-4" />
+                                    </button>
+                                  </Can>
+                                  <Can permission="roles.delete">
+                                    <button
+                                        onClick={() => handleDelete(rol.id)}
+                                        className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                                        title="Eliminar"
+                                        disabled={rol.es_sistema}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </Can>
+                              </td>
+                          </tr>
+                      ))}
+                      {roles.length === 0 && (
+                        <tr><td colSpan="8" className="px-6 py-8 text-center text-gray-500">No se encontraron roles</td></tr>
+                      )}
+                  </tbody>
+              </table>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalCount={totalCount}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                itemLabel="roles"
+              />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+              {roles.map((rol) => (
+                <div key={rol.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                          className="h-10 w-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+                          style={{ backgroundColor: rol.color || '#6366f1' }}
+                      >
+                        {rol.nombre.substring(0,2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-900">{rol.nombre}</div>
+                        <div className="text-xs text-gray-500">{rol.tipo_rol_nombre || 'General'}</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(rol.id)}
+                      onChange={() => toggleSelect(rol.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-3">
+                    <code className="bg-gray-100 px-2 py-1 rounded text-xs text-gray-600 font-mono">
+                      {rol.codigo}
+                    </code>
+                    <span className="text-xs text-gray-500">Nivel {rol.nivel_jerarquico}</span>
+                  </div>
+
+                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                    {rol.descripcion || 'Sin descripcion disponible.'}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                    <div className="flex items-center gap-2">
+                      {rol.activo ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Activo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          Inactivo
+                        </span>
+                      )}
+                      {rol.es_sistema ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Sistema
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                          Custom
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
                       <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg mx-1 transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-cyan-600 text-white shadow-lg'
-                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        type="button"
+                        onClick={() => setDetailRol(rol)}
+                        className="text-xs text-cyan-700 hover:underline"
                       >
-                        {pageNum}
+                        Ver detalle
                       </button>
-                    );
-                  } else if (
-                    pageNum === currentPage - 2 ||
-                    pageNum === currentPage + 2
-                  ) {
-                    return (
-                      <span
-                        key={pageNum}
-                        className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
-                      >
-                        ...
-                      </span>
-                    );
-                  }
-                  return null;
-                })}
+                      <Can permission="roles.change">
+                        <button
+                          onClick={() => handleOpenModal(rol)}
+                          className="text-gray-400 hover:text-indigo-600 transition-colors p-1"
+                          title="Editar"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      </Can>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {roles.length === 0 && (
+                <div className="col-span-full px-6 py-8 text-center text-gray-500">No se encontraron roles</div>
+              )}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemLabel="roles"
+            />
+          </>
+        )}
+       </div>
+
+      {/* Detail Modal */}
+      {detailRol && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-100">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-700 p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-teal-100">Detalle de rol</div>
+                  <h2 className="text-2xl font-bold text-white">{detailRol.nombre}</h2>
+                </div>
                 <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="relative inline-flex items-center px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  type="button"
+                  onClick={() => setDetailRol(null)}
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-medium"
                 >
-                  Siguiente
+                  Cerrar
                 </button>
-              </nav>
+              </div>
+            </div>
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-gray-500">Codigo</div>
+                <div className="font-mono text-sm text-gray-900">{detailRol.codigo}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Tipo</div>
+                <div className="text-sm text-gray-900">{detailRol.tipo_rol_nombre || 'General'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Nivel</div>
+                <div className="text-sm text-gray-900">Nivel {detailRol.nivel_jerarquico}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Estado</div>
+                <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${detailRol.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                  {detailRol.activo ? 'Activo' : 'Inactivo'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Sistema</div>
+                <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${detailRol.es_sistema ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}`}>
+                  {detailRol.es_sistema ? 'Sistema' : 'Custom'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Permisos</div>
+                <div className="text-sm text-gray-900">{detailRol.permisos?.length ?? 0}</div>
+              </div>
+              <div className="md:col-span-2">
+                <div className="text-xs text-gray-500">Descripcion</div>
+                <div className="text-sm text-gray-700">{detailRol.descripcion || 'Sin descripcion disponible.'}</div>
+              </div>
+              <div className="md:col-span-2">
+                <div className="text-xs text-gray-500">ID</div>
+                <div className="font-mono text-xs text-gray-500">{detailRol.id}</div>
+              </div>
             </div>
           </div>
         </div>
       )}
-      
-      {/* Modal continuará en el siguiente mensaje... */}
-      
-      {/* Modal */}
-      <RolModal
-        show={showModal}
-        onClose={() => {
-          setShowModal(false);
-          setEditingRol(null);
-          resetForm();
-        }}
-        formData={formData}
-        setFormData={setFormData}
-        errors={errors}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onSubmit={handleSubmit}
-        editingRol={editingRol}
-        tiposRol={tiposRol}
-        rolesDisponibles={roles}
-      />
+
+      {showModal && (
+        <RolModal
+            show={showModal}
+            onClose={() => setShowModal(false)}
+            formData={formData}
+            setFormData={setFormData}
+            errors={errors}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            onSubmit={handleSubmit}
+            editingRol={editingRol}
+            tiposRol={tiposRol}
+            rolesDisponibles={allRoles}
+            permisosCatalogo={permisosCatalogo}
+        />
+      )}
     </div>
   );
 };

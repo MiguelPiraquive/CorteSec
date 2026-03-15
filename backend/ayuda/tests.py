@@ -1,7 +1,10 @@
 from django.test import TestCase
 from django.urls import reverse
-from django.contrib.auth.models import User
-from ayuda.models import CategoriaAyuda, ArticuloAyuda, ConsultaAyuda
+from django.contrib.auth import get_user_model
+from core.models import Organizacion
+from ayuda.models import CategoriaAyuda, ArticuloAyuda, SolicitudSoporte
+
+User = get_user_model()
 
 
 class CategoriaAyudaModelTest(TestCase):
@@ -12,27 +15,32 @@ class CategoriaAyudaModelTest(TestCase):
             descripcion='Ayuda sobre configuración del sistema',
             icono='fas fa-cog',
             orden=1,
-            activo=True
+            activa=True
         )
         self.assertEqual(categoria.nombre, 'Configuración')
-        self.assertTrue(categoria.activo)
+        self.assertTrue(categoria.activa)
 
     def test_categoria_str_method(self):
         """Test del método __str__ de la categoría"""
         categoria = CategoriaAyuda.objects.create(
             nombre='Configuración',
             descripcion='Ayuda sobre configuración del sistema',
-            activo=True
+            activa=True
         )
         self.assertEqual(str(categoria), 'Configuración')
 
 
 class ArticuloAyudaModelTest(TestCase):
     def setUp(self):
+        self.organization = Organizacion.objects.create(
+            nombre='Org Test Articulos',
+            codigo='ORGART'
+        )
         self.categoria = CategoriaAyuda.objects.create(
             nombre='Configuración',
             descripcion='Ayuda sobre configuración del sistema',
-            activo=True
+            activa=True,
+            organization=self.organization
         )
 
     def test_articulo_creation(self):
@@ -41,6 +49,7 @@ class ArticuloAyudaModelTest(TestCase):
             titulo='Cómo configurar usuarios',
             contenido='Contenido del artículo de ayuda',
             categoria=self.categoria,
+            autor=User.objects.create_user(username='autor', email='autor@example.com'),
             orden=1,
             activo=True
         )
@@ -53,12 +62,13 @@ class ArticuloAyudaModelTest(TestCase):
             titulo='Cómo configurar usuarios',
             contenido='Contenido del artículo de ayuda',
             categoria=self.categoria,
+            autor=User.objects.create_user(username='autor2', email='autor2@example.com'),
             activo=True
         )
         self.assertEqual(str(articulo), 'Cómo configurar usuarios')
 
 
-class ConsultaAyudaModelTest(TestCase):
+class SolicitudSoporteModelTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             username='testuser',
@@ -68,25 +78,25 @@ class ConsultaAyudaModelTest(TestCase):
 
     def test_consulta_creation(self):
         """Test de creación de consulta de ayuda"""
-        consulta = ConsultaAyuda.objects.create(
+        consulta = SolicitudSoporte.objects.create(
             usuario=self.user,
             asunto='Problema con login',
-            mensaje='No puedo acceder al sistema',
-            tipo='consulta',
-            estado='pendiente'
+            descripcion='No puedo acceder al sistema',
+            prioridad='media',
+            estado='abierta'
         )
         self.assertEqual(consulta.asunto, 'Problema con login')
         self.assertEqual(consulta.usuario, self.user)
-        self.assertEqual(consulta.estado, 'pendiente')
+        self.assertEqual(consulta.estado, 'abierta')
 
     def test_consulta_str_method(self):
         """Test del método __str__ de la consulta"""
-        consulta = ConsultaAyuda.objects.create(
+        consulta = SolicitudSoporte.objects.create(
             usuario=self.user,
             asunto='Problema con login',
-            mensaje='No puedo acceder al sistema',
-            tipo='consulta',
-            estado='pendiente'
+            descripcion='No puedo acceder al sistema',
+            prioridad='media',
+            estado='abierta'
         )
         expected_str = f"{consulta.asunto} - {self.user.username}"
         self.assertEqual(str(consulta), expected_str)
@@ -94,45 +104,61 @@ class ConsultaAyudaModelTest(TestCase):
 
 class AyudaViewsTest(TestCase):
     def setUp(self):
+        self.organization = Organizacion.objects.create(
+            nombre='Org Test Ayuda',
+            codigo='ORGAYUDA'
+        )
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
-            password='testpass123'
+            password='testpass123',
+            organization=self.organization
         )
         self.categoria = CategoriaAyuda.objects.create(
             nombre='Configuración',
             descripcion='Ayuda sobre configuración del sistema',
-            activo=True
+            activa=True,
+            organization=self.organization
         )
 
     def test_ayuda_index_view(self):
-        """Test de la vista principal de ayuda"""
-        response = self.client.get(reverse('ayuda:index'))
+        """Test de listado de categorías de ayuda (API)"""
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse('ayuda_api:categorias-ayuda-list'),
+            HTTP_X_TENANT_CODIGO=self.organization.codigo
+        )
         self.assertEqual(response.status_code, 200)
 
     def test_ayuda_categoria_view(self):
-        """Test de la vista de categoría"""
+        """Test de detalle de categoría (API)"""
+        self.client.force_login(self.user)
         response = self.client.get(
-            reverse('ayuda:categoria', kwargs={'categoria_id': self.categoria.id})
+            reverse('ayuda_api:categorias-ayuda-detail', kwargs={'pk': self.categoria.id}),
+            HTTP_X_TENANT_CODIGO=self.organization.codigo
         )
         self.assertEqual(response.status_code, 200)
 
     def test_consulta_ayuda_requires_login(self):
-        """Test que crear consulta requiere login"""
-        response = self.client.get(reverse('ayuda:nueva_consulta'))
-        self.assertEqual(response.status_code, 302)  # Redirect to login
+        """Test que crear solicitud requiere login"""
+        response = self.client.get(
+            reverse('ayuda_api:solicitudes-soporte-list'),
+            HTTP_X_TENANT_CODIGO=self.organization.codigo
+        )
+        self.assertEqual(response.status_code, 401)
 
     def test_consulta_ayuda_with_login(self):
-        """Test de crear consulta con usuario logueado"""
-        self.client.login(username='testuser', password='testpass123')
-        response = self.client.get(reverse('ayuda:nueva_consulta'))
-        self.assertEqual(response.status_code, 200)
+        """Test de crear solicitud con usuario logueado"""
+        self.client.force_login(self.user)
 
-        # Test POST request
         form_data = {
             'asunto': 'Problema test',
-            'mensaje': 'Mensaje de prueba',
-            'tipo': 'consulta'
+            'descripcion': 'Mensaje de prueba',
+            'prioridad': 'media'
         }
-        response = self.client.post(reverse('ayuda:nueva_consulta'), form_data)
-        self.assertEqual(response.status_code, 302)  # Redirect after success
+        response = self.client.post(
+            reverse('ayuda_api:solicitudes-soporte-list'),
+            form_data,
+            HTTP_X_TENANT_CODIGO=self.organization.codigo
+        )
+        self.assertIn(response.status_code, [200, 201])

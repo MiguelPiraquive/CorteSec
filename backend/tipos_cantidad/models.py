@@ -11,7 +11,6 @@ class TipoCantidad(TenantAwareModel):
     
     codigo = models.CharField(
         max_length=10,
-        unique=True,
         validators=[MinLengthValidator(1)],
         verbose_name=_("Código"),
         help_text=_("Código único de la unidad (ej: m2, m3, ml)")
@@ -64,6 +63,7 @@ class TipoCantidad(TenantAwareModel):
         verbose_name = _("Tipo de Cantidad")
         verbose_name_plural = _("Tipos de Cantidad")
         ordering = ['orden', 'codigo']
+        unique_together = [['organization', 'codigo']]
         indexes = [
             models.Index(fields=['activo']),
             models.Index(fields=['codigo']),

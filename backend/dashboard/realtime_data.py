@@ -5,10 +5,14 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.cache import cache
 from django.db.models import Count, Sum, Avg, Q
+from asgiref.sync import async_to_sync
+from rest_framework.decorators import api_view, permission_classes
+from .policies import DashboardViewPolicy
+from rest_framework.response import Response
 import json
 import asyncio
 from datetime import datetime, timedelta
-from .models import Contractor, Project, Payment
+from .models import Project
 from core.models import LogAuditoria, Organizacion
 import logging
 
@@ -50,42 +54,20 @@ class RealTimeDataManager:
         try:
             organization = Organizacion.objects.get(id=self.organization_id)
             
-            contractors = Contractor.objects.filter(organizacion=organization)
-            projects = Project.objects.filter(organizacion=organization)
-            payments = Payment.objects.filter(organizacion=organization)
+            projects = Project.objects.filter(organization=organization)
             
             today = timezone.now().date()
             
             return {
-                'contractors': {
-                    'total': contractors.count(),
-                    'active': contractors.filter(estado='activo').count(),
-                    'online': contractors.filter(
-                        ultimo_acceso__gte=timezone.now() - timedelta(minutes=15)
-                    ).count() if hasattr(Contractor, 'ultimo_acceso') else 0
-                },
                 'projects': {
                     'total': projects.count(),
-                    'active': projects.filter(estado='activo').count(),
+                    'active': projects.filter(end_date__isnull=True).count(),
                     'due_today': projects.filter(
-                        fecha_fin=today,
-                        estado='activo'
+                        end_date=today
                     ).count(),
                     'overdue': projects.filter(
-                        fecha_fin__lt=today,
-                        estado='activo'
-                    ).count()
-                },
-                'payments': {
-                    'pending_count': payments.filter(estado='pendiente').count(),
-                    'pending_amount': float(
-                        payments.filter(estado='pendiente').aggregate(
-                            Sum('monto')
-                        )['monto__sum'] or 0
-                    ),
-                    'completed_today': payments.filter(
-                        fecha_pago=today,
-                        estado='completado'
+                        end_date__lt=today,
+                        end_date__isnull=False
                     ).count()
                 }
             }
@@ -99,8 +81,8 @@ class RealTimeDataManager:
         """Actividades recientes"""
         try:
             activities = LogAuditoria.objects.filter(
-                organizacion_id=self.organization_id
-            ).select_related('usuario').order_by('-fecha_creacion')[:limit]
+                usuario__organization_id=self.organization_id
+            ).select_related('usuario').order_by('-created_at')[:limit]
             
             return [
                 {
@@ -108,8 +90,8 @@ class RealTimeDataManager:
                     'usuario': f"{activity.usuario.first_name} {activity.usuario.last_name}",
                     'accion': activity.accion,
                     'modelo': activity.modelo,
-                    'timestamp': activity.fecha_creacion.isoformat(),
-                    'detalles': activity.detalles
+                    'timestamp': activity.created_at.isoformat(),
+                    'detalles': activity.metadata
                 }
                 for activity in activities
             ]
@@ -127,9 +109,9 @@ class RealTimeDataManager:
             
             # Proyectos vencidos
             overdue_projects = Project.objects.filter(
-                organizacion=organization,
-                fecha_fin__lt=timezone.now().date(),
-                estado='activo'
+                organization=organization,
+                end_date__lt=timezone.now().date(),
+                end_date__isnull=False
             ).count()
             
             if overdue_projects > 0:
@@ -139,37 +121,6 @@ class RealTimeDataManager:
                     'message': f'{overdue_projects} proyecto(s) vencido(s)',
                     'count': overdue_projects,
                     'url': '/projects?filter=overdue'
-                })
-            
-            # Pagos pendientes altos
-            high_pending_payments = Payment.objects.filter(
-                organizacion=organization,
-                estado='pendiente',
-                monto__gte=10000
-            ).count()
-            
-            if high_pending_payments > 0:
-                alerts.append({
-                    'type': 'info',
-                    'title': 'Pagos Pendientes Altos',
-                    'message': f'{high_pending_payments} pago(s) pendiente(s) de alto valor',
-                    'count': high_pending_payments,
-                    'url': '/payments?filter=high_pending'
-                })
-            
-            # Contratistas inactivos
-            inactive_contractors = Contractor.objects.filter(
-                organizacion=organization,
-                ultimo_acceso__lt=timezone.now() - timedelta(days=30)
-            ).count() if hasattr(Contractor, 'ultimo_acceso') else 0
-            
-            if inactive_contractors > 0:
-                alerts.append({
-                    'type': 'warning',
-                    'title': 'Contratistas Inactivos',
-                    'message': f'{inactive_contractors} contratista(s) sin actividad reciente',
-                    'count': inactive_contractors,
-                    'url': '/contractors?filter=inactive'
                 })
             
             return alerts
@@ -185,10 +136,10 @@ class RealTimeDataManager:
             organization = Organizacion.objects.get(id=self.organization_id)
             
             # Tasa de completación de proyectos
-            total_projects = Project.objects.filter(organizacion=organization).count()
+            total_projects = Project.objects.filter(organization=organization).count()
             completed_projects = Project.objects.filter(
-                organizacion=organization,
-                estado='completado'
+                organization=organization,
+                end_date__isnull=False
             ).count()
             
             completion_rate = (
@@ -196,31 +147,12 @@ class RealTimeDataManager:
                 if total_projects > 0 else 0
             )
             
-            # Calificación promedio de contratistas
-            avg_rating = Contractor.objects.filter(
-                organizacion=organization
-            ).aggregate(Avg('calificacion_promedio'))['calificacion_promedio__avg'] or 0
-            
-            # Eficiencia de pagos
-            total_payments = Payment.objects.filter(organizacion=organization).count()
-            on_time_payments = Payment.objects.filter(
-                organizacion=organization,
-                fecha_pago__lte=timezone.now()
-            ).count()
-            
-            payment_efficiency = (
-                (on_time_payments / total_payments * 100)
-                if total_payments > 0 else 0
-            )
-            
             return {
                 'completion_rate': round(completion_rate, 2),
-                'avg_contractor_rating': round(avg_rating, 2),
-                'payment_efficiency': round(payment_efficiency, 2),
                 'active_projects_ratio': round(
                     (Project.objects.filter(
-                        organizacion=organization,
-                        estado='activo'
+                        organization=organization,
+                        end_date__isnull=True
                     ).count() / total_projects * 100) if total_projects > 0 else 0, 2
                 )
             }
@@ -231,81 +163,33 @@ class RealTimeDataManager:
     
     @database_sync_to_async
     def _get_financial_summary(self):
-        """Resumen financiero"""
-        try:
-            organization = Organizacion.objects.get(id=self.organization_id)
-            payments = Payment.objects.filter(organizacion=organization)
-            
-            today = timezone.now().date()
-            this_month_start = today.replace(day=1)
-            
-            # Ingresos del mes
-            monthly_income = payments.filter(
-                fecha_pago__gte=this_month_start,
-                tipo='ingreso',
-                estado='completado'
-            ).aggregate(Sum('monto'))['monto__sum'] or 0
-            
-            # Gastos del mes
-            monthly_expenses = payments.filter(
-                fecha_pago__gte=this_month_start,
-                tipo='gasto',
-                estado='completado'
-            ).aggregate(Sum('monto'))['monto__sum'] or 0
-            
-            # Pagos pendientes
-            pending_amount = payments.filter(
-                estado='pendiente'
-            ).aggregate(Sum('monto'))['monto__sum'] or 0
-            
-            return {
-                'monthly_income': float(monthly_income),
-                'monthly_expenses': float(monthly_expenses),
-                'monthly_profit': float(monthly_income - monthly_expenses),
-                'pending_payments': float(pending_amount),
-                'cash_flow_trend': self._calculate_cash_flow_trend(payments)
-            }
-            
-        except Exception as e:
-            logger.error(f"Error en resumen financiero: {str(e)}")
-            return {}
-    
-    def _calculate_cash_flow_trend(self, payments):
-        """Calcula tendencia de flujo de caja"""
-        try:
-            # Últimos 6 meses
-            monthly_data = []
-            today = timezone.now().date()
-            
-            for i in range(6):
-                month_start = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
-                month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-                
-                income = payments.filter(
-                    fecha_pago__gte=month_start,
-                    fecha_pago__lte=month_end,
-                    tipo='ingreso',
-                    estado='completado'
-                ).aggregate(Sum('monto'))['monto__sum'] or 0
-                
-                expenses = payments.filter(
-                    fecha_pago__gte=month_start,
-                    fecha_pago__lte=month_end,
-                    tipo='gasto',
-                    estado='completado'
-                ).aggregate(Sum('monto'))['monto__sum'] or 0
-                
-                monthly_data.append({
-                    'month': month_start.strftime('%Y-%m'),
-                    'profit': float(income - expenses)
-                })
-            
-            return list(reversed(monthly_data))
-            
-        except Exception as e:
-            logger.error(f"Error calculando tendencia: {str(e)}")
-            return []
+        """Resumen financiero (legacy - datos en Flujo de Caja)"""
+        return {
+            'monthly_income': 0,
+            'monthly_expenses': 0,
+            'monthly_profit': 0,
+            'pending_payments': 0,
+            'cash_flow_trend': []
+        }
 
+
+@api_view(['GET'])
+@permission_classes([DashboardViewPolicy])
+def realtime_snapshot(request):
+    """Snapshot de datos en tiempo real para dashboard."""
+    organization = (
+        getattr(request, 'tenant', None)
+        or getattr(request.user, 'organization', None)
+        or getattr(request.user, 'organizacion', None)
+    )
+
+    if not organization:
+        return Response({'error': 'Organización requerida'}, status=400)
+
+    manager = RealTimeDataManager(str(organization.id))
+    data = async_to_sync(manager.get_dashboard_data)()
+    return Response(data)
+    
 class RealTimeUpdater:
     """Actualizador de datos en tiempo real"""
     
@@ -446,11 +330,15 @@ class LiveMetricsTracker:
             
             LogAuditoria.objects.create(
                 usuario=user,
-                organizacion=organization,
                 accion=f"live_{event_data['event_type']}",
                 modelo=event_data['entity_type'],
                 objeto_id=event_data['entity_id'],
-                detalles=f"Evento en tiempo real: {event_data['event_type']}"
+                metadata={
+                    'organization_id': str(self.organization_id),
+                    'event_type': event_data['event_type'],
+                    'entity_type': event_data['entity_type'],
+                    'entity_id': event_data['entity_id']
+                }
             )
             
         except Exception as e:
@@ -461,7 +349,7 @@ async def notify_project_update(project_id, update_type, user_id=None):
     """Notifica actualización de proyecto en tiempo real"""
     try:
         project = await database_sync_to_async(Project.objects.get)(id=project_id)
-        tracker = LiveMetricsTracker(project.organizacion.id)
+        tracker = LiveMetricsTracker(project.organization.id)
         
         await tracker.track_event(
             event_type=update_type,
@@ -473,37 +361,6 @@ async def notify_project_update(project_id, update_type, user_id=None):
     except Exception as e:
         logger.error(f"Error notificando actualización de proyecto: {str(e)}")
 
-async def notify_payment_update(payment_id, update_type, user_id=None):
-    """Notifica actualización de pago en tiempo real"""
-    try:
-        payment = await database_sync_to_async(Payment.objects.get)(id=payment_id)
-        tracker = LiveMetricsTracker(payment.organizacion.id)
-        
-        await tracker.track_event(
-            event_type=update_type,
-            entity_type='payment',
-            entity_id=payment_id,
-            user_id=user_id
-        )
-        
-    except Exception as e:
-        logger.error(f"Error notificando actualización de pago: {str(e)}")
-
-async def notify_contractor_update(contractor_id, update_type, user_id=None):
-    """Notifica actualización de contratista en tiempo real"""
-    try:
-        contractor = await database_sync_to_async(Contractor.objects.get)(id=contractor_id)
-        tracker = LiveMetricsTracker(contractor.organizacion.id)
-        
-        await tracker.track_event(
-            event_type=update_type,
-            entity_type='contractor',
-            entity_id=contractor_id,
-            user_id=user_id
-        )
-        
-    except Exception as e:
-        logger.error(f"Error notificando actualización de contratista: {str(e)}")
 
 def get_live_metrics(organization_id, entity_type=None):
     """Obtiene métricas en vivo"""
@@ -513,20 +370,7 @@ def get_live_metrics(organization_id, entity_type=None):
     else:
         # Obtener todas las métricas
         all_metrics = {}
-        for entity in ['project', 'payment', 'contractor']:
-            cache_key = f"live_metrics_{organization_id}_{entity}"
-            all_metrics[entity] = cache.get(cache_key, {})
-        
-        return all_metrics
-
-def reset_live_metrics(organization_id, entity_type=None):
-    """Resetea métricas en vivo"""
-    if entity_type:
-        cache_key = f"live_metrics_{organization_id}_{entity_type}"
-        cache.delete(cache_key)
-    else:
-        # Resetear todas las métricas
-        for entity in ['project', 'payment', 'contractor']:
+        for entity in ['project']:
             cache_key = f"live_metrics_{organization_id}_{entity}"
             cache.delete(cache_key)
 
@@ -541,29 +385,7 @@ def project_saved_handler(sender, instance, created, **kwargs):
     event_type = 'created' if created else 'updated'
     async_to_sync(notify_project_update)(instance.id, event_type)
 
-@receiver(post_save, sender=Payment)
-def payment_saved_handler(sender, instance, created, **kwargs):
-    """Handler para guardado de pago"""
-    event_type = 'created' if created else 'updated'
-    async_to_sync(notify_payment_update)(instance.id, event_type)
-
-@receiver(post_save, sender=Contractor)
-def contractor_saved_handler(sender, instance, created, **kwargs):
-    """Handler para guardado de contratista"""
-    event_type = 'created' if created else 'updated'
-    async_to_sync(notify_contractor_update)(instance.id, event_type)
-
 @receiver(post_delete, sender=Project)
 def project_deleted_handler(sender, instance, **kwargs):
     """Handler para eliminación de proyecto"""
     async_to_sync(notify_project_update)(instance.id, 'deleted')
-
-@receiver(post_delete, sender=Payment)
-def payment_deleted_handler(sender, instance, **kwargs):
-    """Handler para eliminación de pago"""
-    async_to_sync(notify_payment_update)(instance.id, 'deleted')
-
-@receiver(post_delete, sender=Contractor)
-def contractor_deleted_handler(sender, instance, **kwargs):
-    """Handler para eliminación de contratista"""
-    async_to_sync(notify_contractor_update)(instance.id, 'deleted')

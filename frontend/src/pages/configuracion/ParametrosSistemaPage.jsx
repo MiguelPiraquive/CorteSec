@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import useAudit from '../../hooks/useAudit'
+import { usePermissions } from '../../context/PermissionsContext'
 import configuracionService from '../../services/configuracionService'
 import {
   SettingsIcon,
@@ -22,6 +23,7 @@ import {
 
 const ParametrosSistemaPage = () => {
   const audit = useAudit('Parámetros del Sistema')
+  const { hasPermission, initialized } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [parametros, setParametros] = useState([])
   const [filteredParametros, setFilteredParametros] = useState([])
@@ -60,7 +62,6 @@ const ParametrosSistemaPage = () => {
     try {
       setLoading(true)
       const data = await configuracionService.getParametros()
-      console.log('📋 Parámetros cargados:', data)
       setParametros(data)
     } catch (error) {
       console.error('Error al cargar parámetros:', error)
@@ -228,6 +229,9 @@ const ParametrosSistemaPage = () => {
       </span>
     )
   }
+
+  if (!initialized) return <div className="flex items-center justify-center h-screen"><Loader2Icon className="w-8 h-8 text-green-500 animate-spin" /></div>
+  if (!hasPermission('configuracion.manage_parametros')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   if (loading) {
     return (

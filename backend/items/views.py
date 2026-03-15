@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from .policies import ItemsAccessPolicy
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Item
@@ -103,7 +103,7 @@ class ItemViewSet(viewsets.ModelViewSet):
     """
     queryset = Item.objects.all()
     serializer_class = ItemSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ItemsAccessPolicy]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['tipo_cantidad', 'activo']
     search_fields = ['nombre', 'descripcion', 'codigo']

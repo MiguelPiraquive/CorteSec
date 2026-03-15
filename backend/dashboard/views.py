@@ -38,11 +38,12 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from .policies import DashboardAccessPolicy
 
-from .models import Contractor, Project, Payment
-from .forms import ContractorForm, ProjectForm, PaymentForm
-from .serializers import ContractorSerializer, ProjectSerializer, PaymentSerializer
-from core.models import Organizacion, LogAuditoria, Notification
+from .models import Project
+from .forms import ProjectForm
+from .serializers import ProjectSerializer
+from core.models import Organizacion, LogAuditoria, Notificacion
 
 logger = logging.getLogger(__name__)
 
@@ -252,17 +253,13 @@ def dashboard_principal(request):
     
     notificaciones_no_leidas = 0
     try:
-        notificaciones_no_leidas = Notification.objects.filter(
-            user=request.user,
-            read=False
+        notificaciones_no_leidas = Notificacion.objects.filter(
+            usuario=request.user,
+            leida=False
         ).count()
     except:
         notificaciones_no_leidas = 0
 
-    # Contratistas y Proyectos
-    total_contratistas = Contractor.objects.count()
-    contratistas_con_proyectos = Contractor.objects.filter(projects__isnull=False).distinct().count()
-    
     # Proyectos activos (sin fecha de finalización o con fecha futura)
     proyectos_activos = Project.objects.filter(
         Q(end_date__isnull=True) | Q(end_date__gte=hoy)
@@ -276,14 +273,7 @@ def dashboard_principal(request):
         start_date__gte=inicio_mes
     ).count()
     
-    # Pagos
-    pagos_este_mes = Payment.objects.filter(
-        payment_date__gte=inicio_mes
-    )
-    
-    total_pagos_mes = pagos_este_mes.aggregate(
-        total=Sum('amount')
-    )['total'] or Decimal('0')
+
     
     # === ESTADÍSTICAS AVANZADAS ===
     
@@ -377,16 +367,12 @@ def dashboard_principal(request):
         'monto_prestamos_activos': monto_prestamos_activos,
         'monto_prestamos_pendientes': monto_prestamos_pendientes,
         
-        # Contratistas y proyectos
-        'total_contratistas': total_contratistas,
-        'contratistas_con_proyectos': contratistas_con_proyectos,
+        # Proyectos
         'proyectos_activos': proyectos_activos,
         'proyectos_completados': proyectos_completados,
         'proyectos_este_mes': proyectos_este_mes,
         
-        # Pagos
-        'total_pagos_mes': total_pagos_mes,
-        'count_pagos_mes': pagos_este_mes.count(),
+
         
         # Estadísticas avanzadas
         'top_cargos': top_cargos,
@@ -518,8 +504,7 @@ def dashboard_api_metricas(request):
                 Q(end_date__isnull=True) | Q(end_date__gte=hoy)
             ).count(),
             'completados': Project.objects.filter(end_date__lt=hoy).count(),
-            'contratistas_total': Contractor.objects.count(),
-            'contratistas_con_proyectos': Contractor.objects.filter(projects__isnull=False).distinct().count(),
+
         }
         
     elif tipo == 'contabilidad' and CONTABILIDAD_AVAILABLE:
@@ -600,7 +585,7 @@ def dashboard_api_metricas(request):
                 'nuevos_periodo': Project.objects.filter(start_date__gte=fecha_inicio).count(),
             },
             'contabilidad': metricas_contabilidad,
-            'notificaciones_no_leidas': Notification.objects.filter(user=request.user, read=False).count() if hasattr(request.user, 'notification_set') else 0,
+            'notificaciones_no_leidas': Notificacion.objects.filter(usuario=request.user, leida=False).count(),
         }
         
     else:
@@ -849,32 +834,16 @@ def dashboard_api_graficos(request):
 
 # === UTILIDADES Y HELPERS ===
 
-class StandardResultsSetPagination(PageNumberPagination):
-    """Paginación estándar para APIs"""
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 100
+from core.pagination import StandardResultsSetPagination
 
 
 # === REST FRAMEWORK VIEWSETS ===
-
-class ContractorViewSet(viewsets.ModelViewSet):
-    """ViewSet para contratistas"""
-    serializer_class = ContractorSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardResultsSetPagination
-    
-    def get_queryset(self):
-        return Contractor.objects.filter(organizacion=self.request.user.organizacion)
-    
-    def perform_create(self, serializer):
-        serializer.save(organizacion=self.request.user.organizacion)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
     """ViewSet para proyectos"""
     serializer_class = ProjectSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [DashboardAccessPolicy]
     pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
@@ -884,17 +853,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         serializer.save(organizacion=self.request.user.organizacion)
 
 
-class PaymentViewSet(viewsets.ModelViewSet):
-    """ViewSet para pagos"""
-    serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardResultsSetPagination
-    
-    def get_queryset(self):
-        return Payment.objects.filter(organizacion=self.request.user.organizacion)
-    
-    def perform_create(self, serializer):
-        serializer.save(organizacion=self.request.user.organizacion)
+
 
 
 # === UTILIDADES Y HELPERS ===
@@ -1014,25 +973,6 @@ def calculate_kpis(organization):
     
     # === KPIs BÁSICOS ===
     
-    # Contratistas
-    total_contractors = Contractor.objects.filter(organizacion=organization).count()
-    contractors_mes_actual = Contractor.objects.filter(
-        organizacion=organization,
-        created_at__gte=inicio_mes
-    ).count()
-    contractors_mes_anterior = Contractor.objects.filter(
-        organizacion=organization,
-        created_at__gte=mes_anterior,
-        created_at__lt=inicio_mes
-    ).count()
-    
-    kpis['contractors'] = {
-        'total': total_contractors,
-        'mes_actual': contractors_mes_actual,
-        'mes_anterior': contractors_mes_anterior,
-        'crecimiento': calculate_growth_rate(contractors_mes_actual, contractors_mes_anterior),
-    }
-    
     # Proyectos
     total_projects = Project.objects.filter(organizacion=organization).count()
     active_projects = Project.objects.filter(
@@ -1051,18 +991,7 @@ def calculate_kpis(organization):
         'tasa_completitud': (completed_projects / max(total_projects, 1)) * 100,
     }
     
-    # Pagos
-    pagos_mes = Payment.objects.filter(
-        organizacion=organization,
-        payment_date__gte=inicio_mes
-    )
-    total_pagos_mes = pagos_mes.aggregate(total=Sum('amount'))['total'] or Decimal('0')
-    
-    kpis['payments'] = {
-        'total_mes': float(total_pagos_mes),
-        'cantidad_mes': pagos_mes.count(),
-        'promedio_pago': float(total_pagos_mes / max(pagos_mes.count(), 1)),
-    }
+
     
     # === KPIs AVANZADOS (SI LAS APPS ESTÁN DISPONIBLES) ===
     
@@ -1125,24 +1054,6 @@ def get_activity_feed(organization, limit=20):
     activities = []
     hace_30_dias = timezone.now() - timedelta(days=30)
     
-    # Contratistas recientes
-    recent_contractors = Contractor.objects.filter(
-        organizacion=organization,
-        created_at__gte=hace_30_dias
-    ).order_by('-created_at')[:10]
-    
-    for contractor in recent_contractors:
-        activities.append({
-            'tipo': 'contractor_new',
-            'titulo': 'Nuevo contratista registrado',
-            'descripcion': f'{contractor.full_name} - {contractor.position}',
-            'fecha': contractor.created_at,
-            'fecha_display': contractor.created_at.strftime('%d/%m/%Y %H:%M'),
-            'icono': 'fas fa-user-plus',
-            'color': 'success',
-            'url': f'/dashboard/contractors/{contractor.id}/',
-        })
-    
     # Proyectos recientes
     recent_projects = Project.objects.filter(
         organizacion=organization,
@@ -1172,7 +1083,7 @@ def get_activity_feed(organization, limit=20):
         activities.append({
             'tipo': 'payment',
             'titulo': f'Pago {payment.status}',
-            'descripcion': f'{payment.contractor.full_name} - ${payment.amount:,.0f}',
+            'descripcion': f'{payment.project.name if payment.project else "Sin proyecto"} - ${payment.amount:,.0f}',
             'fecha': datetime.combine(payment.payment_date, time.min).replace(tzinfo=timezone.utc),
             'fecha_display': payment.payment_date.strftime('%d/%m/%Y'),
             'icono': 'fas fa-dollar-sign',
@@ -1206,36 +1117,7 @@ def get_chart_data(organization, chart_type, period='month'):
         fecha_inicio = hoy.replace(day=1)
         date_format = '%d/%m'
     
-    if chart_type == 'contractors_evolution':
-        # Evolución de contratistas
-        data = []
-        fecha_actual = fecha_inicio
-        
-        while fecha_actual <= hoy:
-            count = Contractor.objects.filter(
-                organizacion=organization,
-                created_at__date=fecha_actual
-            ).count()
-            
-            data.append({
-                'fecha': fecha_actual.strftime(date_format),
-                'valor': count,
-            })
-            
-            fecha_actual += timedelta(days=1)
-        
-        return {
-            'labels': [item['fecha'] for item in data],
-            'datasets': [{
-                'label': 'Nuevos Contratistas',
-                'data': [item['valor'] for item in data],
-                'borderColor': 'rgb(59, 130, 246)',
-                'backgroundColor': 'rgba(59, 130, 246, 0.1)',
-                'tension': 0.4,
-            }]
-        }
-    
-    elif chart_type == 'projects_status':
+    if chart_type == 'projects_status':
         # Distribución de proyectos por estado
         status_counts = Project.objects.filter(
             organizacion=organization
@@ -1327,7 +1209,6 @@ def dashboard_super_avanzado(request):
     
     # Datos para gráficos
     charts_data = {
-        'contractors_evolution': get_chart_data(organization, 'contractors_evolution', 'month'),
         'projects_status': get_chart_data(organization, 'projects_status'),
         'payments_trend': get_chart_data(organization, 'payments_trend', 'month'),
     }
@@ -1366,10 +1247,13 @@ def dashboard_super_avanzado(request):
         })
     
     # Notificaciones no leídas
-    unread_notifications = Notification.objects.filter(
-        organizacion=organization,
-        is_read=False
-    ).count()
+    try:
+        unread_notifications = Notificacion.objects.filter(
+            organization=organization,
+            leida=False
+        ).count()
+    except:
+        unread_notifications = 0
     
     # Estadísticas por módulo
     module_stats = {}
@@ -1436,7 +1320,7 @@ def dashboard_super_avanzado(request):
 # === APIS SUPER AVANZADAS ===
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_dashboard_metrics(request):
     """API específica para métricas del dashboard frontend"""
     try:
@@ -1540,7 +1424,7 @@ def api_dashboard_metrics(request):
         )
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_activity_heatmap(request):
     """API para el heatmap de actividad de empleados"""
     try:
@@ -1590,7 +1474,7 @@ def api_activity_heatmap(request):
         return Response({'error': 'Error interno del servidor'}, status=500)
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_historical_data(request):
     """API para datos históricos y predicciones"""
     try:
@@ -1646,7 +1530,7 @@ def api_historical_data(request):
         return Response({'error': 'Error interno del servidor'}, status=500)
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_kpi_trends(request):
     """API para tendencias de KPIs"""
     try:
@@ -1683,7 +1567,7 @@ def api_kpi_trends(request):
         return Response({'error': 'Error interno del servidor'}, status=500)
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_productivity_heatmap(request):
     """API para heatmap de productividad"""
     try:
@@ -1726,7 +1610,7 @@ def api_productivity_heatmap(request):
         return Response({'error': 'Error interno del servidor'}, status=500)
 
 @api_view(['GET'])  
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_system_monitoring(request):
     cache_key = 'system_metrics'
     cached_data = cache.get(cache_key)
@@ -1748,7 +1632,7 @@ def api_system_monitoring(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_intelligent_search(request):
     """API de búsqueda inteligente con sugerencias"""
     organization = request.user.organizacion
@@ -1761,31 +1645,6 @@ def api_intelligent_search(request):
     
     results = []
     suggestions = []
-    
-    # Búsqueda en contratistas
-    if category in ['all', 'contractors']:
-        contractors = Contractor.objects.filter(
-            organizacion=organization
-        ).filter(
-            Q(full_name__icontains=query) |
-            Q(employee_id__icontains=query) |
-            Q(email__icontains=query) |
-            Q(position__icontains=query)
-        )[:limit]
-        
-        for contractor in contractors:
-            results.append({
-                'type': 'contractor',
-                'id': str(contractor.id),
-                'title': contractor.full_name,
-                'subtitle': f'{contractor.position} - {contractor.employee_id}',
-                'url': f'/dashboard/contractors/{contractor.id}/',
-                'relevance': calculate_relevance(query, [
-                    contractor.full_name,
-                    contractor.employee_id,
-                    contractor.position
-                ])
-            })
     
     # Búsqueda en proyectos
     if category in ['all', 'projects']:
@@ -1883,7 +1742,7 @@ def calculate_relevance(query, fields):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_advanced_analytics(request):
     """API para analíticas avanzadas"""
     organization = request.user.organizacion
@@ -1908,7 +1767,6 @@ def api_advanced_analytics(request):
     if metric == 'productivity':
         # Análisis de productividad
         data = {
-            'contractors_per_project': 0,
             'avg_project_duration': 0,
             'completion_rate': 0,
         }
@@ -1964,30 +1822,29 @@ def api_advanced_analytics(request):
     elif metric == 'performance':
         # Análisis de rendimiento
         data = {
-            'top_contractors': [],
+            'top_projects': [],
             'project_efficiency': 0,
             'resource_utilization': 0,
         }
         
-        # Top contratistas por pagos recibidos
-        contractor_payments = Payment.objects.filter(
+        # Top proyectos por pagos recibidos
+        project_payments = Payment.objects.filter(
             organizacion=organization,
             payment_date__gte=fecha_inicio
-        ).values('contractor__full_name').annotate(
+        ).values('project__name').annotate(
             total_payments=Sum('amount'),
             payment_count=Count('id')
         ).order_by('-total_payments')[:5]
         
-        for item in contractor_payments:
-            data['top_contractors'].append({
-                'name': item['contractor__full_name'],
+        for item in project_payments:
+            data['top_projects'].append({
+                'name': item['project__name'] or 'Sin proyecto',
                 'total_payments': float(item['total_payments']),
                 'payment_count': item['payment_count'],
             })
     
     else:
         # Overview general
-        contractors_count = Contractor.objects.filter(organizacion=organization).count()
         projects_count = Project.objects.filter(organizacion=organization).count()
         payments_total = Payment.objects.filter(
             organizacion=organization,
@@ -1996,7 +1853,6 @@ def api_advanced_analytics(request):
         
         data = {
             'summary': {
-                'total_contractors': contractors_count,
                 'total_projects': projects_count,
                 'total_payments': float(payments_total),
                 'period': period,
@@ -2013,54 +1869,16 @@ def api_advanced_analytics(request):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_export_data(request):
     """API para exportar datos"""
     organization = request.user.organizacion
-    export_type = request.data.get('type', 'contractors')
+    export_type = request.data.get('type', 'projects')
     format_type = request.data.get('format', 'json')
     filters = request.data.get('filters', {})
     
     try:
-        if export_type == 'contractors':
-            queryset = Contractor.objects.filter(organizacion=organization)
-            
-            # Aplicar filtros
-            if filters.get('status'):
-                queryset = queryset.filter(status=filters['status'])
-            
-            if filters.get('date_from'):
-                queryset = queryset.filter(created_at__gte=filters['date_from'])
-            
-            if filters.get('date_to'):
-                queryset = queryset.filter(created_at__lte=filters['date_to'])
-            
-            # Serializar datos
-            if format_type == 'json':
-                data = []
-                for contractor in queryset:
-                    data.append({
-                        'id': str(contractor.id),
-                        'full_name': contractor.full_name,
-                        'employee_id': contractor.employee_id,
-                        'email': contractor.email,
-                        'phone': contractor.phone,
-                        'position': contractor.position,
-                        'status': contractor.status,
-                        'created_at': contractor.created_at.isoformat(),
-                    })
-                
-                response = JsonResponse({
-                    'success': True,
-                    'data': data,
-                    'total_records': len(data),
-                    'export_type': export_type,
-                    'timestamp': timezone.now().isoformat(),
-                })
-                
-                return response
-        
-        elif export_type == 'projects':
+        if export_type == 'projects':
             queryset = Project.objects.filter(organizacion=organization)
             
             # Aplicar filtros similares...
@@ -2091,7 +1909,7 @@ def api_export_data(request):
             for payment in queryset:
                 data.append({
                     'id': str(payment.id),
-                    'contractor': payment.contractor.full_name,
+                    'project': payment.project.name if payment.project else 'Sin proyecto',
                     'amount': float(payment.amount),
                     'payment_date': payment.payment_date.isoformat(),
                     'status': payment.status,
@@ -2129,7 +1947,6 @@ def advanced_reports(request):
     
     # Generar reportes predefinidos
     reports = {
-        'contractors_summary': generate_contractors_report(organization),
         'projects_summary': generate_projects_report(organization),
         'financial_summary': generate_financial_report(organization),
     }
@@ -2149,51 +1966,6 @@ def advanced_reports(request):
     }
     
     return render(request, 'dashboard/advanced_reports.html', context)
-
-
-def generate_contractors_report(organization):
-    """Genera reporte de contratistas"""
-    contractors = Contractor.objects.filter(organizacion=organization)
-    
-    # Estadísticas básicas
-    stats = {
-        'total': contractors.count(),
-        'active': contractors.filter(status='activo').count(),
-        'inactive': contractors.filter(status='inactivo').count(),
-    }
-    
-    # Distribución por posición
-    by_position = contractors.values('position').annotate(
-        count=Count('id')
-    ).order_by('-count')
-    
-    # Contrataciones por mes (últimos 6 meses)
-    hoy = timezone.now().date()
-    monthly_hires = []
-    
-    for i in range(6):
-        month_start = (hoy.replace(day=1) - timedelta(days=30*i))
-        if month_start.day != 1:
-            month_start = month_start.replace(day=1)
-        month_end = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-        
-        count = contractors.filter(
-            created_at__date__gte=month_start,
-            created_at__date__lte=month_end
-        ).count()
-        
-        monthly_hires.append({
-            'month': month_start.strftime('%b %Y'),
-            'count': count,
-        })
-    
-    monthly_hires.reverse()
-    
-    return {
-        'stats': stats,
-        'by_position': list(by_position),
-        'monthly_hires': monthly_hires,
-    }
 
 
 def generate_projects_report(organization):
@@ -2427,94 +2199,6 @@ def system_test(request):
     return render(request, 'dashboard/system_test.html', context)
 
 
-# === VISTAS BÁSICAS PARA URLS ===
-
-@login_required
-def contractors_list(request):
-    """Vista para listar contratistas"""
-    contractors = Contractor.objects.all().order_by('-created_at')
-    
-    search = request.GET.get('search')
-    if search:
-        contractors = contractors.filter(
-            Q(first_name__icontains=search) |
-            Q(last_name__icontains=search) |
-            Q(email__icontains=search)
-        )
-    
-    return render(request, 'dashboard/contractors/list.html', {
-        'contractors': contractors,
-        'title': 'Contratistas'
-    })
-
-
-@login_required
-def contractor_detail(request, pk):
-    """Vista de detalle de contratista"""
-    contractor = get_object_or_404(Contractor, pk=pk)
-    return render(request, 'dashboard/contractors/detail.html', {
-        'contractor': contractor,
-        'title': f'Contratista: {contractor.full_name}'
-    })
-
-
-@login_required
-def contractor_create(request):
-    """Vista para crear contratista"""
-    if request.method == 'POST':
-        form = ContractorForm(request.POST)
-        if form.is_valid():
-            contractor = form.save(commit=False)
-            contractor.organizacion = request.user.organizacion
-            contractor.save()
-            messages.success(request, 'Contratista creado exitosamente.')
-            return redirect('dashboard:contractors_list')
-    else:
-        form = ContractorForm()
-    
-    return render(request, 'dashboard/contractors/form.html', {
-        'form': form,
-        'title': 'Crear Contratista'
-    })
-
-
-@login_required
-def contractor_edit(request, pk):
-    """Vista para editar contratista"""
-    contractor = get_object_or_404(Contractor, pk=pk)
-    
-    if request.method == 'POST':
-        form = ContractorForm(request.POST, instance=contractor)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Contratista actualizado exitosamente.')
-            return redirect('dashboard:contractor_detail', pk=contractor.pk)
-    else:
-        form = ContractorForm(instance=contractor)
-    
-    return render(request, 'dashboard/contractors/form.html', {
-        'form': form,
-        'contractor': contractor,
-        'title': f'Editar: {contractor.full_name}'
-    })
-
-
-@login_required
-def contractor_delete(request, pk):
-    """Vista para eliminar contratista"""
-    contractor = get_object_or_404(Contractor, pk=pk)
-    
-    if request.method == 'POST':
-        contractor.delete()
-        messages.success(request, 'Contratista eliminado exitosamente.')
-        return redirect('dashboard:contractors_list')
-    
-    return render(request, 'dashboard/contractors/delete.html', {
-        'contractor': contractor,
-        'title': f'Eliminar: {contractor.full_name}'
-    })
-
-
 # === VISTAS DE PROYECTOS ===
 
 @login_required
@@ -2612,8 +2296,8 @@ def payments_list(request):
     search = request.GET.get('search')
     if search:
         payments = payments.filter(
-            Q(contractor__first_name__icontains=search) |
-            Q(contractor__last_name__icontains=search)
+            Q(description__icontains=search) |
+            Q(project__name__icontains=search)
         )
     
     return render(request, 'dashboard/payments/list.html', {
@@ -2628,7 +2312,7 @@ def payment_detail(request, pk):
     payment = get_object_or_404(Payment, pk=pk)
     return render(request, 'dashboard/payments/detail.html', {
         'payment': payment,
-        'title': f'Pago: {payment.contractor.full_name}'
+        'title': f'Pago: {payment.project.name if payment.project else "Sin proyecto"}'
     })
 
 
@@ -2669,7 +2353,7 @@ def payment_edit(request, pk):
     return render(request, 'dashboard/payments/form.html', {
         'form': form,
         'payment': payment,
-        'title': f'Editar pago de {payment.contractor.full_name}'
+        'title': f'Editar pago de {payment.project.name if payment.project else "Sin proyecto"}'
     })
 
 
@@ -2685,7 +2369,7 @@ def payment_delete(request, pk):
     
     return render(request, 'dashboard/payments/delete.html', {
         'payment': payment,
-        'title': f'Eliminar pago de {payment.contractor.full_name}'
+        'title': f'Eliminar pago de {payment.project.name if payment.project else "Sin proyecto"}'
     })
 
 
@@ -2698,7 +2382,6 @@ def advanced_reports(request):
     
     # Generar reportes
     reports = {
-        'contractors': generate_contractors_report(organization),
         'projects': generate_projects_report(organization),
         'financial': generate_financial_report(organization),
         'payroll': generate_payroll_report(organization) if PAYROLL_AVAILABLE else None,
@@ -2719,7 +2402,7 @@ def advanced_reports(request):
 # === APIs BÁSICAS ===
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_dashboard_metrics(request):
     """API completa para métricas del dashboard"""
     try:
@@ -2780,48 +2463,15 @@ def api_dashboard_metrics(request):
     return Response(metrics)
 
 
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def api_contractors_search(request):
-    """API para búsqueda de contratistas"""
-    organization = request.user.organizacion
-    query = request.GET.get('q', '')
-    
-    contractors = Contractor.objects.filter(organizacion=organization)
-    
-    if query:
-        contractors = contractors.filter(
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query) |
-            Q(email__icontains=query) |
-            Q(employee_id__icontains=query)
-        )
-    
-    contractors = contractors[:20]  # Limitar resultados
-    
-    data = [{
-        'id': str(contractor.id),
-        'name': contractor.full_name,
-        'email': contractor.email,
-        'position': contractor.position,
-    } for contractor in contractors]
-    
-    return Response(data)
-
-
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([DashboardAccessPolicy])
 def api_export_data(request):
     """API para exportar datos"""
-    export_type = request.data.get('type', 'contractors')
+    export_type = request.data.get('type', 'projects')
     format_type = request.data.get('format', 'json')
     
     try:
-        if export_type == 'contractors':
-            data = list(Contractor.objects.filter(
-                organizacion=request.user.organizacion
-            ).values())
-        elif export_type == 'projects':
+        if export_type == 'projects':
             data = list(Project.objects.filter(
                 organizacion=request.user.organizacion
             ).values())
@@ -2844,51 +2494,6 @@ def api_export_data(request):
         
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-
-
-def generate_contractors_report(organization):
-    """Genera reporte de contratistas"""
-    contractors = Contractor.objects.filter(organizacion=organization)
-    
-    # Estadísticas básicas
-    stats = {
-        'total': contractors.count(),
-        'active': contractors.filter(status='activo').count(),
-        'inactive': contractors.filter(status='inactivo').count(),
-    }
-    
-    # Distribución por posición
-    by_position = contractors.values('position').annotate(
-        count=Count('id')
-    ).order_by('-count')
-    
-    # Contrataciones por mes (últimos 6 meses)
-    hoy = timezone.now().date()
-    monthly_hires = []
-    
-    for i in range(6):
-        month_start = (hoy.replace(day=1) - timedelta(days=30*i))
-        if month_start.day != 1:
-            month_start = month_start.replace(day=1)
-        month_end = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-        
-        count = contractors.filter(
-            created_at__date__gte=month_start,
-            created_at__date__lte=month_end
-        ).count()
-        
-        monthly_hires.append({
-            'month': month_start.strftime('%b %Y'),
-            'count': count,
-        })
-    
-    monthly_hires.reverse()
-    
-    return {
-        'stats': stats,
-        'by_position': list(by_position),
-        'monthly_hires': monthly_hires,
-    }
 
 
 def generate_projects_report(organization):

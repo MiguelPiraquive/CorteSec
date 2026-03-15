@@ -1,9 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import useAudit from '../../hooks/useAudit'
+import useServerPagination from '../../hooks/useServerPagination'
+import Pagination from '../../components/Pagination'
 import empleadosService from '../../services/empleadosService'
 import cargosService from '../../services/cargosService'
 import locationsService from '../../services/locationsService'
 import usuariosService from '../../services/usuariosService'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
+import { useActiveProject } from '../../context/ActiveProjectContext'
 import {
   UsersIcon,
   PlusIcon,
@@ -17,28 +22,47 @@ import {
   UserCircleIcon,
   MailIcon,
   PhoneIcon,
-  MapPinIcon,
   BriefcaseIcon,
-  CalendarIcon,
 } from 'lucide-react'
+import useProductTour from '../../hooks/useProductTour'
+import { TOUR_CONFIGS } from '../../data/tourConfigs'
 
 const EmpleadosPage = () => {
   const audit = useAudit('Empleados')
-  const [empleados, setEmpleados] = useState([])
+  const { hasPermission, initialized } = usePermissions()
+  const { activeProject, getProjectFilter } = useActiveProject()
+
+  // Server-side pagination
+  const pf = getProjectFilter()
+  const fetchEmpleados = useCallback((params) => empleadosService.getEmpleados({ ...params, ...pf }), [activeProject])
+  const {
+    data: empleados,
+    loading,
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    searchTerm,
+    setSearchTerm,
+    setCurrentPage,
+    setFilters,
+    refresh,
+  } = useServerPagination(fetchEmpleados, { pageSize: 12 })
+
+  // Dropdown data (loaded separately, not paginated)
   const [cargos, setCargos] = useState([])
   const [departamentos, setDepartamentos] = useState([])
   const [municipios, setMunicipios] = useState([])
   const [usuarios, setUsuarios] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+
+  // Local filter state for dropdowns
   const [filterCargo, setFilterCargo] = useState('')
   const [filterGenero, setFilterGenero] = useState('')
+
   const [showModal, setShowModal] = useState(false)
   const [editingEmpleado, setEditingEmpleado] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize] = useState(12)
   const [previewImage, setPreviewImage] = useState(null)
-  
+
   const [formData, setFormData] = useState({
     tipo_documento: 'CC',
     numero_documento: '',
@@ -66,47 +90,46 @@ const EmpleadosPage = () => {
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
 
+  // Load dropdown data on mount
   useEffect(() => {
-    loadInitialData()
+    loadDropdownData()
   }, [])
 
+  // Sync local filter state to the hook's filters
   useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, filterCargo, filterGenero])
+    const f = {}
+    if (filterCargo) f.cargo = filterCargo
+    if (filterGenero) f.genero = filterGenero
+    setFilters(f)
+  }, [filterCargo, filterGenero, setFilters])
 
-  const loadInitialData = async () => {
+  useProductTour('empleados', TOUR_CONFIGS.empleados.steps, {
+    ready: !loading && initialized,
+  })
+
+  const loadDropdownData = async () => {
     try {
-      setLoading(true)
-      console.log('🔄 Recargando datos...')
-      const [empleadosData, cargosData, departamentosData, usuariosData] = await Promise.all([
-        empleadosService.getAllEmpleados(),
+      const [cargosData, departamentosData, usuariosData] = await Promise.all([
         cargosService.getAllCargos(),
         locationsService.getSimpleDepartamentos(),
         usuariosService.getUsuarios({ is_active: true }).catch(() => []),
       ])
-      console.log('👥 Empleados recibidos:', empleadosData)
-      console.log('📊 Cantidad:', Array.isArray(empleadosData) ? empleadosData.length : 'No es array')
-      setEmpleados(empleadosData)
       setCargos(cargosData.filter(c => c.activo))
       setDepartamentos(departamentosData)
       setUsuarios(Array.isArray(usuariosData) ? usuariosData : usuariosData.results || [])
     } catch (error) {
       showNotification('error', 'Error al cargar datos')
-      console.error('❌ Error:', error)
-    } finally {
-      setLoading(false)
+      console.error('Error:', error)
     }
   }
 
   const loadMunicipiosByDepartamento = async (departamentoId) => {
     try {
-      console.log('🔍 Cargando municipios para departamento:', departamentoId)
+      console.log('Cargando municipios para departamento:', departamentoId)
       const municipiosData = await locationsService.getMunicipiosByDepartamento(departamentoId)
-      console.log('✅ Municipios recibidos:', municipiosData)
-      console.log('📊 Cantidad de municipios:', Array.isArray(municipiosData) ? municipiosData.length : 'No es array')
       setMunicipios(municipiosData)
     } catch (error) {
-      console.error('❌ Error al cargar municipios:', error)
+      console.error('Error al cargar municipios:', error)
       setMunicipios([])
     }
   }
@@ -119,13 +142,9 @@ const EmpleadosPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      console.log('🔎 FormData actual antes de enviar:', formData)
-      console.log('🔎 formData.foto:', formData.foto)
-      console.log('🔎 Es File?:', formData.foto instanceof File)
-      
       // Si hay foto, usar FormData, sino JSON normal
       let dataToSend
-      
+
       if (formData.foto && formData.foto instanceof File) {
         // Crear FormData para enviar archivo
         dataToSend = new FormData()
@@ -179,24 +198,21 @@ const EmpleadosPage = () => {
         }
       }
 
-      console.log('💾 Guardando empleado:', formData.foto ? 'Con foto (FormData)' : dataToSend)
-
       if (editingEmpleado) {
         await empleadosService.updateEmpleado(editingEmpleado.id, dataToSend)
         audit.button('modificar_empleado', { empleado_id: editingEmpleado.id, documento: formData.numero_documento });
         showNotification('success', 'Empleado actualizado exitosamente')
       } else {
-        const result = await empleadosService.createEmpleado(dataToSend)
-        console.log('✅ Empleado creado:', result)
+        await empleadosService.createEmpleado(dataToSend)
         audit.button('crear_empleado', { documento: formData.numero_documento, nombres: formData.primer_nombre });
         showNotification('success', 'Empleado creado exitosamente')
       }
       setShowModal(false)
       resetForm()
-      await loadInitialData()
+      refresh()
     } catch (error) {
-      console.error('❌ Error guardando:', error)
-      console.error('📋 Detalle del error:', error.response?.data)
+      console.error('Error guardando:', error)
+      console.error('Detalle del error:', error.response?.data)
       showNotification('error', error.response?.data?.message || 'Error al guardar empleado')
     }
   }
@@ -204,15 +220,11 @@ const EmpleadosPage = () => {
   const handleEdit = async (empleado) => {
     audit.modalOpen('editar_empleado', { empleado_id: empleado.id, documento: empleado.numero_documento });
     setEditingEmpleado(empleado)
-    
-    console.log('📝 Editando empleado:', empleado)
-    
+
     // Extraer IDs correctamente (pueden venir como UUID string o como objeto {id: uuid})
     const departamentoId = typeof empleado.departamento === 'object' ? empleado.departamento?.id : empleado.departamento
     const ciudadId = typeof empleado.ciudad === 'object' ? empleado.ciudad?.id : empleado.ciudad
-    
-    console.log('🔍 Departamento ID:', departamentoId, 'Ciudad ID:', ciudadId)
-    
+
     setFormData({
       tipo_documento: empleado.tipo_documento || 'CC',
       numero_documento: empleado.numero_documento || '',
@@ -236,12 +248,12 @@ const EmpleadosPage = () => {
       numero_cuenta: empleado.numero_cuenta || '',
       observaciones: empleado.observaciones || '',
     })
-    
+
     // Cargar municipios si hay departamento seleccionado
     if (departamentoId) {
       await loadMunicipiosByDepartamento(departamentoId)
     }
-    
+
     if (empleado.foto) {
       setPreviewImage(empleado.foto)
     }
@@ -253,7 +265,7 @@ const EmpleadosPage = () => {
     try {
       await empleadosService.deleteEmpleado(id)
       showNotification('success', 'Empleado eliminado exitosamente')
-      loadInitialData()
+      refresh()
     } catch (error) {
       showNotification('error', 'Error al eliminar empleado')
     }
@@ -273,10 +285,9 @@ const EmpleadosPage = () => {
 
   const handleDepartamentoChange = (e) => {
     const depId = e.target.value
-    console.log('🏛️ Departamento seleccionado:', depId)
     setFormData({ ...formData, departamento: depId, ciudad: '' })
     setMunicipios([])
-    
+
     if (depId && depId.trim() !== '') {
       loadMunicipiosByDepartamento(depId)
     }
@@ -284,38 +295,36 @@ const EmpleadosPage = () => {
 
   const handleUsuarioChange = async (e) => {
     const usuarioId = e.target.value
-    
+
     if (!usuarioId) {
       setFormData({ ...formData, usuario: '' })
       return
     }
-    
+
     try {
       // Obtener datos del usuario con su perfil
       const usuario = await usuariosService.getUsuario(usuarioId)
-      console.log('👤 Usuario seleccionado:', usuario)
-      
+
       // Autocompletar datos desde el perfil si existen
       if (usuario.perfil_detalle) {
         const perfil = usuario.perfil_detalle
         const newFormData = { ...formData, usuario: usuarioId }
-        
+
         // Autocompletar nombres y apellidos desde el usuario
         if (!formData.primer_nombre && perfil.first_name) {
           const nombres = perfil.first_name.trim().split(' ')
           newFormData.primer_nombre = nombres[0] || ''
           newFormData.segundo_nombre = nombres.slice(1).join(' ') || ''
         }
-        
+
         if (!formData.primer_apellido && perfil.last_name) {
           const apellidos = perfil.last_name.trim().split(' ')
           newFormData.primer_apellido = apellidos[0] || ''
           newFormData.segundo_apellido = apellidos.slice(1).join(' ') || ''
         }
-        
+
         // Autocompletar género
         if (!formData.genero && perfil.genero) {
-          // Convertir género del perfil al formato del empleado
           const generoMap = {
             'masculino': 'M',
             'femenino': 'F',
@@ -323,7 +332,7 @@ const EmpleadosPage = () => {
           }
           newFormData.genero = generoMap[perfil.genero.toLowerCase()] || ''
         }
-        
+
         // Autocompletar otros campos del perfil
         if (!formData.email && usuario.email) newFormData.email = usuario.email
         if (!formData.telefono && perfil.telefono) newFormData.telefono = perfil.telefono
@@ -333,19 +342,19 @@ const EmpleadosPage = () => {
         if (!formData.banco && perfil.banco) newFormData.banco = perfil.banco
         if (!formData.tipo_cuenta && perfil.tipo_cuenta) newFormData.tipo_cuenta = perfil.tipo_cuenta
         if (!formData.numero_cuenta && perfil.numero_cuenta) newFormData.numero_cuenta = perfil.numero_cuenta
-        
+
         // Autocompletar departamento y ciudad por nombre
         if (!formData.departamento && perfil.departamento_residencia) {
           const depNombre = perfil.departamento_residencia.toUpperCase()
           const depEncontrado = departamentos.find(d => d.nombre.toUpperCase() === depNombre)
           if (depEncontrado) {
             newFormData.departamento = depEncontrado.id
-            
+
             // Cargar municipios del departamento
             try {
               const municipiosData = await locationsService.getMunicipiosByDepartamento(depEncontrado.id)
               setMunicipios(municipiosData)
-              
+
               // Buscar ciudad
               if (perfil.ciudad_residencia) {
                 const ciudadNombre = perfil.ciudad_residencia.toUpperCase()
@@ -359,19 +368,15 @@ const EmpleadosPage = () => {
             }
           }
         }
-        
-        console.log('📋 FormData antes:', formData)
-        console.log('✨ FormData después:', newFormData)
-        
+
         setFormData(newFormData)
-        showNotification('success', '✨ Datos autocompletados desde el perfil del usuario')
+        showNotification('success', 'Datos autocompletados desde el perfil del usuario')
       } else {
         // Solo actualizar el usuario si no hay perfil
         setFormData({ ...formData, usuario: usuarioId })
-        console.log('⚠️ Usuario sin perfil detallado')
       }
     } catch (error) {
-      console.error('❌ Error al cargar usuario:', error)
+      console.error('Error al cargar usuario:', error)
       showNotification('error', 'Error al cargar datos del usuario')
       setFormData({ ...formData, usuario: usuarioId })
     }
@@ -405,37 +410,18 @@ const EmpleadosPage = () => {
     setMunicipios([])
     setEditingEmpleado(null)
     setPreviewImage(null)
-    setMunicipios([])
-  }
-
-  const filteredEmpleados = empleados.filter(emp => {
-    const matchSearch = (emp.nombre_completo?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (emp.numero_documento?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-    const matchCargo = !filterCargo || emp.cargo_actual === filterCargo
-    const matchGenero = !filterGenero || emp.genero === filterGenero
-    return matchSearch && matchCargo && matchGenero
-  })
-
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const paginatedEmpleados = filteredEmpleados.slice(startIndex, endIndex)
-  const totalPages = Math.ceil(filteredEmpleados.length / pageSize)
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
   }
 
   const getCargoNombre = (empleado) => {
-    // Usar cargo_nombre del backend, o cargo_info.nombre, o 'Sin cargo'
-    return empleado.cargo_nombre || empleado.cargo_info?.nombre || 'Sin cargo'
+    return empleado.cargo_actual?.nombre || empleado.contrato_activo?.cargo?.nombre || 'Sin cargo'
   }
   const getGeneroLabel = (genero) => {
     const map = { 'M': 'Masculino', 'F': 'Femenino', 'O': 'Otro' }
     return map[genero] || genero
   }
+
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('empleados.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   return (
     <div className="space-y-6">
@@ -449,7 +435,7 @@ const EmpleadosPage = () => {
       )}
 
       {/* Header */}
-      <div className="backdrop-blur-xl bg-gradient-to-br from-green-500 via-emerald-600 to-teal-600 rounded-3xl shadow-2xl p-8 text-white border border-white/20">
+      <div id="tour-empleados-header" className="backdrop-blur-xl bg-gradient-to-br from-green-500 via-emerald-600 to-teal-600 rounded-3xl shadow-2xl p-8 text-white border border-white/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl">
@@ -460,15 +446,17 @@ const EmpleadosPage = () => {
               <p className="text-green-100 mt-1">Gestión integral del personal</p>
             </div>
           </div>
-          <button onClick={() => { setShowModal(true); resetForm() }} className="flex items-center space-x-2 px-5 py-3 bg-white text-green-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg">
-            <PlusIcon className="w-5 h-5" />
-            <span>Nuevo Empleado</span>
-          </button>
+          <Can permission="empleados.add">
+            <button id="tour-empleados-btn-nuevo" onClick={() => { setShowModal(true); resetForm() }} className="flex items-center space-x-2 px-5 py-3 bg-white text-green-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg">
+              <PlusIcon className="w-5 h-5" />
+              <span>Nuevo Empleado</span>
+            </button>
+          </Can>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg p-6 border border-gray-200/50">
+      <div id="tour-empleados-filters" className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg p-6 border border-gray-200/50">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
             <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -490,7 +478,7 @@ const EmpleadosPage = () => {
       </div>
 
       {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div id="tour-empleados-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {loading ? (
           <div className="col-span-full flex justify-center items-center py-12">
             <div className="flex items-center space-x-3">
@@ -498,12 +486,12 @@ const EmpleadosPage = () => {
               <span className="text-gray-600">Cargando empleados...</span>
             </div>
           </div>
-        ) : paginatedEmpleados.length === 0 ? (
+        ) : empleados.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-500">
             No se encontraron empleados
           </div>
         ) : (
-          paginatedEmpleados.map((empleado) => (
+          empleados.map((empleado) => (
             <div key={empleado.id} className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg border border-gray-200/50 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
               <div className="bg-gradient-to-r from-green-500 to-teal-600 p-4 text-white">
                 <div className="flex items-center justify-center mb-3">
@@ -537,25 +525,29 @@ const EmpleadosPage = () => {
                   </div>
                 )}
                 <div className="flex items-center space-x-2 text-sm">
-                  <CalendarIcon className="w-4 h-4 text-orange-600" />
+                  <UsersIcon className="w-4 h-4 text-orange-600" />
                   <span className="text-gray-700">{getGeneroLabel(empleado.genero)}</span>
                 </div>
                 <div className="pt-2 mt-2 border-t border-gray-200">
                   <div className="flex justify-between items-center mb-2">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                      empleado.estado === 'activo' ? 'bg-green-100 text-green-700' : 
-                      empleado.estado === 'retirado' ? 'bg-gray-100 text-gray-700' : 
+                      empleado.estado === 'activo' ? 'bg-green-100 text-green-700' :
+                      empleado.estado === 'retirado' ? 'bg-gray-100 text-gray-700' :
                       'bg-red-100 text-red-700'
                     }`}>
                       {empleado.estado === 'activo' ? 'Activo' : empleado.estado === 'inactivo' ? 'Inactivo' : 'Retirado'}
                     </span>
                     <div className="flex space-x-1">
-                      <button onClick={() => handleEdit(empleado)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all">
-                        <EditIcon className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDelete(empleado.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all">
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
+                      <Can permission="empleados.change">
+                        <button onClick={() => handleEdit(empleado)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all">
+                          <EditIcon className="w-4 h-4" />
+                        </button>
+                      </Can>
+                      <Can permission="empleados.delete">
+                        <button onClick={() => handleDelete(empleado.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all">
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </Can>
                     </div>
                   </div>
                   {empleado.tiene_usuario && (
@@ -572,50 +564,14 @@ const EmpleadosPage = () => {
       </div>
 
       {/* Pagination */}
-      {filteredEmpleados.length > pageSize && (
-        <div className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg p-6 border border-gray-200/50">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Mostrando <span className="font-semibold text-gray-900">{startIndex + 1}</span> a{' '}
-              <span className="font-semibold text-gray-900">{Math.min(endIndex, filteredEmpleados.length)}</span> de{' '}
-              <span className="font-semibold text-gray-900">{filteredEmpleados.length}</span> empleados
-            </div>
-            <div className="flex space-x-2">
-              <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                Primera
-              </button>
-              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                Anterior
-              </button>
-              <div className="flex items-center space-x-2">
-                {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                  let pageNum
-                  if (totalPages <= 5) {
-                    pageNum = i + 1
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i
-                  } else {
-                    pageNum = currentPage - 2 + i
-                  }
-                  return (
-                    <button key={i} onClick={() => handlePageChange(pageNum)} className={`px-4 py-2 rounded-lg transition-all ${currentPage === pageNum ? 'bg-gradient-to-r from-green-500 to-teal-600 text-white font-bold shadow-lg' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
-                      {pageNum}
-                    </button>
-                  )
-                })}
-              </div>
-              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                Siguiente
-              </button>
-              <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                Última
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        itemLabel="empleados"
+      />
 
       {/* Modal */}
       {showModal && (
@@ -658,8 +614,8 @@ const EmpleadosPage = () => {
                 <p className="text-sm text-blue-700 mb-3">
                   Si el empleado necesita acceso al sistema, vincúlalo con un usuario existente. Los datos del perfil se autocompletarán automáticamente.
                 </p>
-                <select 
-                  value={formData.usuario} 
+                <select
+                  value={formData.usuario}
                   onChange={handleUsuarioChange}
                   className="w-full px-4 py-3 bg-white border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 transition-all"
                 >
@@ -673,7 +629,7 @@ const EmpleadosPage = () => {
                 {formData.usuario && (
                   <div className="mt-3 flex items-center space-x-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold">
                     <CheckIcon className="w-4 h-4" />
-                    <span>✨ Este empleado tendrá acceso al sistema</span>
+                    <span>Este empleado tendrá acceso al sistema</span>
                   </div>
                 )}
               </div>

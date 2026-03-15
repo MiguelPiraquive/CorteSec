@@ -1,16 +1,16 @@
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
-from django.core.mail import send_mail
 from django.conf import settings
+from django.utils import timezone
 import logging
 
-from .models import CustomUser
+from core.email_service import send_system_email
+from .models import CustomUser, PasswordHistory
 from .serializers import (
     UserSerializer, LoginSerializer, RegisterSerializer,
     PasswordChangeSerializer, ProfileUpdateSerializer,
@@ -19,8 +19,10 @@ from .serializers import (
 from .auth_security import (
     AuthSecurityManager, SecurityAuditLogger, LoginRateThrottle
 )
+from .jwt_serializers import get_tokens_for_user
 from core.models import LogAuditoria
 from core.decorators import get_client_ip
+from .policies import LoginAccessPolicy
 
 logger = logging.getLogger('security')
 
@@ -39,8 +41,8 @@ def auth_api_index(request):
                     'method': 'POST',
                     'description': 'Iniciar sesión con email y contraseña',
                     'body': {
-                        'email': 'admin@cortesec.com',
-                        'password': 'admin123'
+                        'email': '<your-email>',
+                        'password': '<your-password>'
                     }
                 },
                 'logout': {
@@ -90,13 +92,8 @@ def auth_api_index(request):
             }
         },
         'usage': {
-            'authentication': 'Incluir token en header: Authorization: Token <your-token>',
+            'authentication': 'Incluir access token en header: Authorization: Bearer <your-access-token>',
             'content_type': 'application/json',
-            'test_credentials': {
-                'email': 'admin@cortesec.com',
-                'password': 'admin123',
-                'note': 'Credenciales de prueba para testing'
-            }
         },
         'status': 'active',
         'server_time': request.META.get('HTTP_HOST', 'localhost'),
@@ -107,49 +104,17 @@ def auth_api_index(request):
 @permission_classes([permissions.AllowAny])
 @throttle_classes([LoginRateThrottle])
 def login_api(request):
-    """API endpoint para login con seguridad avanzada y validación de organización"""
+    """API endpoint para login - auto-detecta organización del usuario"""
     try:
-        # Obtener IP del cliente
         ip_address = AuthSecurityManager.get_client_ip(request)
-        
-        # IMPORTANTE: Obtener código de organización del header
-        tenant_codigo = request.META.get('HTTP_X_TENANT_CODIGO')
-        
-        if not tenant_codigo:
-            SecurityAuditLogger.log_login_attempt(
-                request.data.get('email', 'unknown'),
-                ip_address,
-                False,
-                'Missing organization code'
-            )
-            return Response({
-                'success': False,
-                'message': 'Código de organización requerido.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Validar que la organización existe y está activa (case-insensitive)
-        from core.models import Organizacion
-        try:
-            organization = Organizacion.objects.get(codigo__iexact=tenant_codigo, activa=True)
-        except Organizacion.DoesNotExist:
-            SecurityAuditLogger.log_login_attempt(
-                request.data.get('email', 'unknown'),
-                ip_address,
-                False,
-                f'Invalid organization: {tenant_codigo}'
-            )
-            return Response({
-                'success': False,
-                'message': f'Organización "{tenant_codigo}" no encontrada o inactiva.'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
+
         serializer = LoginSerializer(data=request.data)
-        
+
         if not serializer.is_valid():
             SecurityAuditLogger.log_login_attempt(
-                request.data.get('email', 'unknown'), 
-                ip_address, 
-                False, 
+                request.data.get('email', 'unknown'),
+                ip_address,
+                False,
                 'Invalid data format'
             )
             return Response({
@@ -157,62 +122,76 @@ def login_api(request):
                 'message': 'Datos inválidos.',
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        
+
         # Usar autenticación segura
         user, error_info = AuthSecurityManager.secure_authenticate(request, email, password)
-        
+
         if not user:
             SecurityAuditLogger.log_login_attempt(email, ip_address, False, error_info.get('error'))
-            
+
             response_data = {
                 'success': False,
                 'message': error_info.get('error', 'Error de autenticación.')
             }
-            
-            # Agregar información adicional según el tipo de error
+
             if error_info.get('locked_out'):
                 response_data['locked_out'] = True
-                response_data['retry_after'] = AuthSecurityManager.LOCKOUT_DURATION
+                response_data['retry_after'] = error_info.get('lockout_duration', AuthSecurityManager.LOCKOUT_DURATION)
             elif error_info.get('account_disabled'):
                 response_data['account_disabled'] = True
-            
+
             return Response(response_data, status=status.HTTP_401_UNAUTHORIZED)
-        
-        # CRÍTICO: Validar que el usuario pertenece a la organización especificada
-        if user.organization != organization:
-            SecurityAuditLogger.log_login_attempt(
-                email,
-                ip_address,
-                False,
-                f'User does not belong to organization {tenant_codigo}'
-            )
-            logger.warning(
-                f"Login attempt by {email} for wrong organization. "
-                f"User org: {user.organization.codigo if user.organization else 'None'}, "
-                f"Requested org: {tenant_codigo}"
-            )
+
+        # Auto-detectar organización del usuario
+        organization = getattr(user, 'organization', None)
+        if not organization:
+            SecurityAuditLogger.log_login_attempt(email, ip_address, False, 'No organization')
             return Response({
                 'success': False,
-                'message': 'No tienes acceso a esta organización.'
+                'message': 'No se puede iniciar sesión. Contacta al administrador.'
             }, status=status.HTTP_403_FORBIDDEN)
-        
-        # Crear token seguro
-        token = AuthSecurityManager.create_secure_token(user)
-        if not token:
-            logger.error(f"Error creating token for user {user.email}")
+
+        if not organization.activa:
+            SecurityAuditLogger.log_login_attempt(email, ip_address, False, 'Organization inactive')
             return Response({
                 'success': False,
-                'message': 'Error interno del servidor.'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+                'message': 'No se puede iniciar sesión. Contacta al administrador.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Generar JWT tokens
+        tokens = get_tokens_for_user(user)
+
+        # ── Enforce: no permitir múltiples sesiones simultáneas ──
+        try:
+            from login.auth_security import _get_security_config
+            sec_config = _get_security_config()
+            if not sec_config.get('permitir_multiples_sesiones', False):
+                # Blacklist todos los tokens anteriores del usuario
+                from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+                old_tokens = OutstandingToken.objects.filter(user=user)
+                for ot in old_tokens:
+                    BlacklistedToken.objects.get_or_create(token=ot)
+                # Re-generar tokens frescos después del blacklist
+                tokens = get_tokens_for_user(user)
+        except Exception as e:
+            logger.warning(f"Error checking multiple sessions config: {e}")
+
+        # ── Enforce: verificar expiración de contraseña ──
+        password_expired = False
+        try:
+            from login.password_validators import PasswordExpiryValidator
+            password_expired = PasswordExpiryValidator.is_password_expired(user)
+        except Exception as e:
+            logger.warning(f"Error checking password expiry: {e}")
+
         # Log del login exitoso
         SecurityAuditLogger.log_login_attempt(email, ip_address, True)
-        SecurityAuditLogger.log_token_activity(user, "CREATED", f"from IP {ip_address}")
-        
-        # CREAR LOG DE AUDITORÍA
+        SecurityAuditLogger.log_token_activity(user, "CREATED", f"JWT from IP {ip_address}")
+
+        # Log de auditoría
         LogAuditoria.objects.create(
             usuario=user,
             accion='login',
@@ -222,22 +201,38 @@ def login_api(request):
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
             metadata={
                 'organization': organization.nombre,
-                'organization_code': tenant_codigo,
+                'organization_code': organization.codigo,
                 'success': True
             }
         )
-        
+
         # Serializar datos del usuario
         user_serializer = UserSerializer(user)
-        
-        return Response({
+
+        # Datos de organización para el frontend
+        organization_data = {
+            'id': str(organization.id),
+            'nombre': organization.nombre,
+            'codigo': organization.codigo,
+            'slug': organization.slug or '',
+            'logo': organization.logo.url if organization.logo else None,
+            'primary_color': organization.primary_color,
+        }
+
+        response = Response({
             'success': True,
             'message': f'Bienvenido, {user.display_name}!',
-            'token': token.key,
             'user': user_serializer.data,
-            'token_expires_in': AuthSecurityManager.TOKEN_VALIDITY_HOURS * 3600  # en segundos
+            'organization': organization_data,
+            'password_expired': password_expired,
         }, status=status.HTTP_200_OK)
-        
+
+        # Establecer tokens en httpOnly cookies (no en body)
+        from .cookie_auth import set_auth_cookies
+        set_auth_cookies(response, tokens['access'], tokens['refresh'])
+
+        return response
+
     except Exception as e:
         logger.error(f"Unexpected error in login_api: {e}")
         SecurityAuditLogger.log_security_event(
@@ -250,17 +245,10 @@ def login_api(request):
             'success': False,
             'message': 'Error interno del servidor.'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-    except Exception as e:
-        logger.error(f"Error en login_api: {e}")
-        return Response({
-            'success': False,
-            'message': 'Error interno del servidor.'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def logout_api(request):
     """API endpoint para logout con seguridad avanzada"""
     try:
@@ -278,17 +266,26 @@ def logout_api(request):
             metadata={'success': True}
         )
         
-        # Eliminar token del usuario de forma segura
-        Token.objects.filter(user=user).delete()
+        # Blacklist all outstanding refresh tokens for this user
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+        outstanding_tokens = OutstandingToken.objects.filter(user=user)
+        for ot in outstanding_tokens:
+            BlacklistedToken.objects.get_or_create(token=ot)
         
         # Log del logout
         SecurityAuditLogger.log_token_activity(user, "DELETED", f"logout from IP {ip_address}")
         logger.info(f"Usuario {user.email} cerró sesión via API desde IP {ip_address}")
-        
-        return Response({
+
+        response = Response({
             'success': True,
             'message': 'Sesión cerrada correctamente'
         }, status=status.HTTP_200_OK)
+
+        # Limpiar cookies httpOnly
+        from .cookie_auth import clear_auth_cookies
+        clear_auth_cookies(response)
+
+        return response
     
     except Exception as e:
         logger.error(f"Error en logout API: {e}")
@@ -300,106 +297,140 @@ def logout_api(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
-def register_api(request):
-    """API endpoint para registro con verificación de email y validación multitenant"""
-    from core.models import Organizacion
-    
-    # Validar tenant desde header
-    tenant_codigo = request.META.get('HTTP_X_TENANT_CODIGO')
-    if not tenant_codigo:
-        return Response({
-            'success': False,
-            'message': 'Código de organización requerido en el header X-Tenant-Codigo.'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Verificar que la organización existe y está activa (case-insensitive)
+def cookie_token_refresh(request):
+    """Refresca el access token leyendo el refresh token desde la cookie httpOnly."""
+    from rest_framework_simplejwt.tokens import RefreshToken
+    from rest_framework_simplejwt.exceptions import TokenError
+    from .cookie_auth import REFRESH_COOKIE, set_auth_cookies
+
+    refresh_token = request.COOKIES.get(REFRESH_COOKIE)
+    if not refresh_token:
+        return Response(
+            {'success': False, 'message': 'No refresh token'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
     try:
-        organization = Organizacion.objects.get(codigo__iexact=tenant_codigo, activa=True)
-    except Organizacion.DoesNotExist:
-        return Response({
-            'success': False,
-            'message': f'La organización con código {tenant_codigo} no existe o no está activa.'
-        }, status=status.HTTP_404_NOT_FOUND)
-    
-    # Agregar tenant_code al request.data si no viene
-    data = request.data.copy()
-    if 'tenant_code' not in data:
-        data['tenant_code'] = tenant_codigo
-    
-    serializer = RegisterSerializer(data=data)
-    
-    if serializer.is_valid():
-        try:
-            user = serializer.save()
-            
-            # El usuario se crea con email_verified=False por defecto
-            
-            # Generar token de verificación
-            verification_token = default_token_generator.make_token(user)
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            
-            # Crear URL de verificación
-            verification_url = f"{settings.FRONTEND_URL}/verificar-email/{uid}/{verification_token}/"
-            
-            # Enviar email de verificación
-            try:
-                send_mail(
-                    subject='Verificar tu cuenta en CorteSec',
-                    message=f"""
-¡Hola {user.full_name or user.username}!
+        token = RefreshToken(refresh_token)
+        new_access = str(token.access_token)
 
-Gracias por registrarte en CorteSec. Para completar tu registro, por favor verifica tu dirección de correo electrónico haciendo clic en el siguiente enlace:
+        # Rotar refresh si está configurado
+        new_refresh = None
+        if settings.SIMPLE_JWT.get('ROTATE_REFRESH_TOKENS', False):
+            if settings.SIMPLE_JWT.get('BLACKLIST_AFTER_ROTATION', False):
+                try:
+                    token.blacklist()
+                except AttributeError:
+                    pass
+            token.set_jti()
+            token.set_exp()
+            token.set_iat()
+            new_refresh = str(token)
 
-{verification_url}
+        response = Response({'success': True}, status=status.HTTP_200_OK)
+        set_auth_cookies(response, new_access, new_refresh)
+        return response
 
-Este enlace expirará en 24 horas por seguridad.
-
-Si no creaste esta cuenta, puedes ignorar este mensaje.
-
-Saludos,
-El equipo de CorteSec
-                    """,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
-                
-                logger.info(f"Email de verificación enviado a {user.email}")
-                
-            except Exception as email_error:
-                logger.error(f"Error enviando email de verificación a {user.email}: {email_error}")
-                # Continuar con el registro aunque falle el email
-            
-            # Log del registro
-            logger.info(f"Nuevo usuario registrado via API: {user.email}")
-            
-            # Serializar datos del usuario
-            user_serializer = UserSerializer(user)
-            
-            return Response({
-                'success': True,
-                'message': 'Registro exitoso. Te hemos enviado un correo de verificación.',
-                'user': user_serializer.data,
-                'email_verification_required': True,
-                'note': 'Por favor revisa tu correo electrónico para verificar tu cuenta.'
-            }, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            logger.error(f"Error en registro API: {e}")
-            return Response({
-                'success': False,
-                'message': 'Error durante el registro'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    return Response({
-        'success': False,
-        'message': 'Datos inválidos',
-        'errors': serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
+    except TokenError:
+        from .cookie_auth import clear_auth_cookies
+        response = Response(
+            {'success': False, 'message': 'Token expirado o inválido'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+        clear_auth_cookies(response)
+        return response
 
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
+def auth_check(request):
+    """Verifica si el usuario está autenticado (para validar cookies)."""
+    from .serializers import UserSerializer
+    user = request.user
+    organization = getattr(user, 'organization', None)
+
+    organization_data = None
+    if organization:
+        organization_data = {
+            'id': str(organization.id),
+            'nombre': organization.nombre,
+            'codigo': organization.codigo,
+            'slug': organization.slug or '',
+            'logo': organization.logo.url if organization.logo else None,
+            'primary_color': organization.primary_color,
+        }
+
+    return Response({
+        'success': True,
+        'user': UserSerializer(user).data,
+        'organization': organization_data,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([LoginRateThrottle])
+def register_api(request):
+    """API endpoint para registro - siempre crea nueva organización"""
+    serializer = RegisterSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'message': 'Datos inválidos',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = serializer.save()
+
+        # Generar token de verificación de email
+        verification_token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        verification_url = f"{settings.FRONTEND_URL}/verificar-email/{uid}/{verification_token}/"
+
+        # Enviar email de verificación
+        try:
+            send_system_email(
+                subject='Verificar tu cuenta en CorteSec',
+                message=(
+                    f"¡Hola {user.full_name or user.username}!\n\n"
+                    f"Gracias por registrarte en CorteSec. Para completar tu registro, "
+                    f"por favor verifica tu dirección de correo electrónico:\n\n"
+                    f"{verification_url}\n\n"
+                    f"Este enlace expirará en 24 horas por seguridad.\n\n"
+                    f"Si no creaste esta cuenta, puedes ignorar este mensaje.\n\n"
+                    f"Saludos,\nEl equipo de CorteSec"
+                ),
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            logger.info(f"Email de verificación enviado a {user.email}")
+        except Exception as email_error:
+            logger.error(f"Error enviando email de verificación a {user.email}: {email_error}")
+
+        # Log del registro
+        logger.info(f"Nuevo usuario registrado via API: {user.email} (org: {user.organization.codigo})")
+
+        user_serializer = UserSerializer(user)
+
+        return Response({
+            'success': True,
+            'message': 'Registro exitoso. Te hemos enviado un correo de verificación.',
+            'user': user_serializer.data,
+            'email_verification_required': True,
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        logger.error(f"Error en registro API: {e}")
+        return Response({
+            'success': False,
+            'message': 'Error durante el registro'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([LoginAccessPolicy])
 def user_profile_api(request):
     """API endpoint para obtener perfil del usuario"""
     serializer = UserSerializer(request.user)
@@ -410,7 +441,7 @@ def user_profile_api(request):
 
 
 @api_view(['PUT', 'PATCH'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def update_profile_api(request):
     """API endpoint para actualizar perfil"""
     serializer = ProfileUpdateSerializer(
@@ -446,7 +477,7 @@ def update_profile_api(request):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def change_password_api(request):
     """API endpoint para cambio de contraseña"""
     serializer = PasswordChangeSerializer(
@@ -457,18 +488,55 @@ def change_password_api(request):
     if serializer.is_valid():
         try:
             user = serializer.save()
+
+            # Record password hash in history for reuse prevention
+            PasswordHistory.record_password(user)
+
+            # Actualizar password_changed_at
+            from django.utils import timezone
+            user.password_changed_at = timezone.now()
+            user.require_password_change = False
+            user.save(update_fields=['password_changed_at', 'require_password_change'])
             
-            # Regenerar token después del cambio de contraseña
-            Token.objects.filter(user=user).delete()
-            token = Token.objects.create(user=user)
-            
+            # Blacklist existing tokens and generate new JWT
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+            outstanding_tokens = OutstandingToken.objects.filter(user=user)
+            for ot in outstanding_tokens:
+                BlacklistedToken.objects.get_or_create(token=ot)
+            tokens = get_tokens_for_user(user)
+
             logger.info(f"Usuario {user.email} cambió su contraseña via API")
             
-            return Response({
+            # ── Notificar cambio de contraseña si está habilitado ──
+            try:
+                from login.auth_security import _get_security_config
+                sec_config = _get_security_config()
+                if sec_config.get('notificar_cambio_password', False) and user.email:
+                    send_system_email(
+                        subject='[CorteSec] Su contraseña ha sido cambiada',
+                        message=(
+                            f"Hola {user.display_name},\n\n"
+                            f"Le informamos que su contraseña en CorteSec ha sido cambiada exitosamente.\n\n"
+                            f"Si usted no realizó este cambio, contacte inmediatamente al administrador del sistema.\n\n"
+                            f"Saludos,\nEquipo CorteSec"
+                        ),
+                        recipient_list=[user.email],
+                        fail_silently=True,
+                    )
+                    logger.info(f"Notificación de cambio de contraseña enviada a {user.email}")
+            except Exception as e:
+                logger.warning(f"Error enviando notificación de cambio de password: {e}")
+
+            response = Response({
                 'success': True,
                 'message': 'Contraseña cambiada exitosamente',
-                'token': token.key  # Nuevo token
             }, status=status.HTTP_200_OK)
+
+            # Set new tokens as httpOnly cookies (never in body)
+            from .cookie_auth import set_auth_cookies
+            set_auth_cookies(response, tokens['access'], tokens['refresh'])
+
+            return response
             
         except Exception as e:
             logger.error(f"Error cambiando contraseña via API: {e}")
@@ -485,7 +553,7 @@ def change_password_api(request):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def resend_verification_email_api(request):
     """API endpoint para reenviar email de verificación"""
     try:
@@ -523,11 +591,10 @@ def resend_verification_email_api(request):
         El equipo de CorteSec
         """
         
-        send_mail(
-            email_subject,
-            email_body,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
+        send_system_email(
+            subject=email_subject,
+            message=email_body,
+            recipient_list=[user.email],
             fail_silently=False,
         )
         
@@ -543,29 +610,6 @@ def resend_verification_email_api(request):
         return Response({
             'success': False,
             'message': 'Error al enviar el correo de verificación'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def verify_email_api(request):
-    """API endpoint para verificar email del usuario autenticado"""
-    try:
-        user = request.user
-        user.verify_email()
-        
-        logger.info(f"Usuario {user.email} verificó su email via API")
-        
-        return Response({
-            'success': True,
-            'message': 'Email verificado correctamente'
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        logger.error(f"Error verificando email via API: {e}")
-        return Response({
-            'success': False,
-            'message': 'Error al verificar el email'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -624,6 +668,7 @@ def verify_email_confirm_api(request, uid, token):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([LoginRateThrottle])
 def password_reset_request_api(request):
     """API endpoint para solicitar reset de contraseña"""
     serializer = PasswordResetRequestSerializer(data=request.data)
@@ -631,23 +676,59 @@ def password_reset_request_api(request):
     if serializer.is_valid():
         try:
             email = serializer.validated_data['email']
-            user = CustomUser.objects.get(email=email)
-            
+            user = CustomUser.objects.filter(email=email).first()
+
+            # Por seguridad no revelamos si el email existe
+            if not user:
+                logger.info(f"Solicitud de reset de contraseña para email no registrado: {email}")
+                return Response({
+                    'success': True,
+                    'message': 'Si el email existe, recibirás instrucciones para restablecer tu contraseña'
+                }, status=status.HTTP_200_OK)
+
             # Generar token
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
-            
-            # En un entorno real, aquí enviarías el email
-            # Por ahora solo retornamos el token para testing
-            logger.info(f"Solicitud de reset de contraseña para: {email}")
-            
-            return Response({
+            reset_url = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+
+            # Enviar email de recuperación
+            email_subject = 'Recuperación de contraseña - CorteSec'
+            email_body = f"""
+Hola {user.get_full_name() or user.email},
+
+Recibimos una solicitud para restablecer tu contraseña en CorteSec.
+
+Para continuar, haz clic en el siguiente enlace (válido por 24 horas):
+{reset_url}
+
+Si no solicitaste este cambio, puedes ignorar este correo.
+
+Saludos,
+Equipo CorteSec
+"""
+
+            try:
+                send_system_email(
+                    subject=email_subject,
+                    message=email_body,
+                    recipient_list=[user.email],
+                    fail_silently=False
+                )
+                logger.info(f"Email de reset enviado a {user.email}")
+            except Exception as email_error:
+                logger.error(f"Error enviando email de reset a {user.email}: {email_error}")
+                return Response({
+                    'success': False,
+                    'message': 'No se pudo enviar el correo de recuperación. Intenta nuevamente.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            response_data = {
                 'success': True,
-                'message': 'Se ha enviado un email con las instrucciones para restablecer tu contraseña',
-                'reset_token': token,  # Solo para desarrollo
-                'uid': uid  # Solo para desarrollo
-            }, status=status.HTTP_200_OK)
-            
+                'message': 'Se ha enviado un email con las instrucciones para restablecer tu contraseña'
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
         except Exception as e:
             logger.error(f"Error en reset de contraseña: {e}")
             return Response({
@@ -681,10 +762,23 @@ def password_reset_confirm_api(request):
             # Verificar token
             if default_token_generator.check_token(user, token):
                 user.set_password(new_password)
+                user.password_changed_at = timezone.now()
+                user.require_password_change = False
                 user.save()
-                
+
+                # Record password hash in history for reuse prevention
+                PasswordHistory.record_password(user)
+
+                # Invalidar todos los tokens JWT del usuario
+                try:
+                    from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+                    for ot in OutstandingToken.objects.filter(user=user):
+                        BlacklistedToken.objects.get_or_create(token=ot)
+                except Exception:
+                    pass  # token_blacklist may not be installed
+
                 logger.info(f"Usuario {user.email} reseteó su contraseña via API")
-                
+
                 return Response({
                     'success': True,
                     'message': 'Contraseña restablecida exitosamente'
@@ -715,12 +809,14 @@ def password_reset_confirm_api(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([LoginAccessPolicy])
 def list_groups(request):
-    """Listar todos los grupos (roles) disponibles"""
+    """Listar grupos (roles) relevantes para la organización del usuario"""
     from django.contrib.auth.models import Group
-    
-    groups = Group.objects.all()
+
+    org = request.user.organization
+    # Only return groups that have at least one member in the user's org
+    groups = Group.objects.filter(user__organization=org).distinct()
     groups_data = [
         {
             'id': group.id,
@@ -729,5 +825,5 @@ def list_groups(request):
         }
         for group in groups
     ]
-    
+
     return Response(groups_data)

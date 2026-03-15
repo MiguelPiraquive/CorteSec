@@ -1,7 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
-from decimal import Decimal
 from core.mixins import TenantAwareModel
 
 
@@ -46,24 +45,6 @@ class Cargo(TenantAwareModel):
         help_text=_("Nivel en la jerarquía (1=más alto)")
     )
     
-    # Información salarial
-    salario_base_minimo = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=Decimal('0.00'),
-        verbose_name=_("Salario base mínimo"),
-        help_text=_("Salario base mínimo para este cargo")
-    )
-    
-    salario_base_maximo = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        blank=True,
-        null=True,
-        verbose_name=_("Salario base máximo"),
-        help_text=_("Salario base máximo para este cargo")
-    )
-    
     # Configuración de permisos base
     roles_permitidos = models.ManyToManyField(
         'roles.Rol',
@@ -73,39 +54,11 @@ class Cargo(TenantAwareModel):
         help_text=_("Roles que pueden ser asignados a este cargo")
     )
     
-    # Configuración del cargo
-    requiere_aprobacion = models.BooleanField(
-        default=False,
-        verbose_name=_("Requiere aprobación"),
-        help_text=_("Si las acciones de este cargo requieren aprobación")
-    )
-    
-    puede_aprobar = models.BooleanField(
-        default=False,
-        verbose_name=_("Puede aprobar"),
-        help_text=_("Si este cargo puede aprobar acciones de otros")
-    )
-    
-    limite_aprobacion = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        blank=True,
-        null=True,
-        verbose_name=_("Límite de aprobación"),
-        help_text=_("Monto máximo que puede aprobar")
-    )
-    
     # Estado
     activo = models.BooleanField(
         default=True,
         verbose_name=_("Activo"),
         help_text=_("Si está activo, el cargo estará disponible")
-    )
-    
-    es_temporal = models.BooleanField(
-        default=False,
-        verbose_name=_("Es temporal"),
-        help_text=_("Si es un cargo temporal")
     )
     
     # Campos de auditoría
@@ -142,19 +95,6 @@ class Cargo(TenantAwareModel):
         # Validar que no sea su propio superior
         if self.cargo_superior == self:
             raise ValidationError(_("Un cargo no puede ser superior de sí mismo"))
-        
-        # Validar salarios
-        if (self.salario_base_maximo and 
-            self.salario_base_minimo > self.salario_base_maximo):
-            raise ValidationError(
-                _("El salario mínimo no puede ser mayor que el máximo")
-            )
-        
-        # Validar límite de aprobación
-        if self.puede_aprobar and not self.limite_aprobacion:
-            raise ValidationError(
-                _("Debe especificar un límite de aprobación si puede aprobar")
-            )
 
     def save(self, *args, **kwargs):
         # Calcular nivel jerárquico automáticamente
@@ -186,24 +126,6 @@ class Cargo(TenantAwareModel):
             subordinados.extend(cargo.get_todos_subordinados())
         
         return subordinados
-
-    def puede_gestionar_cargo(self, otro_cargo):
-        """Verifica si este cargo puede gestionar otro cargo"""
-        if not self.puede_aprobar:
-            return False
-        
-        # Un cargo puede gestionar cargos de nivel inferior
-        return self.nivel_jerarquico < otro_cargo.nivel_jerarquico
-
-    def esta_en_rango_salarial(self, salario):
-        """Verifica si un salario está en el rango permitido para el cargo"""
-        if salario < self.salario_base_minimo:
-            return False
-        
-        if self.salario_base_maximo and salario > self.salario_base_maximo:
-            return False
-        
-        return True
 
     def get_empleados_count(self):
         """Retorna el número de empleados asignados a este cargo"""
@@ -312,12 +234,6 @@ class HistorialCargo(models.Model):
         if self.fecha_fin and self.fecha_inicio > self.fecha_fin:
             raise ValidationError(
                 _("La fecha de inicio no puede ser mayor que la fecha de fin")
-            )
-        
-        # Validar que el salario esté en el rango del cargo
-        if not self.cargo_nuevo.esta_en_rango_salarial(self.salario_asignado):
-            raise ValidationError(
-                _("El salario asignado no está en el rango permitido para este cargo")
             )
 
     @property

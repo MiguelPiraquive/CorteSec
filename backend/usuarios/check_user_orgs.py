@@ -36,9 +36,9 @@ print("\n" + "="*80)
 print("RESUMEN POR ORGANIZACIÓN")
 print("="*80 + "\n")
 
-from core.models import Organization
+from core.models import Organizacion
 
-for org in Organization.objects.all():
+for org in Organizacion.objects.all():
     count = CustomUser.objects.filter(organization=org).count()
     print(f"{org.nombre:40} : {count} usuarios")
 

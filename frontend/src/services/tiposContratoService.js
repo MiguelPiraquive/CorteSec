@@ -27,15 +27,8 @@ const tiposContratoService = {
    */
   getAllTiposContrato: async () => {
     try {
-      const response = await api.get('/api/nomina/tipos-contrato/?page_size=1000');
-      const data = response.data;
-      
-      if (Array.isArray(data)) {
-        return data;
-      } else if (data.results) {
-        return data.results;
-      }
-      return [];
+      const response = await api.get('/api/nomina/tipos-contrato/', { params: { page_size: 99999 } });
+      return response.data.results || response.data;
     } catch (error) {
       console.error('Error al obtener todos los tipos de contrato:', error);
       throw error;
@@ -47,15 +40,8 @@ const tiposContratoService = {
    */
   getActivos: async () => {
     try {
-      const response = await api.get('/api/nomina/tipos-contrato/?activo=true&page_size=1000');
-      const data = response.data;
-      
-      if (Array.isArray(data)) {
-        return data;
-      } else if (data.results) {
-        return data.results;
-      }
-      return [];
+      const response = await api.get('/api/nomina/tipos-contrato/', { params: { activo: true, page_size: 99999 } });
+      return response.data.results || response.data;
     } catch (error) {
       console.error('Error al obtener tipos de contrato activos:', error);
       throw error;

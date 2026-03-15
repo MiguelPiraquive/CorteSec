@@ -17,7 +17,7 @@ from . import api_views
 router = DefaultRouter()
 
 # Registrar ViewSets de permisos
-router.register(r'organizaciones', api_views.OrganizacionViewSet, basename='organizacion')
+router.register(r'dashboard', api_views.DashboardViewSet, basename='dashboard')
 router.register(r'modulos', api_views.ModuloSistemaViewSet, basename='modulo')
 router.register(r'tipos-permiso', api_views.TipoPermisoViewSet, basename='tipo-permiso')
 router.register(r'condiciones', api_views.CondicionPermisoViewSet, basename='condicion')
@@ -25,6 +25,7 @@ router.register(r'permisos', api_views.PermisoViewSet, basename='permiso')
 router.register(r'permisos-directos', api_views.PermisoDirectoViewSet, basename='permiso-directo')
 router.register(r'auditoria', api_views.AuditoriaPermisosViewSet, basename='auditoria')
 router.register(r'estadisticas', api_views.EstadisticasViewSet, basename='estadisticas')
+router.register(r'check', api_views.PermissionCheckViewSet, basename='permission-check')
 
 app_name = 'permisos_api'
 
@@ -63,8 +64,8 @@ urlpatterns = [
          name='modulos-tree'),
     
     # Tipos de permiso por categoría
-    path('tipos-permiso/categorias/', 
-         api_views.TipoPermisoViewSet.as_view({'get': 'by_category'}), 
+    path('tipos-permiso/categorias/',
+         api_views.TipoPermisoViewSet.as_view({'get': 'categorias'}),
          name='tipos-por-categoria'),
     
     # Permisos por módulo

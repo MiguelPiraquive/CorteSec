@@ -17,11 +17,13 @@ app_name = "auth_api"
 urlpatterns = [
     # ==================== ÍNDICE DE API ====================
     path('', api_views.auth_api_index, name='index'),
-    
+
     # ==================== AUTENTICACIÓN BÁSICA ====================
     path('login/', api_views.login_api, name='login'),
     path('logout/', api_views.logout_api, name='logout'),
     path('register/', api_views.register_api, name='register'),
+    path('token/refresh/', api_views.cookie_token_refresh, name='token_refresh'),
+    path('auth/check/', api_views.auth_check, name='auth_check'),
     
     # ==================== PERFIL DE USUARIO ====================
     path('profile/', api_views.user_profile_api, name='profile'),
@@ -29,7 +31,6 @@ urlpatterns = [
     path('change-password/', api_views.change_password_api, name='change_password'),
     
     # ==================== VERIFICACIÓN DE EMAIL ====================
-    path('verify-email/', api_views.verify_email_api, name='verify_email'),
     path('verify-email/<str:uid>/<str:token>/', api_views.verify_email_confirm_api, name='verify_email_confirm'),
     path('resend-verification/', api_views.resend_verification_email_api, name='resend_verification'),
     

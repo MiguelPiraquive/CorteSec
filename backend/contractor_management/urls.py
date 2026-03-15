@@ -44,14 +44,15 @@ urlpatterns = [
     path('api/prestamos/', include('prestamos.api_urls')),
     path('api/roles/', include('roles.api_urls')),
     path('api/permisos/', include('permisos.api_urls')),
-    path('api/reportes/', include('reportes.api_urls')),
     path('api/documentacion/', include('documentacion.api_urls')),
     path('api/tipos-cantidad/', include('tipos_cantidad.api_urls')),
     path('api/perfil/', include('perfil.api_urls')),
     path('api/', include('usuarios.api_urls')),
+    
+    # Billing & Suscripciones
+    path('api/billing/', include('billing.urls')),
 
     # App-level views (templates / non-API) used by tests
-    path('roles/', include('roles.urls')),
     path('tipos-cantidad/', include('tipos_cantidad.urls')),
     
     # ==================== API DOCUMENTATION ====================
@@ -63,7 +64,6 @@ urlpatterns = [
     path('api/redoc/', PublicSpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
     # ==================== PENDIENTES DE MIGRAR A API ====================
-    # TODO: Convertir estos a APIs para React cuando sea necesario
 ]
 
 # Serve static and media files in development  

@@ -1,5 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
+import { useConfiguracion } from '../../context/ConfiguracionContext'
+import { useActiveProject } from '../../context/ActiveProjectContext'
 import useAudit from '../../hooks/useAudit'
+import useServerPagination from '../../hooks/useServerPagination'
+import useProductTour from '../../hooks/useProductTour'
+import { TOUR_CONFIGS } from '../../data/tourConfigs'
+import Pagination from '../../components/Pagination'
 import contratosService from '../../services/contratosService'
 import empleadosService from '../../services/empleadosService'
 import tiposContratoService from '../../services/tiposContratoService'
@@ -29,20 +37,38 @@ const NIVELES_ARL = [
 ]
 
 const ContratosPage = () => {
+  const { hasPermission, initialized } = usePermissions()
   const audit = useAudit('Contratos')
-  const [contratos, setContratos] = useState([])
+
+  const { formatCurrency: cfgFormatCurrency, formatDate: cfgFormatDate } = useConfiguracion()
+  const { activeProject, getProjectFilter } = useActiveProject()
   const [empleados, setEmpleados] = useState([])
   const [tiposContrato, setTiposContrato] = useState([])
   const [cargos, setCargos] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
   const [filterEmpleado, setFilterEmpleado] = useState('')
   const [filterTipoContrato, setFilterTipoContrato] = useState('')
   const [filterActivo, setFilterActivo] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingContrato, setEditingContrato] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize] = useState(12)
+
+  const fetchContratos = useCallback((params) => contratosService.getAll({ ...params, ...getProjectFilter() }), [activeProject])
+  const {
+    data: contratos,
+    loading,
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    searchTerm,
+    setSearchTerm,
+    setCurrentPage,
+    setFilters,
+    refresh,
+  } = useServerPagination(fetchContratos, { pageSize: 12 })
+
+  useProductTour('contratos', TOUR_CONFIGS.contratos.steps, {
+    ready: !loading && initialized,
+  })
   
   const [formData, setFormData] = useState({
     empleado: '',
@@ -59,36 +85,49 @@ const ContratosPage = () => {
   const [notification, setNotification] = useState({ show: false, type: '', message: '' })
   const [requiereFechaFin, setRequiereFechaFin] = useState(false)
 
+  // Load dropdown data separately
   useEffect(() => {
-    loadInitialData()
-  }, [])
+    loadDropdownData()
+  }, [activeProject])
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, filterEmpleado, filterTipoContrato, filterActivo])
-
-  const loadInitialData = async () => {
+  const loadDropdownData = async () => {
     try {
-      setLoading(true)
-      const [contratosData, empleadosData, tiposData, cargosData] = await Promise.all([
-        contratosService.getAllContratos(),
-        empleadosService.getAllEmpleados(),
+      const pf = getProjectFilter()
+      const [empleadosData, tiposData, cargosData] = await Promise.all([
+        empleadosService.getAllEmpleados(pf),
         tiposContratoService.getActivos(),
         cargosService.getAll(),
       ])
-      console.log('Contratos recibidos:', contratosData)
-      console.log('Cargos recibidos:', cargosData)
-      setContratos(contratosData)
       setEmpleados(empleadosData.filter(e => e.estado === 'activo'))
       setTiposContrato(tiposData)
       setCargos(cargosData.filter(c => c.activo === true))
-      console.log('Cargos filtrados (activos):', cargosData.filter(c => c.activo === true))
     } catch (error) {
       showNotification('error', 'Error al cargar datos')
       console.error('Error:', error)
-    } finally {
-      setLoading(false)
     }
+  }
+
+  const buildFilters = (empVal, tipoVal, activoVal) => {
+    const filters = {}
+    if (empVal) filters.empleado = empVal
+    if (tipoVal) filters.tipo_contrato = tipoVal
+    if (activoVal !== '') filters.activo = activoVal
+    setFilters(filters)
+  }
+
+  const handleFilterEmpleado = (value) => {
+    setFilterEmpleado(value)
+    buildFilters(value, filterTipoContrato, filterActivo)
+  }
+
+  const handleFilterTipoContrato = (value) => {
+    setFilterTipoContrato(value)
+    buildFilters(filterEmpleado, value, filterActivo)
+  }
+
+  const handleFilterActivo = (value) => {
+    setFilterActivo(value)
+    buildFilters(filterEmpleado, filterTipoContrato, value)
   }
 
   const showNotification = (type, message) => {
@@ -144,8 +183,6 @@ const ContratosPage = () => {
         activo: formData.activo,
       }
 
-      console.log('Enviando contrato:', dataToSend)
-
       if (editingContrato) {
         await contratosService.update(editingContrato.id, dataToSend)
         audit.button('modificar_contrato', { contrato_id: editingContrato.id })
@@ -158,15 +195,21 @@ const ContratosPage = () => {
       
       setShowModal(false)
       resetForm()
-      await loadInitialData()
+      refresh()
     } catch (error) {
       console.error('Error guardando:', error)
-      console.error('Detalle:', error.response?.data)
-      const errorMsg = error.response?.data?.message || 
-                       error.response?.data?.fecha_fin?.[0] ||
-                       error.response?.data?.salario?.[0] ||
-                       Object.values(error.response?.data || {})[0] ||
-                       'Error al guardar contrato'
+      const data = error.response?.data
+      let errorMsg = 'Error al guardar contrato'
+      if (data) {
+        if (typeof data === 'string') {
+          errorMsg = data
+        } else if (data.message) {
+          errorMsg = data.message
+        } else {
+          const firstValue = Object.values(data)[0]
+          errorMsg = Array.isArray(firstValue) ? firstValue[0] : (firstValue || errorMsg)
+        }
+      }
       showNotification('error', errorMsg)
     }
   }
@@ -174,8 +217,6 @@ const ContratosPage = () => {
   const handleEdit = async (contrato) => {
     audit.modalOpen('editar_contrato', { contrato_id: contrato.id })
     setEditingContrato(contrato)
-    
-    console.log('Editando contrato:', contrato)
     
     // Extraer IDs
     const empleadoId = typeof contrato.empleado === 'object' ? contrato.empleado?.id : contrato.empleado
@@ -206,7 +247,7 @@ const ContratosPage = () => {
     try {
       await contratosService.delete(id)
       showNotification('success', 'Contrato eliminado exitosamente')
-      loadInitialData()
+      refresh()
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'Error al eliminar contrato'
       showNotification('error', errorMsg)
@@ -229,47 +270,17 @@ const ContratosPage = () => {
     setRequiereFechaFin(false)
   }
 
-  const filteredContratos = contratos.filter(contrato => {
-    const empleadoNombre = contrato.empleado_nombre?.toLowerCase() || ''
-    const tipoNombre = contrato.tipo_contrato_nombre?.toLowerCase() || ''
-    const cargo = contrato.cargo?.toLowerCase() || ''
-    
-    const matchSearch = empleadoNombre.includes(searchTerm.toLowerCase()) ||
-                       tipoNombre.includes(searchTerm.toLowerCase()) ||
-                       cargo.includes(searchTerm.toLowerCase())
-    
-    const matchEmpleado = !filterEmpleado || contrato.empleado === filterEmpleado || 
-                          (typeof contrato.empleado === 'object' && contrato.empleado?.id === filterEmpleado)
-    
-    const matchTipo = !filterTipoContrato || contrato.tipo_contrato === filterTipoContrato ||
-                      (typeof contrato.tipo_contrato === 'object' && contrato.tipo_contrato?.id === filterTipoContrato)
-    
-    const matchActivo = filterActivo === '' || (filterActivo === 'true' ? contrato.activo : !contrato.activo)
-    
-    return matchSearch && matchEmpleado && matchTipo && matchActivo
-  })
-
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const paginatedContratos = filteredContratos.slice(startIndex, endIndex)
-  const totalPages = Math.ceil(filteredContratos.length / pageSize)
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
-
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value)
+    return cfgFormatCurrency(value)
   }
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A'
-    const date = new Date(dateStr + 'T00:00:00')
-    return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
+    return cfgFormatDate(dateStr)
   }
+
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('contratos.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   return (
     <div className="space-y-6">
@@ -283,7 +294,7 @@ const ContratosPage = () => {
       )}
 
       {/* Header */}
-      <div className="backdrop-blur-xl bg-gradient-to-br from-purple-500 via-fuchsia-600 to-pink-600 rounded-3xl shadow-2xl p-8 text-white border border-white/20">
+      <div id="tour-contratos-header" className="backdrop-blur-xl bg-gradient-to-br from-purple-500 via-fuchsia-600 to-pink-600 rounded-3xl shadow-2xl p-8 text-white border border-white/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl">
@@ -294,13 +305,16 @@ const ContratosPage = () => {
               <p className="text-purple-100 mt-1">Gestión de contratos laborales</p>
             </div>
           </div>
-          <button 
-            onClick={() => { setShowModal(true); resetForm() }} 
-            className="flex items-center space-x-2 px-5 py-3 bg-white text-purple-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span>Nuevo Contrato</span>
-          </button>
+          <Can permission="contratos.add">
+            <button
+              id="tour-contratos-btn-nuevo"
+              onClick={() => { setShowModal(true); resetForm() }}
+              className="flex items-center space-x-2 px-5 py-3 bg-white text-purple-600 hover:bg-gray-100 rounded-xl transition-all duration-300 transform hover:scale-105 font-semibold shadow-lg"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>Nuevo Contrato</span>
+            </button>
+          </Can>
         </div>
       </div>
 
@@ -317,9 +331,9 @@ const ContratosPage = () => {
               className="w-full pl-12 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-purple-500 focus:bg-white transition-all" 
             />
           </div>
-          <select 
-            value={filterEmpleado} 
-            onChange={(e) => setFilterEmpleado(e.target.value)} 
+          <select
+            value={filterEmpleado}
+            onChange={(e) => handleFilterEmpleado(e.target.value)}
             className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-purple-500 focus:bg-white transition-all"
           >
             <option value="">Todos los empleados</option>
@@ -327,9 +341,9 @@ const ContratosPage = () => {
               <option key={emp.id} value={emp.id}>{emp.nombre_completo || `${emp.primer_nombre} ${emp.primer_apellido}`}</option>
             ))}
           </select>
-          <select 
-            value={filterTipoContrato} 
-            onChange={(e) => setFilterTipoContrato(e.target.value)} 
+          <select
+            value={filterTipoContrato}
+            onChange={(e) => handleFilterTipoContrato(e.target.value)}
             className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-purple-500 focus:bg-white transition-all"
           >
             <option value="">Todos los tipos</option>
@@ -337,9 +351,9 @@ const ContratosPage = () => {
               <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
             ))}
           </select>
-          <select 
-            value={filterActivo} 
-            onChange={(e) => setFilterActivo(e.target.value)} 
+          <select
+            value={filterActivo}
+            onChange={(e) => handleFilterActivo(e.target.value)}
             className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl text-gray-800 focus:outline-none focus:border-purple-500 focus:bg-white transition-all"
           >
             <option value="">Todos los estados</option>
@@ -350,7 +364,7 @@ const ContratosPage = () => {
       </div>
 
       {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div id="tour-contratos-table" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {loading ? (
           <div className="col-span-full flex justify-center items-center py-12">
             <div className="flex items-center space-x-3">
@@ -358,12 +372,12 @@ const ContratosPage = () => {
               <span className="text-gray-600">Cargando contratos...</span>
             </div>
           </div>
-        ) : paginatedContratos.length === 0 ? (
+        ) : contratos.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-500">
             No se encontraron contratos
           </div>
         ) : (
-          paginatedContratos.map(contrato => (
+          contratos.map(contrato => (
             <div 
               key={contrato.id} 
               className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 border border-gray-200/50 overflow-hidden"
@@ -419,19 +433,23 @@ const ContratosPage = () => {
                 )}
 
                 <div className="flex space-x-2">
-                  <button 
-                    onClick={() => handleEdit(contrato)} 
-                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-purple-500 text-white hover:bg-purple-600 rounded-lg transition-colors text-sm font-semibold"
-                  >
-                    <EditIcon className="w-4 h-4" />
-                    <span>Editar</span>
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(contrato.id)} 
-                    className="flex items-center justify-center px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
+                  <Can permission="contratos.change">
+                    <button
+                      onClick={() => handleEdit(contrato)}
+                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-purple-500 text-white hover:bg-purple-600 rounded-lg transition-colors text-sm font-semibold"
+                    >
+                      <EditIcon className="w-4 h-4" />
+                      <span>Editar</span>
+                    </button>
+                  </Can>
+                  <Can permission="contratos.delete">
+                    <button
+                      onClick={() => handleDelete(contrato.id)}
+                      className="flex items-center justify-center px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </Can>
                 </div>
               </div>
             </div>
@@ -440,35 +458,14 @@ const ContratosPage = () => {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center space-x-2 mt-6">
-          <button 
-            onClick={() => handlePageChange(currentPage - 1)} 
-            disabled={currentPage === 1} 
-            className="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            Anterior
-          </button>
-          <div className="flex space-x-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button 
-                key={page} 
-                onClick={() => handlePageChange(page)} 
-                className={`px-3 py-1 rounded-lg transition-all ${currentPage === page ? 'bg-purple-500 text-white' : 'bg-white hover:bg-gray-100'}`}
-              >
-                {page}
-              </button>
-            ))}
-          </div>
-          <button 
-            onClick={() => handlePageChange(currentPage + 1)} 
-            disabled={currentPage === totalPages} 
-            className="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            Siguiente
-          </button>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        itemLabel="contratos"
+      />
 
       {/* Modal */}
       {showModal && (
@@ -568,7 +565,7 @@ const ContratosPage = () => {
                     <option value="">Seleccione un cargo (opcional)</option>
                     {cargos.map(cargo => (
                       <option key={cargo.id} value={cargo.id}>
-                        {cargo.nombre} - {cargo.departamento_nombre}
+                        {cargo.nombre}{cargo.codigo ? ` (${cargo.codigo})` : ''}
                       </option>
                     ))}
                   </select>

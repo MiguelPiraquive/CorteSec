@@ -11,7 +11,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
-from django.core.mail import send_mail
+from core.email_service import send_system_email
 from django.conf import settings
 from django.template.loader import render_to_string
 import pyotp
@@ -53,9 +53,9 @@ class TwoFactorAuth(models.Model):
     
     secret_key = models.CharField(
         _("Clave secreta"),
-        max_length=32,
+        max_length=256,
         blank=True,
-        help_text=_("Clave secreta para TOTP")
+        help_text=_("Clave secreta para TOTP (encriptada)")
     )
     
     backup_codes = models.JSONField(
@@ -97,61 +97,72 @@ class TwoFactorAuth(models.Model):
         return f"{self.user.email} - {self.get_method_display()}"
     
     def generate_secret_key(self):
-        """Genera una nueva clave secreta para TOTP"""
-        self.secret_key = pyotp.random_base32()
+        """Genera una nueva clave secreta para TOTP (encriptada en DB)"""
+        from .crypto import encrypt_value
+        secret = pyotp.random_base32()
+        self.secret_key = encrypt_value(secret)
         self.save(update_fields=['secret_key'])
-        return self.secret_key
-    
+        return secret
+
     def generate_backup_codes(self, count=10):
-        """Genera códigos de respaldo"""
+        """Genera códigos de respaldo (encriptados en DB)"""
+        from .crypto import encrypt_json
         codes = [secrets.token_hex(4).upper() for _ in range(count)]
-        self.backup_codes = codes
+        self.backup_codes = encrypt_json(codes)
         self.save(update_fields=['backup_codes'])
         return codes
-    
+
     def get_qr_code(self):
         """Genera código QR para configurar TOTP"""
+        from .crypto import decrypt_value
         if not self.secret_key:
-            self.generate_secret_key()
-        
+            plaintext_secret = self.generate_secret_key()
+        else:
+            plaintext_secret = decrypt_value(self.secret_key)
+
         issuer_name = getattr(settings, 'SITE_NAME', 'CorteSec')
-        totp = pyotp.TOTP(self.secret_key)
+        totp = pyotp.TOTP(plaintext_secret)
         provisioning_uri = totp.provisioning_uri(
             name=self.user.email,
             issuer_name=issuer_name
         )
-        
+
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
         qr.add_data(provisioning_uri)
         qr.make(fit=True)
-        
+
         img = qr.make_image(fill_color="black", back_color="white")
-        
+
         # Convertir a base64
         buffer = io.BytesIO()
         img.save(buffer, format='PNG')
         img_str = base64.b64encode(buffer.getvalue()).decode()
-        
+
         return f"data:image/png;base64,{img_str}"
-    
+
     def verify_totp(self, token):
         """Verifica un token TOTP"""
+        from .crypto import decrypt_value
         if not self.secret_key:
             return False
-        
-        totp = pyotp.TOTP(self.secret_key)
+
+        plaintext_secret = decrypt_value(self.secret_key)
+        totp = pyotp.TOTP(plaintext_secret)
         is_valid = totp.verify(token, valid_window=1)
-        
+
         if is_valid:
             self.last_used = timezone.now()
             self.save(update_fields=['last_used'])
-        
+
         return is_valid
-    
+
     def verify_backup_code(self, code):
         """Verifica y consume un código de respaldo"""
-        if code.upper() in self.backup_codes:
-            self.backup_codes.remove(code.upper())
+        from .crypto import decrypt_json, encrypt_json
+        codes = decrypt_json(self.backup_codes)
+        if code.upper() in codes:
+            codes.remove(code.upper())
+            self.backup_codes = encrypt_json(codes)
             self.last_used = timezone.now()
             self.save(update_fields=['backup_codes', 'last_used'])
             return True
@@ -258,12 +269,11 @@ class TwoFactorToken(models.Model):
         html_message = render_to_string('login/2fa_email.html', context)
         plain_message = render_to_string('login/2fa_email.txt', context)
         
-        send_mail(
+        send_system_email(
             subject=subject,
             message=plain_message,
-            html_message=html_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[self.user.email],
+            html_message=html_message,
             fail_silently=False
         )
     
@@ -273,7 +283,7 @@ class TwoFactorToken(models.Model):
         # Por ahora solo logeamos
         import logging
         logger = logging.getLogger('security')
-        logger.info(f"SMS 2FA token for {self.user.email}: {self.token}")
+        logger.info(f"SMS 2FA token generated for {self.user.email} (SMS delivery not implemented)")
     
     def verify_and_consume(self, provided_token):
         """Verifica y consume el token"""

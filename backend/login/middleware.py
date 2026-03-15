@@ -88,8 +88,17 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
     """
     Middleware para agregar headers de seguridad a todas las responses.
     """
-    
+
     def process_response(self, request, response):
+        from django.conf import settings
+
+        # Construir connect-src dinámicamente según environment
+        connect_sources = "'self'"
+        if settings.DEBUG:
+            connect_sources += " http://localhost:* http://127.0.0.1:* ws://localhost:*"
+        else:
+            connect_sources += " https://cortesec.onrender.com https://cortesec-frontend.netlify.app"
+
         # Headers de seguridad para todas las responses
         security_headers = {
             'X-Content-Type-Options': 'nosniff',
@@ -101,10 +110,17 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
                 "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
                 "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; "
                 "img-src 'self' data: https:; "
-                "connect-src 'self'; "
+                f"connect-src {connect_sources}; "
                 "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com https://cdn.jsdelivr.net; "
                 "worker-src 'self' blob:; "
-                "child-src 'self' blob:"
+                "child-src 'self' blob:; "
+                "object-src 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'"
+            ),
+            'Permissions-Policy': (
+                'camera=(), microphone=(), geolocation=(), '
+                'payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
             ),
         }
         

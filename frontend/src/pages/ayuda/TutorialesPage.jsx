@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { GraduationCap, Clock, BarChart3, Play, CheckCircle2, ChevronRight } from 'lucide-react'
 import ayudaService from '../../services/ayudaService'
+import { usePermissions } from '../../context/PermissionsContext'
 
 /**
  * ════════════════════════════════════════════════════════════
@@ -16,6 +17,7 @@ import ayudaService from '../../services/ayudaService'
  * @component
  */
 const TutorialesPage = () => {
+  const { hasPermission, initialized } = usePermissions()
   const [tutoriales, setTutoriales] = useState([])
   const [dificultadSeleccionada, setDificultadSeleccionada] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -98,6 +100,9 @@ const TutorialesPage = () => {
     if (!progreso || !progreso.paso_actual || !tutorial.total_pasos) return 0
     return Math.round((progreso.paso_actual / tutorial.total_pasos) * 100)
   }
+
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('ayuda.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
 
   if (loading) {
     return (

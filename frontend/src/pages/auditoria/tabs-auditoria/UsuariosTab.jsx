@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import auditoriaService from '../../../services/auditoriaService'
-import { Users, User, Activity, Clock, Eye } from 'lucide-react'
+import { Users, User, Activity, Clock, Eye, ChevronDown } from 'lucide-react'
+
+const LOGS_PER_PAGE = 25
 
 const UsuariosTab = () => {
   const [loading, setLoading] = useState(true)
   const [actividadUsuarios, setActividadUsuarios] = useState([])
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null)
   const [logsUsuario, setLogsUsuario] = useState([])
+  const [logsVisibles, setLogsVisibles] = useState(LOGS_PER_PAGE)
 
   useEffect(() => {
     loadData()
@@ -26,8 +29,9 @@ const UsuariosTab = () => {
 
   const handleVerDetalle = async (usuario) => {
     setUsuarioSeleccionado(usuario)
+    setLogsVisibles(LOGS_PER_PAGE)
     try {
-      const logs = await auditoriaService.getAllLogs({ usuario: usuario.usuario_id })
+      const logs = await auditoriaService.getAllLogs({ usuario: usuario.usuario_id, page_size: 100 })
       setLogsUsuario(Array.isArray(logs.results) ? logs.results : logs)
     } catch (error) {
       console.error(error)
@@ -146,8 +150,8 @@ const UsuariosTab = () => {
               </thead>
               <tbody>
                 {logsUsuario.length > 0 ? (
-                  logsUsuario.slice(0, 10).map((log, i) => (
-                    <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  logsUsuario.slice(0, logsVisibles).map((log, i) => (
+                    <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-cyan-50 transition-colors`}>
                       <td className="px-4 py-3 text-sm">{new Date(log.created_at).toLocaleString()}</td>
                       <td className="px-4 py-3"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">{log.accion}</span></td>
                       <td className="px-4 py-3 text-sm">{log.modelo}</td>
@@ -159,6 +163,22 @@ const UsuariosTab = () => {
                 )}
               </tbody>
             </table>
+            {logsUsuario.length > logsVisibles && (
+              <div className="flex justify-center py-4">
+                <button
+                  onClick={() => setLogsVisibles(prev => prev + LOGS_PER_PAGE)}
+                  className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl hover:from-cyan-600 hover:to-blue-700 transition-all font-semibold shadow-md"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                  <span>Ver más ({logsUsuario.length - logsVisibles} restantes)</span>
+                </button>
+              </div>
+            )}
+            {logsUsuario.length > 0 && (
+              <div className="text-center py-2 text-sm text-gray-500">
+                Mostrando {Math.min(logsVisibles, logsUsuario.length)} de {logsUsuario.length} registros
+              </div>
+            )}
           </div>
         </div>
       )}

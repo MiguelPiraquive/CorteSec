@@ -247,6 +247,13 @@ class AuditLogger {
   async flush() {
     if (this.queue.length === 0) return
 
+    // With httpOnly cookies, auth is handled automatically via withCredentials
+    // Just check if user data exists locally as a hint
+    const user = localStorage.getItem('user')
+    if (!user) {
+      return
+    }
+
     const logsToSend = [...this.queue]
     this.queue = []
 
@@ -254,7 +261,7 @@ class AuditLogger {
       await api.post('/api/auditoria/log-frontend/', {
         logs: logsToSend
       })
-      console.log(`✅ ${logsToSend.length} logs enviados al backend`)
+      // Logs sent silently
     } catch (error) {
       console.error('❌ Error enviando logs:', error)
       // Volver a agregar a la cola si falla
@@ -266,20 +273,19 @@ class AuditLogger {
    * Iniciar envío automático por lotes
    */
   startBatchFlush() {
-    setInterval(() => {
+    this._flushTimer = setInterval(() => {
       this.flush()
     }, this.flushInterval)
+  }
 
-    // Enviar logs antes de cerrar la ventana
-    window.addEventListener('beforeunload', () => {
-      if (this.queue.length > 0) {
-        // Usar sendBeacon para envío síncrono
-        const blob = new Blob([JSON.stringify({ logs: this.queue })], {
-          type: 'application/json'
-        })
-        navigator.sendBeacon('/api/auditoria/log-frontend/', blob)
-      }
-    })
+  /**
+   * Detener envío automático
+   */
+  stopBatchFlush() {
+    if (this._flushTimer) {
+      clearInterval(this._flushTimer)
+      this._flushTimer = null
+    }
   }
 
   /**

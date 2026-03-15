@@ -7,8 +7,9 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-# from apps.roles.models import Rol  # COMENTADO - CustomUser no tiene campo 'rol'
-from apps.profiles.models import UserProfile
+from roles.models import AsignacionRol, Rol, EstadoAsignacion
+from permisos.models import PermisoDirecto
+from perfil.models import Perfil
 
 User = get_user_model()
 
@@ -16,51 +17,62 @@ User = get_user_model()
 class UserListSerializer(serializers.ModelSerializer):
     """Serializer para lista de usuarios (información resumida)"""
     
-    # rol_nombre = serializers.CharField(source='rol.nombre', read_only=True, allow_null=True)  # COMENTADO
-    # rol_id = serializers.IntegerField(source='rol.id', read_only=True, allow_null=True)  # COMENTADO
     nombre_completo = serializers.SerializerMethodField()
     tiene_perfil = serializers.SerializerMethodField()
     ultimo_acceso = serializers.DateTimeField(source='last_login', read_only=True)
     foto_perfil = serializers.SerializerMethodField()
+    roles = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'nombre', 'apellido', 'nombre_completo',
-            'cedula', 'profesion', 'organizacion', 'foto_perfil',
+            'id', 'email', 'first_name', 'last_name', 'nombre_completo',
+            'username', 'full_name', 'foto_perfil',
             'is_active', 'is_staff', 'email_verified',
-            # 'rol_nombre', 'rol_id',  # COMENTADO
+            'organization_role', 'roles',
             'tiene_perfil',
-            'ultimo_acceso', 'fecha_creacion', 'actualizado'  # CORREGIDO: actualizado en vez de fecha_actualizacion
+            'ultimo_acceso', 'date_joined', 'updated_at',
         ]
     
     def get_nombre_completo(self, obj):
-        return f"{obj.nombre} {obj.apellido}".strip()
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.full_name or obj.username
     
     def get_tiene_perfil(self, obj):
         return hasattr(obj, 'profile') and obj.profile is not None
     
     def get_foto_perfil(self, obj):
-        """Obtener foto de perfil desde UserProfile"""
+        """Obtener foto de perfil desde Perfil"""
         try:
-            if hasattr(obj, 'profile') and obj.profile and obj.profile.profile_picture:
-                url = obj.profile.profile_picture.url
-                print(f"✅ Usuario {obj.email} tiene foto: {url}")
-                return url
-            else:
-                print(f"❌ Usuario {obj.email} NO tiene foto - has profile: {hasattr(obj, 'profile')}")
-                return None
-        except Exception as e:
-            print(f"⚠️ Error obteniendo foto para {obj.email}: {e}")
+            if hasattr(obj, 'perfil') and obj.perfil and obj.perfil.foto:
+                return obj.perfil.foto.url
             return None
+        except Exception:
+            return None
+
+    def get_roles(self, obj):
+        """Obtener roles RBAC activos del usuario"""
+        # Use prefetched data if available to avoid N+1 queries
+        if hasattr(obj, '_active_asignaciones'):
+            asignaciones = obj._active_asignaciones
+        else:
+            asignaciones = AsignacionRol.objects.filter(usuario=obj, activa=True).select_related('rol')
+        roles = []
+        for asignacion in asignaciones:
+            if asignacion.esta_vigente():
+                roles.append({
+                    'id': asignacion.rol.id,
+                    'nombre': asignacion.rol.nombre,
+                })
+        return roles
+
+
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
     """Serializer para detalle completo de usuario"""
     
-    # rol_nombre = serializers.CharField(source='rol.nombre', read_only=True, allow_null=True)  # COMENTADO
-    # rol_detalle = serializers.SerializerMethodField()  # COMENTADO
     nombre_completo = serializers.SerializerMethodField()
+    roles = serializers.SerializerMethodField()
     permisos = serializers.SerializerMethodField()
     tiene_perfil = serializers.SerializerMethodField()
     perfil_detalle = serializers.SerializerMethodField()
@@ -71,69 +83,80 @@ class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'nombre', 'apellido', 'nombre_completo',
-            'cedula', 'profesion', 'organizacion', 'foto_perfil',
+            'id', 'email', 'first_name', 'last_name', 'nombre_completo',
+            'username', 'full_name', 'foto_perfil',
             'is_active', 'is_staff', 'is_superuser', 'email_verified',
-            # 'rol_nombre', 'rol_detalle',  # COMENTADO
-            'permisos',
+            'roles', 'permisos',
             'tiene_perfil', 'perfil_detalle',
             'ultimo_acceso', 'total_sesiones',
-            'fecha_creacion', 'actualizado',  # CORREGIDO: actualizado en vez de fecha_actualizacion
-            'email_verification_sent_at', 'password_reset_sent_at'
+            'date_joined', 'updated_at',
         ]
     
     def get_nombre_completo(self, obj):
-        return f"{obj.nombre} {obj.apellido}".strip()
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.full_name or obj.username
     
     def get_foto_perfil(self, obj):
-        """Obtener foto de perfil desde UserProfile"""
+        """Obtener foto de perfil desde Perfil"""
         try:
-            if hasattr(obj, 'profile') and obj.profile and obj.profile.profile_picture:
-                url = obj.profile.profile_picture.url
-                print(f"✅ [DETAIL] Usuario {obj.email} tiene foto: {url}")
-                return url
-            else:
-                print(f"❌ [DETAIL] Usuario {obj.email} NO tiene foto")
-                return None
-        except Exception as e:
-            print(f"⚠️ [DETAIL] Error obteniendo foto para {obj.email}: {e}")
+            if hasattr(obj, 'perfil') and obj.perfil and obj.perfil.foto:
+                return obj.perfil.foto.url
+            return None
+        except Exception:
             return None
     
-    # def get_rol_detalle(self, obj):  # COMENTADO - CustomUser no tiene campo 'rol'
-    #     if hasattr(obj, 'rol') and obj.rol:
-    #         return {
-    #             'id': obj.rol.id,
-    #             'nombre': obj.rol.nombre,
-    #             'descripcion': obj.rol.descripcion,
-    #             'nivel_acceso': obj.rol.nivel_acceso
-    #         }
-    #     return None
-    
+    def get_roles(self, obj):
+        # Use prefetched data if available to avoid N+1 queries
+        if hasattr(obj, '_active_asignaciones'):
+            asignaciones = obj._active_asignaciones
+        else:
+            asignaciones = AsignacionRol.objects.filter(usuario=obj, activa=True).select_related('rol')
+        roles = []
+        for asignacion in asignaciones:
+            if asignacion.esta_vigente():
+                roles.append({
+                    'id': asignacion.rol.id,
+                    'nombre': asignacion.rol.nombre,
+                    'codigo': asignacion.rol.codigo,
+                })
+        return roles
+
     def get_permisos(self, obj):
-        """Obtener todos los permisos del usuario (del rol + personalizados)"""
+        """Obtener permisos directos y por rol."""
         permisos = []
-        
-        # Permisos del rol - COMENTADO porque CustomUser no tiene campo 'rol'
-        # if hasattr(obj, 'rol') and obj.rol:
-        #     rol_permisos = obj.rol.permisos.all()
-        #     for permiso in rol_permisos:
-        #         permisos.append({
-        #             'id': permiso.id,
-        #             'nombre': permiso.nombre,
-        #             'codigo': permiso.codigo,
-        #             'origen': 'rol'
-        #         })
-        
-        # Permisos personalizados directos (si los hubiera)
-        permisos_directos = obj.user_permissions.all()
-        for permiso in permisos_directos:
-            permisos.append({
-                'id': permiso.id,
-                'nombre': permiso.name,
-                'codigo': permiso.codename,
-                'origen': 'directo'
-            })
-        
+        permisos_set = set()
+
+        # Permisos directos del usuario
+        directos = PermisoDirecto.objects.filter(usuario=obj, activo=True).select_related('permiso')
+        for asignacion in directos:
+            if asignacion.es_efectivo() and asignacion.tipo in ['grant', 'temporary']:
+                permiso = asignacion.permiso
+                if permiso.id not in permisos_set:
+                    permisos_set.add(permiso.id)
+                    permisos.append({
+                        'id': permiso.id,
+                        'nombre': permiso.nombre,
+                        'codigo': permiso.codigo,
+                        'origen': 'directo'
+                    })
+
+        # Permisos por roles (use prefetched data if available)
+        if hasattr(obj, '_active_asignaciones'):
+            asignaciones_roles = obj._active_asignaciones
+        else:
+            asignaciones_roles = AsignacionRol.objects.filter(usuario=obj, activa=True).select_related('rol')
+        for asignacion in asignaciones_roles:
+            if asignacion.esta_vigente():
+                rol = asignacion.rol
+                for permiso in rol.permisos.filter(activo=True):
+                    if permiso.id not in permisos_set:
+                        permisos_set.add(permiso.id)
+                        permisos.append({
+                            'id': permiso.id,
+                            'nombre': permiso.nombre,
+                            'codigo': permiso.codigo,
+                            'origen': f"rol:{rol.nombre}"
+                        })
+
         return permisos
     
     def get_tiene_perfil(self, obj):
@@ -145,9 +168,13 @@ class UserDetailSerializer(serializers.ModelSerializer):
             perfil = obj.perfil
             return {
                 'id': perfil.id,
+                'first_name': obj.first_name or '',
+                'last_name': obj.last_name or '',
+                'genero': perfil.genero or '',
                 'telefono': perfil.telefono or '',
                 'direccion_residencia': perfil.direccion_residencia or '',
                 'ciudad_residencia': perfil.ciudad_residencia or '',
+                'departamento_residencia': perfil.departamento_residencia or '',
                 'banco': perfil.banco or '',
                 'tipo_cuenta': perfil.tipo_cuenta or '',
                 'numero_cuenta': perfil.numero_cuenta or '',
@@ -160,8 +187,10 @@ class UserDetailSerializer(serializers.ModelSerializer):
     
     def get_total_sesiones(self, obj):
         """Contar sesiones/actividad del usuario"""
-        # Esto se puede mejorar con un modelo de sesiones
-        return 0  # Placeholder
+        try:
+            return obj.historial_actividad.count()
+        except Exception:
+            return 0
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -170,6 +199,11 @@ class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True, required=True)
     rol_id = serializers.IntegerField(required=False, allow_null=True)
+    roles_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True
+    )
     enviar_email_bienvenida = serializers.BooleanField(default=True, write_only=True)
     foto_perfil = serializers.ImageField(required=False, allow_null=True)
     
@@ -177,33 +211,30 @@ class UserCreateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'password', 'password_confirm',
-            'nombre', 'apellido', 'cedula',
-            'profesion', 'organizacion', 'foto_perfil',
-            'is_active', 'is_staff',
-            'rol_id', 'enviar_email_bienvenida'
+            'first_name', 'last_name', 'username',
+            'full_name', 'foto_perfil',
+            'is_active',
+            'rol_id', 'roles_ids', 'enviar_email_bienvenida'
         ]
-    
+
     def validate(self, attrs):
         """Validar que las contraseñas coincidan"""
         if attrs.get('password') != attrs.get('password_confirm'):
             raise serializers.ValidationError({
                 'password_confirm': 'Las contraseñas no coinciden.'
             })
-        
+
         # Validar que el email no exista (incluyendo soft-deleted)
         email = attrs.get('email')
-        if User.all_objects.filter(email=email).exists():
+        if User.objects.filter(email=email).exists():
             raise serializers.ValidationError({
                 'email': 'Ya existe un usuario con este email.'
             })
-        
-        # Validar que la cédula no exista si se proporciona
-        cedula = attrs.get('cedula')
-        if cedula and User.all_objects.filter(cedula=cedula).exists():
-            raise serializers.ValidationError({
-                'cedula': 'Ya existe un usuario con esta cédula.'
-            })
-        
+
+        # is_superuser e is_staff nunca se aceptan via API
+        attrs.pop('is_superuser', None)
+        attrs.pop('is_staff', None)
+
         return attrs
     
     def create(self, validated_data):
@@ -211,7 +242,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         validated_data.pop('enviar_email_bienvenida', None)
         
-        rol_id = validated_data.pop('rol_id', None)  # Removido pero aún aceptado para compatibilidad
+        rol_id = validated_data.pop('rol_id', None)
+        roles_ids = validated_data.pop('roles_ids', [])
         password = validated_data.pop('password')
         foto_perfil = validated_data.pop('foto_perfil', None)  # Extraer foto
         
@@ -223,20 +255,32 @@ class UserCreateSerializer(serializers.ModelSerializer):
         
         # Si hay foto, crear o actualizar perfil
         if foto_perfil:
-            from apps.profiles.models import UserProfile
-            profile, created = UserProfile.objects.get_or_create(user=user)
-            profile.profile_picture = foto_perfil
+            profile, created = Perfil.objects.get_or_create(usuario=user)
+            profile.foto = foto_perfil
             profile.save()
         
-        # Asignar rol si se proporcionó - COMENTADO porque CustomUser no tiene campo 'rol'
-        # if rol_id:
-        #     try:
-        #         rol = Rol.objects.get(id=rol_id)
-        #         user.rol = rol
-        #         user.save()
-        #     except Rol.DoesNotExist:
-        #         pass
-        
+        # Asignar roles (compat: rol_id)
+        if rol_id and not roles_ids:
+            roles_ids = [rol_id]
+
+        if roles_ids:
+            estado_activo = EstadoAsignacion.objects.filter(nombre='Activa').first()
+            request = self.context.get('request')
+            org = request.user.organization if request else None
+            org_tenant_id = str(org.id) if org else None
+            roles = Rol.objects.filter(id__in=roles_ids, tenant_id=org_tenant_id)
+            for rol in roles:
+                AsignacionRol.objects.get_or_create(
+                    usuario=user,
+                    rol=rol,
+                    defaults={
+                        'activa': True,
+                        'estado': estado_activo,
+                        'asignado_por': user,
+                        'organization': getattr(user, 'organization', None),
+                    }
+                )
+
         return user
 
 
@@ -244,57 +288,75 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     """Serializer para actualización de usuarios"""
     
     rol_id = serializers.IntegerField(required=False, allow_null=True)
+    roles_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True
+    )
     foto_perfil = serializers.ImageField(required=False, allow_null=True)
     
     class Meta:
         model = User
         fields = [
-            'email', 'nombre', 'apellido', 'cedula',
-            'phone_number', 'profesion', 'organizacion',
-            'is_active', 'is_staff',
-            'rol_id', 'foto_perfil'
+            'email', 'first_name', 'last_name', 'username',
+            'phone', 'full_name',
+            'is_active',
+            'rol_id', 'roles_ids', 'foto_perfil'
         ]
-    
+
     def validate_email(self, value):
         """Validar que el email sea único"""
         if value:
             user = self.instance
-            if User.all_objects.filter(email=value).exclude(id=user.id).exists():
+            if User.objects.filter(email=value).exclude(id=user.id).exists():
                 raise serializers.ValidationError('Ya existe un usuario con este email.')
         return value
-    
-    def validate_cedula(self, value):
-        """Validar que la cédula sea única"""
-        if value:
-            user = self.instance
-            if User.all_objects.filter(cedula=value).exclude(id=user.id).exists():
-                raise serializers.ValidationError('Ya existe un usuario con esta cédula.')
-        return value
+
+    def validate(self, attrs):
+        # is_superuser e is_staff nunca se aceptan via API
+        attrs.pop('is_superuser', None)
+        attrs.pop('is_staff', None)
+        return attrs
     
     def update(self, instance, validated_data):
         """Actualizar usuario y su rol"""
-        rol_id = validated_data.pop('rol_id', None)  # Removido pero aún aceptado
+        rol_id = validated_data.pop('rol_id', None)
+        roles_ids = validated_data.pop('roles_ids', [])
         foto_perfil = validated_data.pop('foto_perfil', None)  # Extraer foto
         
         # Actualizar campos básicos
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         
-        # Actualizar rol si se proporcionó - COMENTADO porque CustomUser no tiene campo 'rol'
-        # if rol_id is not None:
-        #     try:
-        #         rol = Rol.objects.get(id=rol_id)
-        #         instance.rol = rol
-        #     except Rol.DoesNotExist:
-        #         instance.rol = None
+        # Actualizar roles (compat: rol_id)
+        if rol_id and not roles_ids:
+            roles_ids = [rol_id]
+
+        if roles_ids:
+            AsignacionRol.objects.filter(usuario=instance, activa=True).update(activa=False)
+            estado_activo = EstadoAsignacion.objects.filter(nombre='Activa').first()
+            request = self.context.get('request')
+            org = request.user.organization if request else None
+            org_tenant_id = str(org.id) if org else None
+            roles = Rol.objects.filter(id__in=roles_ids, tenant_id=org_tenant_id)
+            for rol in roles:
+                AsignacionRol.objects.update_or_create(
+                    usuario=instance,
+                    rol=rol,
+                    defaults={
+                        'activa': True,
+                        'estado': estado_activo,
+                        'asignado_por': instance,
+                        'organization': getattr(instance, 'organization', None),
+                    }
+                )
         
         instance.save()
         
         # Si hay foto, crear o actualizar perfil
         if foto_perfil:
-            from apps.profiles.models import UserProfile
-            profile, created = UserProfile.objects.get_or_create(user=instance)
-            profile.profile_picture = foto_perfil
+            profile, created = Perfil.objects.get_or_create(usuario=instance)
+            profile.foto = foto_perfil
             profile.save()
         
         return instance
@@ -319,17 +381,21 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer para perfil público de usuario"""
     
     nombre_completo = serializers.SerializerMethodField()
-    rol_nombre = serializers.CharField(source='rol.nombre', read_only=True, allow_null=True)
+    roles = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
             'id', 'nombre', 'apellido', 'nombre_completo',
-            'profesion', 'organizacion', 'rol_nombre'
+            'profesion', 'organizacion', 'roles'
         ]
     
     def get_nombre_completo(self, obj):
         return f"{obj.nombre} {obj.apellido}".strip()
+
+    def get_roles(self, obj):
+        asignaciones = AsignacionRol.objects.filter(usuario=obj, activa=True).select_related('rol')
+        return [a.rol.nombre for a in asignaciones if a.esta_vigente()]
 
 
 class UserStatsSerializer(serializers.Serializer):
@@ -351,32 +417,36 @@ class UserBulkActionSerializer(serializers.Serializer):
     user_ids = serializers.ListField(
         child=serializers.IntegerField(),
         required=True,
-        allow_empty=False
+        allow_empty=False,
+        max_length=100  # Limitar operaciones masivas para evitar DoS
     )
     
     def validate_user_ids(self, value):
-        """Validar que los IDs sean válidos"""
+        """Validar que los IDs sean válidos y pertenezcan a la organización"""
         if not value:
             raise serializers.ValidationError('Debe proporcionar al menos un ID de usuario.')
-        
-        # Verificar que los usuarios existan
-        users_count = User.objects.filter(id__in=value).count()
+
+        # Verificar que los usuarios existan y pertenezcan a la organización
+        request = self.context.get('request')
+        org = request.user.organization if request else None
+        users_count = User.objects.filter(id__in=value, organization=org).count()
         if users_count != len(value):
-            raise serializers.ValidationError('Algunos IDs de usuario no son válidos.')
+            raise serializers.ValidationError('Algunos IDs no son válidos o no pertenecen a su organización.')
         
         return value
 
 
 class UserBulkRoleAssignSerializer(UserBulkActionSerializer):
-    """Serializer para asignación masiva de roles - DESHABILITADO (CustomUser no tiene campo 'rol')"""
-    
+    """Serializer para asignación masiva de roles"""
+
     rol_id = serializers.IntegerField(required=True)
-    
+
     def validate_rol_id(self, value):
-        """Validar que el rol exista"""
-        # COMENTADO - CustomUser no tiene campo 'rol'
-        # if not Rol.objects.filter(id=value).exists():
-        #     raise serializers.ValidationError('El rol especificado no existe.')
-        raise serializers.ValidationError('La asignación de roles no está disponible actualmente.')
-        # return value
+        """Validar que el rol exista y pertenezca a la organización"""
+        request = self.context.get('request')
+        org = request.user.organization if request else None
+        org_tenant_id = str(org.id) if org else None
+        if not Rol.objects.filter(id=value, tenant_id=org_tenant_id).exists():
+            raise serializers.ValidationError('El rol especificado no existe o no pertenece a su organización.')
+        return value
 

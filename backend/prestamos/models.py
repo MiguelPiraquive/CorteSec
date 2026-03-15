@@ -10,7 +10,7 @@ Autor: Sistema CorteSec
 Versión: 2.0.0
 """
 
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
 from django.core.exceptions import ValidationError
@@ -290,10 +290,18 @@ class Prestamo(TenantAwareModel):
         help_text=_("Organización a la que pertenece este préstamo")
     )
     
+    proyecto = models.ForeignKey(
+        'dashboard.Project',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='prestamos',
+        verbose_name=_('Proyecto'),
+        help_text=_('Proyecto al que pertenece este préstamo')
+    )
+    
     # Información básica
     numero_prestamo = models.CharField(
         max_length=20,
-        unique=True,
         blank=True,
         verbose_name=_("Número de préstamo"),
         help_text=_("Número único del préstamo (se genera automáticamente)")
@@ -515,6 +523,7 @@ class Prestamo(TenantAwareModel):
         verbose_name = _("Préstamo")
         verbose_name_plural = _("Préstamos")
         ordering = ['-fecha_solicitud', '-numero_prestamo']
+        unique_together = [('organization', 'numero_prestamo')]
         indexes = [
             models.Index(fields=['organization', 'estado']),
             models.Index(fields=['empleado', 'estado']),
@@ -528,21 +537,38 @@ class Prestamo(TenantAwareModel):
         return f"{self.numero_prestamo} - {self.empleado}"
     
     def save(self, *args, **kwargs):
-        """Override save para cálculos automáticos"""
-        # Generar número de préstamo si no existe
-        if not self.numero_prestamo:
-            self.numero_prestamo = self.generar_numero_prestamo()
-        
-        # Calcular cuota mensual si está aprobado
-        if self.estado in ['aprobado', 'desembolsado', 'activo'] and self.monto_aprobado and not self.cuota_mensual:
-            self.cuota_mensual = self.calcular_cuota_mensual()
-        
-        # Actualizar saldo pendiente
-        if self.estado in ['desembolsado', 'activo']:
-            if not self.saldo_pendiente or self.saldo_pendiente == 0:
-                self.saldo_pendiente = self.monto_aprobado or self.monto_solicitado
-        
-        super().save(*args, **kwargs)
+        """Override save para cálculos automáticos y completar datos clave"""
+        with transaction.atomic():
+            # Generar número de préstamo SIEMPRE si no existe
+            if not self.numero_prestamo or self.numero_prestamo == '':
+                self.numero_prestamo = self.generar_numero_prestamo()
+
+            # Completar datos clave en estados de pago
+            try:
+                if self.estado in ['desembolsado', 'activo', 'en_mora']:
+                    if not self.fecha_desembolso:
+                        self.fecha_desembolso = timezone.now().date()
+
+                    if not self.fecha_primer_pago and self.fecha_desembolso:
+                        from dateutil.relativedelta import relativedelta
+                        self.fecha_primer_pago = self.fecha_desembolso + relativedelta(months=1)
+
+                # Calcular cuota mensual si está aprobado y no tiene cuota calculada
+                if self.estado in ['aprobado', 'desembolsado', 'activo', 'en_mora']:
+                    if not self.cuota_mensual and self.plazo_meses and self.plazo_meses > 0:
+                        try:
+                            self.cuota_mensual = self.calcular_cuota_mensual()
+                        except Exception:
+                            pass
+
+                # Actualizar saldo pendiente inicial
+                if self.estado in ['desembolsado', 'activo']:
+                    if self.saldo_pendiente is None or self.saldo_pendiente == Decimal('0.00'):
+                        self.saldo_pendiente = self.monto_aprobado or self.monto_solicitado
+            except Exception:
+                pass
+
+            super().save(*args, **kwargs)
     
     def clean(self):
         """Validaciones personalizadas"""
@@ -600,14 +626,16 @@ class Prestamo(TenantAwareModel):
             raise ValidationError(_("El monto aprobado no puede ser mayor al 120% del solicitado"))
     
     def generar_numero_prestamo(self):
-        """Genera un número único de préstamo"""
+        """Genera un número único de préstamo (debe llamarse dentro de transaction.atomic)"""
         year = timezone.now().year
-        # Obtener último número del año
-        ultimo_prestamo = Prestamo.objects.filter(
+        # Obtener último número del año para esta organización
+        # select_for_update() bloquea las filas para evitar números duplicados
+        ultimo_prestamo = Prestamo.objects.select_for_update().filter(
+            organization=self.organization,
             numero_prestamo__startswith=f'PR{year}'
-        ).order_by('-numero_prestamo').first()
+        ).exclude(numero_prestamo='').order_by('-numero_prestamo').first()
         
-        if ultimo_prestamo:
+        if ultimo_prestamo and ultimo_prestamo.numero_prestamo:
             try:
                 ultimo_numero = int(ultimo_prestamo.numero_prestamo[-4:])
                 nuevo_numero = ultimo_numero + 1
@@ -875,29 +903,48 @@ class PagoPrestamo(TenantAwareModel):
     
     def save(self, *args, **kwargs):
         """Override save para actualizar saldo del préstamo"""
-        if not self.numero_pago:
-            self.numero_pago = self.generar_numero_pago()
-        
-        super().save(*args, **kwargs)
-        
-        # Actualizar saldo del préstamo
-        self.prestamo.total_pagado = self.prestamo.pagos.aggregate(
-            total=models.Sum('monto_pago')
-        )['total'] or Decimal('0.00')
-        
-        self.prestamo.saldo_pendiente = (
-            self.prestamo.monto_final - self.prestamo.total_pagado
-        )
-        
-        # Cambiar estado si está completamente pagado
-        if self.prestamo.saldo_pendiente <= Decimal('0.00'):
-            self.prestamo.estado = 'completado'
-        
-        self.prestamo.save()
+        with transaction.atomic():
+            if not self.numero_pago:
+                self.numero_pago = self.generar_numero_pago()
+
+            # Validate overpayment before saving
+            if not self._state.adding:
+                pass  # Skip for updates
+            else:
+                prestamo_obj = Prestamo.objects.select_for_update().get(pk=self.prestamo_id)
+                if self.monto_pago > prestamo_obj.saldo_pendiente:
+                    raise ValidationError(f'El pago ({self.monto_pago}) excede el saldo pendiente ({prestamo_obj.saldo_pendiente})')
+
+            super().save(*args, **kwargs)
+
+            # Bloquear el préstamo para evitar actualizaciones concurrentes
+            prestamo = Prestamo.objects.select_for_update().get(pk=self.prestamo_id)
+
+            # Actualizar totales del préstamo
+            agregados = prestamo.pagos.aggregate(
+                total_pagado=models.Sum('monto_pago'),
+                total_intereses=models.Sum('monto_interes'),
+            )
+
+            prestamo.total_pagado = agregados['total_pagado'] or Decimal('0.00')
+            prestamo.total_intereses = agregados['total_intereses'] or Decimal('0.00')
+            prestamo.fecha_ultimo_pago = self.fecha_pago
+
+            prestamo.saldo_pendiente = (
+                prestamo.monto_final - prestamo.total_pagado
+            )
+
+            # Cambiar estado si está completamente pagado
+            if prestamo.saldo_pendiente <= Decimal('0.00'):
+                prestamo.saldo_pendiente = Decimal('0.00')
+                prestamo.estado = 'completado'
+
+            prestamo.save()
     
     def generar_numero_pago(self):
-        """Genera número secuencial de pago"""
-        ultimo_pago = PagoPrestamo.objects.filter(
+        """Genera número secuencial de pago (debe llamarse dentro de transaction.atomic)"""
+        # select_for_update() bloquea las filas para evitar números duplicados
+        ultimo_pago = PagoPrestamo.objects.select_for_update().filter(
             prestamo=self.prestamo
         ).order_by('-numero_pago').first()
         

@@ -12,9 +12,8 @@ from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Count, Q
+from django.db.models import Count
 from .models import Departamento, Municipio
 from .serializers import (
     DepartamentoSerializer,
@@ -23,7 +22,7 @@ from .serializers import (
     MunicipioSimpleSerializer,
     MunicipioConDepartamentoSerializer
 )
-from core.mixins import MultiTenantViewSetMixin
+from .policies import DepartamentoAccessPolicy, MunicipioAccessPolicy, ImportLocationsAccessPolicy
 
 import pandas as pd
 
@@ -39,15 +38,21 @@ class ImportLocationsExcelAPI(APIView):
       - nombre_municipio (opcional)
 
     Crea departamentos primero y luego municipios ligados al departamento por nombre.
-    Respeta la organización del usuario si existe.
+    Datos globales compartidos entre todas las organizaciones.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ImportLocationsAccessPolicy]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, *args, **kwargs):
         f = request.FILES.get('excel') or request.FILES.get('archivo')
         if not f:
             return Response({'error': 'No se encontró archivo. Usa el campo "excel".'}, status=status.HTTP_400_BAD_REQUEST)
+
+        import os
+        allowed_extensions = ['.xlsx', '.xls']
+        ext = os.path.splitext(f.name)[1].lower()
+        if ext not in allowed_extensions:
+            return Response({'error': 'Solo se permiten archivos Excel (.xlsx, .xls)'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             df = pd.read_excel(f)
@@ -76,9 +81,6 @@ class ImportLocationsExcelAPI(APIView):
         skipped = 0
         errores = []
 
-        # Helper to get organization filter
-        org = getattr(request.user, 'organization', None)
-
         for idx, row in df.iterrows():
             try:
                 dep_nombre = str(row[col_dep_nombre]).strip() if col_dep_nombre and not pd.isna(row[col_dep_nombre]) else None
@@ -88,36 +90,26 @@ class ImportLocationsExcelAPI(APIView):
 
                 dep_obj = None
                 if dep_nombre:
-                    qs = Departamento.objects.filter(nombre=dep_nombre)
-                    if org:
-                        qs = qs.filter(organization=org)
-                    dep_obj = qs.first()
+                    dep_obj = Departamento.objects.filter(nombre=dep_nombre).first()
                     if not dep_obj:
                         dep_obj = Departamento.objects.create(
                             nombre=dep_nombre,
                             codigo=dep_codigo or None,
-                            organization=org if org else None,
                         )
                         created_deptos += 1
 
                 if mun_nombre and dep_obj:
-                    qs_m = Municipio.objects.filter(nombre=mun_nombre, departamento=dep_obj)
-                    if org:
-                        qs_m = qs_m.filter(organization=org)
-                    if qs_m.exists():
+                    if Municipio.objects.filter(nombre=mun_nombre, departamento=dep_obj).exists():
                         skipped += 1
                     else:
-                        mun = Municipio.objects.create(
+                        Municipio.objects.create(
                             nombre=mun_nombre,
                             codigo=mun_codigo or None,
                             departamento=dep_obj,
-                            organization=org if org else None,
                         )
-                        print(f"✅ Municipio creado: {mun.nombre} -> Departamento: {mun.departamento.nombre}")
                         created_mpios += 1
                 elif mun_nombre and not dep_obj:
                     errores.append(f'Fila {idx+2}: municipio "{mun_nombre}" sin departamento asociado')
-                    print(f"⚠️ Fila {idx+2}: municipio '{mun_nombre}' sin departamento")
                 elif not dep_nombre and not mun_nombre:
                     skipped += 1
 
@@ -135,36 +127,17 @@ class ImportLocationsExcelAPI(APIView):
         })
 
 
-class DepartamentoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
-    """ViewSet para gestión de departamentos"""
+class DepartamentoViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestión de departamentos — Datos globales de Colombia"""
     
+    queryset = Departamento.objects.all()
     serializer_class = DepartamentoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DepartamentoAccessPolicy]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['codigo', 'region']
     search_fields = ['nombre', 'codigo', 'capital']
     ordering_fields = ['nombre', 'codigo', 'created_at']
     ordering = ['nombre']
-    
-    def get_queryset(self):
-        """Filtrar por organización del usuario"""
-        queryset = Departamento.objects.all()
-        
-        # Filtrar por organización si el usuario tiene una
-        if hasattr(self.request.user, 'organization') and self.request.user.organization:
-            queryset = queryset.filter(
-                Q(organization=self.request.user.organization) |
-                Q(organization__isnull=True)  # Permitir departamentos sin organización (datos maestros)
-            )
-        
-        return queryset
-    
-    def perform_create(self, serializer):
-        """Asignar organización al crear"""
-        if hasattr(self.request.user, 'organization'):
-            serializer.save(organization=self.request.user.organization)
-        else:
-            serializer.save()
     
     @action(detail=False, methods=['get'])
     def simple(self, request):
@@ -182,11 +155,12 @@ class DepartamentoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class MunicipioViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
-    """ViewSet para gestión de municipios"""
+class MunicipioViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestión de municipios — Datos globales de Colombia"""
     
+    queryset = Municipio.objects.select_related('departamento')
     serializer_class = MunicipioSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [MunicipioAccessPolicy]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['departamento', 'codigo']
     search_fields = ['nombre', 'codigo', 'departamento__nombre']
@@ -198,26 +172,6 @@ class MunicipioViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve']:
             return MunicipioConDepartamentoSerializer
         return MunicipioSerializer
-    
-    def get_queryset(self):
-        """Filtrar por organización del usuario"""
-        queryset = Municipio.objects.select_related('departamento')
-        
-        # Filtrar por organización si el usuario tiene una
-        if hasattr(self.request.user, 'organization') and self.request.user.organization:
-            queryset = queryset.filter(
-                Q(organization=self.request.user.organization) |
-                Q(organization__isnull=True)  # Permitir municipios sin organización (datos maestros)
-            )
-        
-        return queryset
-    
-    def perform_create(self, serializer):
-        """Asignar organización al crear"""
-        if hasattr(self.request.user, 'organization'):
-            serializer.save(organization=self.request.user.organization)
-        else:
-            serializer.save()
     
     @action(detail=False, methods=['get'])
     def simple(self, request):

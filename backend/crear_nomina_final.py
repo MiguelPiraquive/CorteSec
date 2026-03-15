@@ -14,7 +14,7 @@ from payroll.models.legacy import (
     ConceptoLaboral, TipoContrato
 )
 from items.models import Item
-from core.models import Organization
+from core.models import Organizacion
 from decimal import Decimal
 from datetime import date
 
@@ -23,11 +23,11 @@ print("🚀 CREACIÓN DE PRIMERA NÓMINA - SCRIPT CORREGIDO")
 print("="*80)
 
 # 1. OBTENER ORGANIZACIÓN
-org = Organization.objects.first()
+org = Organizacion.objects.first()
 if not org:
     print("❌ No hay organizaciones. Crea una primero.")
     exit(1)
-print(f"\n🏢 Organización: {org.name if hasattr(org, 'name') else org}")
+print(f"\n🏢 Organización: {org.nombre if hasattr(org, 'nombre') else org}")
 
 # 2. OBTENER EMPLEADO
 empleado = Empleado.objects.first()

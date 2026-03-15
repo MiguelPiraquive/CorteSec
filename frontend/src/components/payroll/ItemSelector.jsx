@@ -5,7 +5,8 @@
 
 import { useState, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
-import { itemsAPI } from '../../services/payrollService';
+import { useConfiguracion } from '../../context/ConfiguracionContext';
+import itemsService from '../../services/itemsService';
 
 const ItemSelector = ({ 
   value, 
@@ -15,6 +16,7 @@ const ItemSelector = ({
   required = false,
   disabled = false 
 }) => {
+  const { formatCurrency } = useConfiguracion();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -27,7 +29,7 @@ const ItemSelector = ({
   const loadItems = async () => {
     setLoading(true);
     try {
-      const response = await itemsAPI.activos();
+      const response = await itemsService.getItems({ activo: true });
       const data = response.results || response;
       setItems(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -144,7 +146,7 @@ const ItemSelector = ({
                         )}
                         {item.precio_unitario && (
                           <div className="text-xs text-gray-600 mt-1">
-                            ${parseFloat(item.precio_unitario).toLocaleString('es-CO')}
+                            {formatCurrency(item.precio_unitario)}
                           </div>
                         )}
                       </div>

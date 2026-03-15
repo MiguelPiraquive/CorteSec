@@ -19,7 +19,6 @@ app_name = "dashboard"
 
 # Router para ViewSets de DRF - Comentado temporalmente
 router = DefaultRouter()
-# router.register(r'contractors', views.ContractorViewSet)
 # router.register(r'projects', views.ProjectViewSet)
 # router.register(r'payments', views.PaymentViewSet)
 
@@ -28,13 +27,6 @@ urlpatterns = [
     path("", views.dashboard_principal, name="principal"),
     path("advanced/", views.dashboard_super_avanzado, name="dashboard_super_avanzado"),
     path("enterprise/", views.dashboard_super_avanzado, name="principal_enterprise"),
-    
-    # ==================== CONTRATISTAS ====================
-    path('contractors/', views.contractors_list, name='contractors_list'),
-    path('contractors/<uuid:pk>/', views.contractor_detail, name='contractor_detail'),
-    path('contractors/create/', views.contractor_create, name='contractor_create'),
-    path('contractors/<uuid:pk>/edit/', views.contractor_edit, name='contractor_edit'),
-    path('contractors/<uuid:pk>/delete/', views.contractor_delete, name='contractor_delete'),
     
     # ==================== PROYECTOS ====================
     path('projects/', views.projects_list, name='projects_list'),
@@ -56,8 +48,6 @@ urlpatterns = [
     
     # ==================== APIs BÁSICAS ====================
     path('api/metrics/', views.api_dashboard_metrics, name='api_dashboard_metrics'),
-    path('api/contractors/search/', views.api_contractors_search, name='api_contractors_search'),
-    
     # ==================== APIs PARA REACT DASHBOARD ====================
     path('api/activity-heatmap/', views.api_activity_heatmap, name='api_activity_heatmap'),
     path('api/historical-data/', views.api_historical_data, name='api_historical_data'),

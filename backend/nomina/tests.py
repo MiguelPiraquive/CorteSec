@@ -15,7 +15,7 @@ from django.test import TestCase
 from decimal import Decimal
 from datetime import date
 
-from core.models import Organization
+from core.models import Organizacion
 from .models import (
     Empleado,
     TipoContrato,
@@ -31,10 +31,10 @@ class EmpleadoModelTest(TestCase):
     """Tests para el modelo Empleado."""
     
     def setUp(self):
-        self.organization = Organization.objects.create(
-            name='Test Org',
-            subdomain='testorg',
-            is_active=True
+        self.organization = Organizacion.objects.create(
+            nombre='Test Org',
+            codigo='TESTORG',
+            activa=True
         )
     
     def test_crear_empleado(self):
@@ -75,10 +75,10 @@ class TipoContratoModelTest(TestCase):
     """Tests para el modelo TipoContrato."""
     
     def setUp(self):
-        self.organization = Organization.objects.create(
-            name='Test Org',
-            subdomain='testorg2',
-            is_active=True
+        self.organization = Organizacion.objects.create(
+            nombre='Test Org 2',
+            codigo='TESTORG2',
+            activa=True
         )
     
     def test_tipo_contrato_laboral(self):
@@ -120,10 +120,10 @@ class ParametroLegalModelTest(TestCase):
     """Tests para el modelo ParametroLegal."""
     
     def setUp(self):
-        self.organization = Organization.objects.create(
-            name='Test Org',
-            subdomain='testorg3',
-            is_active=True
+        self.organization = Organizacion.objects.create(
+            nombre='Test Org 3',
+            codigo='TESTORG3',
+            activa=True
         )
     
     def test_parametro_salud(self):
@@ -159,10 +159,10 @@ class ContratoModelTest(TestCase):
     """Tests para el modelo Contrato."""
     
     def setUp(self):
-        self.organization = Organization.objects.create(
-            name='Test Org',
-            subdomain='testorg4',
-            is_active=True
+        self.organization = Organizacion.objects.create(
+            nombre='Test Org 4',
+            codigo='TESTORG4',
+            activa=True
         )
         
         self.empleado = Empleado.objects.create(
@@ -208,10 +208,10 @@ class CalculadorNominaTest(TestCase):
     """Tests para el servicio CalculadorNomina."""
     
     def setUp(self):
-        self.organization = Organization.objects.create(
-            name='Test Org',
-            subdomain='testorg5',
-            is_active=True
+        self.organization = Organizacion.objects.create(
+            nombre='Test Org 5',
+            codigo='TESTORG5',
+            activa=True
         )
         
         # Crear parámetros legales

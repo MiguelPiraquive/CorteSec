@@ -2,13 +2,13 @@ import api from './api'
 
 const locationsService = {
   // DEPARTAMENTOS
-  getDepartamentos: async (page = 1) => {
-    const response = await api.get(`/api/locations/departamentos/?page=${page}`)
+  getDepartamentos: async (params = {}) => {
+    const response = await api.get('/api/locations/departamentos/', { params })
     return response.data
   },
 
   getAllDepartamentos: async () => {
-    const response = await api.get('/api/locations/departamentos/?page_size=1000')
+    const response = await api.get('/api/locations/departamentos/', { params: { page_size: 99999 } })
     return response.data.results || response.data
   },
 
@@ -38,13 +38,13 @@ const locationsService = {
   },
 
   // MUNICIPIOS
-  getMunicipios: async (page = 1) => {
-    const response = await api.get(`/api/locations/municipios/?page=${page}`)
+  getMunicipios: async (params = {}) => {
+    const response = await api.get('/api/locations/municipios/', { params })
     return response.data
   },
 
   getAllMunicipios: async () => {
-    const response = await api.get('/api/locations/municipios/?page_size=1000')
+    const response = await api.get('/api/locations/municipios/', { params: { page_size: 99999 } })
     return response.data.results || response.data
   },
 

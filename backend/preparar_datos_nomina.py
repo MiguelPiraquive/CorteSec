@@ -15,7 +15,7 @@ from payroll.models.legacy import (
     NominaElectronica, ConceptoLaboral, TipoContrato
 )
 from items.models import Item
-from core.models import Organization
+from core.models import Organizacion
 from decimal import Decimal
 from datetime import date, timedelta
 
@@ -25,12 +25,12 @@ print("📊 VERIFICACIÓN DE DATOS BASE")
 print("=" * 70)
 
 # Obtener organización
-org = Organization.objects.first()
+org = Organizacion.objects.first()
 if not org:
     print("\n❌ ERROR: No hay organizaciones. Crea una primero.")
     exit(1)
 
-print(f"\n🏢 Organización: {org.name if hasattr(org, 'name') else org.codigo}")
+print(f"\n🏢 Organización: {org.nombre if hasattr(org, 'nombre') else org.codigo}")
 
 # Empleados
 empleados = Empleado.objects.all()
@@ -126,7 +126,7 @@ print("\n" + "=" * 70)
 print("✅ ESTADO FINAL DEL SISTEMA")
 print("=" * 70)
 
-print(f"\n🏢 Organización: {org.name if hasattr(org, 'name') else org.codigo}")
+print(f"\n🏢 Organización: {org.nombre if hasattr(org, 'nombre') else org.codigo}")
 print(f"👥 Empleados: {empleados.count()}")
 print(f"📋 Contratos activos: {contratos.count()}")
 print(f"📅 Periodos: {periodos.count()}")

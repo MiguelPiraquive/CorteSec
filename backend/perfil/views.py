@@ -17,6 +17,7 @@ from .serializers import (
     PerfilResumenSerializer, UserConPerfilSerializer, ConfiguracionNotificacionesSerializer,
     EstadisticasPerfilSerializer, UserBasicSerializer
 )
+from .policies import PerfilAccessPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class PerfilViewSet(viewsets.ModelViewSet):
     
     queryset = Perfil.objects.select_related('usuario').prefetch_related('config_notificaciones')
     serializer_class = PerfilSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [PerfilAccessPolicy]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = [
         'genero', 'estado_civil', 'ciudad_residencia', 'departamento_residencia',
@@ -57,14 +58,8 @@ class PerfilViewSet(viewsets.ModelViewSet):
         return PerfilSerializer
 
     def get_permissions(self):
-        """Permisos específicos por acción"""
-        if self.action in ['publico', 'list']:
-            return [permissions.IsAuthenticated()]
-        elif self.action in ['mi_perfil', 'actualizar_mi_perfil']:
-            return [permissions.IsAuthenticated()]
-        elif self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [permissions.IsAdminUser()]
-        return super().get_permissions()
+        """Permisos gestionados por PerfilAccessPolicy RBAC"""
+        return [PerfilAccessPolicy()]
 
     @action(detail=False, methods=['get'], url_path='mi-perfil')
     def mi_perfil(self, request):
@@ -128,6 +123,18 @@ class PerfilViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     logger.warning(f"No se pudo crear configuración de notificaciones: {e}")
             
+            # Actualizar campos del User model si vienen en el request
+            user_updated = False
+            user = request.user
+            if 'first_name' in request.data:
+                user.first_name = request.data['first_name']
+                user_updated = True
+            if 'last_name' in request.data:
+                user.last_name = request.data['last_name']
+                user_updated = True
+            if user_updated:
+                user.save(update_fields=[f for f in ['first_name', 'last_name'] if f in request.data])
+
             serializer = PerfilCreateUpdateSerializer(
                 perfil, 
                 data=request.data, 
@@ -136,7 +143,8 @@ class PerfilViewSet(viewsets.ModelViewSet):
             
             if serializer.is_valid():
                 serializer.save()
-                # Retornar el perfil completo actualizado
+                # Refrescar perfil desde DB para obtener datos actualizados
+                perfil.refresh_from_db()
                 response_serializer = PerfilSerializer(perfil)
                 return Response(response_serializer.data)
             
@@ -356,7 +364,7 @@ class ConfiguracionNotificacionesViewSet(viewsets.ModelViewSet):
     
     queryset = ConfiguracionNotificaciones.objects.select_related('perfil__usuario')
     serializer_class = ConfiguracionNotificacionesSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [PerfilAccessPolicy]
 
     def get_queryset(self):
         """Filtrar por usuario si no es admin"""

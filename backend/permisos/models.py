@@ -47,32 +47,37 @@ import datetime
 import uuid
 import logging
 
-from core.models import Organizacion
-from core.mixins import TenantAwareModel
-
 User = get_user_model()
 logger = logging.getLogger('permissions')
 
 
-class AuditMixin(TenantAwareModel):
-    """Mixin para auditoría y trazabilidad"""
-    
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
+class SimpleAuditMixinES(models.Model):
+    """Mixin básico de auditoría en español (para modelos que ya tienen campos en español)"""
+
+    metadata = JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_("Metadatos"),
+        help_text=_("Información adicional en formato JSON")
     )
-    
+
+    class Meta:
+        abstract = True
+
+
+class SimpleAuditMixin(models.Model):
+    """Mixin básico de auditoría sin campo ID (usa el ID por defecto de Django)"""
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_("Fecha de creación")
     )
-    
+
     updated_at = models.DateTimeField(
         auto_now=True,
         verbose_name=_("Fecha de modificación")
     )
-    
+
     created_by = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
@@ -81,7 +86,7 @@ class AuditMixin(TenantAwareModel):
         blank=True,
         verbose_name=_("Creado por")
     )
-    
+
     updated_by = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
@@ -90,14 +95,62 @@ class AuditMixin(TenantAwareModel):
         blank=True,
         verbose_name=_("Actualizado por")
     )
-    
+
     metadata = JSONField(
         default=dict,
         blank=True,
         verbose_name=_("Metadatos"),
         help_text=_("Información adicional en formato JSON")
     )
-    
+
+    class Meta:
+        abstract = True
+
+
+class AuditMixin(models.Model):
+    """Mixin para auditoría y trazabilidad"""
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Fecha de creación")
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Fecha de modificación")
+    )
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="%(class)s_created",
+        null=True,
+        blank=True,
+        verbose_name=_("Creado por")
+    )
+
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="%(class)s_updated",
+        null=True,
+        blank=True,
+        verbose_name=_("Actualizado por")
+    )
+
+    metadata = JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_("Metadatos"),
+        help_text=_("Información adicional en formato JSON")
+    )
+
     class Meta:
         abstract = True
 
@@ -437,19 +490,30 @@ class CondicionPermiso(AuditMixin):
             return True
     
     def _evaluar_python(self, usuario, contexto):
-        """Evalúa código Python de forma segura"""
+        """Evalúa condiciones predefinidas de forma segura.
+
+        SECURITY: eval() removed - uses a safe lookup of predefined conditions instead.
+        """
         try:
-            # Crear un contexto seguro para la evaluación
-            safe_context = {
-                'usuario': usuario,
-                'contexto': contexto,
-                'timezone': timezone,
-                'datetime': datetime,
-                'Q': Q,
+            # Predefined safe condition evaluators (no eval/exec)
+            SAFE_CONDITIONS = {
+                'is_superuser': lambda u, c: u.is_superuser,
+                'is_staff': lambda u, c: u.is_staff,
+                'is_active': lambda u, c: u.is_active,
+                'has_organization': lambda u, c: hasattr(u, 'organization') and u.organization is not None,
+                'is_owner': lambda u, c: c.get('owner_id') == u.id if c else False,
             }
-            
-            # Ejecutar código de forma segura
-            return eval(self.codigo_evaluacion, {"__builtins__": {}}, safe_context)
+
+            condition_key = (self.codigo_evaluacion or '').strip()
+
+            if condition_key in SAFE_CONDITIONS:
+                return SAFE_CONDITIONS[condition_key](usuario, contexto)
+
+            logger.warning(
+                f"Condición Python no reconocida '{condition_key}' en {self.codigo}. "
+                f"Condiciones disponibles: {list(SAFE_CONDITIONS.keys())}"
+            )
+            return False
         except Exception as e:
             logger.error(f"Error evaluando condición {self.codigo}: {e}")
             return False
@@ -525,16 +589,6 @@ class Permiso(AuditMixin):
         related_name='permisos',
         verbose_name=_("Tipo de permiso")
     )
-    
-    Organizacion = models.ForeignKey(
-        Organizacion,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='permisos',
-        verbose_name=_("Organización")
-    )
-    
     # Configuración del permiso
     ambito = models.CharField(
         max_length=20,
@@ -781,7 +835,7 @@ class PermisoDirecto(AuditMixin):
         self.save()
 
 
-class AuditoriaPermisos(TenantAwareModel):
+class AuditoriaPermisos(models.Model):
     """Modelo para auditoría de permisos"""
     accion = models.CharField(
         max_length=50,
@@ -818,7 +872,7 @@ class AuditoriaPermisos(TenantAwareModel):
         return f"{self.usuario.username} - {self.accion} - {self.permiso.nombre}"
 
 
-class PermisoI18N(TenantAwareModel):
+class PermisoI18N(models.Model):
     """Modelo para soporte multilingüe en permisos"""
     permiso = models.ForeignKey(
         Permiso,
@@ -850,7 +904,7 @@ class PermisoI18N(TenantAwareModel):
         return f"{self.permiso.nombre} ({self.idioma})"
 
 
-class ConfiguracionEntorno(TenantAwareModel):
+class ConfiguracionEntorno(models.Model):
     """Modelo para configuraciones por entorno"""
     entorno = models.CharField(
         max_length=50,
@@ -993,7 +1047,6 @@ def estadisticas_permisos():
         'total_permisos': Permiso.objects.count(),
         'permisos_activos': Permiso.objects.filter(activo=True).count(),
         'tipos_permiso': TipoPermiso.objects.count(),
-        'Organizationes': Organizacion.objects.filter(activa=True).count(),
         'modulos': ModuloSistema.objects.filter(activo=True).count(),
         'condiciones': CondicionPermiso.objects.filter(activa=True).count(),
         'permisos_directos': PermisoDirecto.objects.filter(activo=True).count(),

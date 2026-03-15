@@ -9,10 +9,12 @@ Autor: Sistema CorteSec
 Versión: 2.0.0
 """
 
-from rest_framework import viewsets, status, permissions
+from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import models
 from django.db.models import Q, Count, Prefetch
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -24,8 +26,8 @@ from .models import (
     ModuloSistema, TipoPermiso, CondicionPermiso, Permiso, 
     PermisoDirecto, AuditoriaPermisos, PermisoI18N, ConfiguracionEntorno
 )
-from core.models import Organizacion
-from core.mixins import MultiTenantViewSetMixin
+# from core.mixins import BaseViewSetMixin  # Not found
+from core.pagination import StandardResultsSetPagination
 from .serializers import (
     ModuloSistemaSerializer, ModuloSistemaTreeSerializer, ModuloSistemaBasicSerializer,
     TipoPermisoSerializer, TipoPermisoBasicSerializer,
@@ -38,6 +40,13 @@ from .serializers import (
     CacheLimpiezaSerializer, UserBasicSerializer
 )
 from .services import DirectPermissionService
+from .policies import (
+    PermisosAdminAccessPolicy,
+    PermisosDirectosPolicy,
+    ModulosSistemaPolicy,
+    CondicionesPermisoPolicy,
+    AuditoriaPermisosPolicy,
+)
 
 User = get_user_model()
 
@@ -60,24 +69,14 @@ class PermissionRequiredMixin:
         return service.verificar_permiso_directo(user, permission_code)
 
 
-class OrganizacionViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet de solo lectura para organizaciones"""
-    
-    queryset = Organizacion.objects.filter(activa=True)
-    serializer_class = UserBasicSerializer  # Usar serializer básico si no hay OrganizacionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['activa']
-    search_fields = ['nombre', 'codigo']
-
-
 class ModuloSistemaViewSet(PermissionRequiredMixin, viewsets.ModelViewSet):
     """ViewSet para gestión de módulos del sistema"""
     
     queryset = ModuloSistema.objects.all().select_related('padre').prefetch_related('hijos')
     serializer_class = ModuloSistemaSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
+    permission_classes = [ModulosSistemaPolicy]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['activo', 'es_sistema', 'padre', 'nivel']
     search_fields = ['nombre', 'codigo', 'descripcion']
     ordering = ['nivel', 'orden', 'nombre']
@@ -93,7 +92,7 @@ class ModuloSistemaViewSet(PermissionRequiredMixin, viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def tree(self, request):
         """Obtiene la estructura jerárquica de módulos"""
-        queryset = self.queryset.filter(padre__isnull=True, activo=True)
+        queryset = self.get_queryset().filter(padre__isnull=True, activo=True)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     
@@ -111,50 +110,26 @@ class ModuloSistemaViewSet(PermissionRequiredMixin, viewsets.ModelViewSet):
         })
 
 
-class TipoPermisoViewSet(PermissionRequiredMixin, viewsets.ModelViewSet):
-    """ViewSet para gestión de tipos de permiso"""
-    
-    queryset = TipoPermiso.objects.all()
-    serializer_class = TipoPermisoSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['categoria', 'es_critico', 'requiere_auditoria', 'activo']
-    search_fields = ['nombre', 'codigo', 'descripcion']
-    ordering = ['categoria', 'nombre']
-    
-    def get_serializer_class(self):
-        """Selecciona el serializer según la acción"""
-        if self.action == 'list':
-            return TipoPermisoBasicSerializer
-        return TipoPermisoSerializer
-    
-    @action(detail=False, methods=['get'])
-    def by_category(self, request):
-        """Obtiene tipos agrupados por categoría"""
-        tipos = self.queryset.filter(activo=True).values(
-            'categoria', 'id', 'nombre', 'codigo', 'icono', 'color'
-        )
-        
-        categorias = {}
-        for tipo in tipos:
-            cat = tipo['categoria']
-            if cat not in categorias:
-                categorias[cat] = []
-            categorias[cat].append(tipo)
-        
-        return Response(categorias)
-
-
 class CondicionPermisoViewSet(PermissionRequiredMixin, viewsets.ModelViewSet):
     """ViewSet para gestión de condiciones de permiso"""
     
     queryset = CondicionPermiso.objects.all()
     serializer_class = CondicionPermisoSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
+    permission_classes = [CondicionesPermisoPolicy]
+    pagination_class = StandardResultsSetPagination  # Habilitar paginación
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['tipo', 'cacheable', 'activa']
     search_fields = ['nombre', 'codigo', 'descripcion']
+    ordering_fields = ['nombre', 'codigo', 'tipo', 'fecha_creacion', 'fecha_modificacion']
     ordering = ['tipo', 'nombre']
+    
+    def get_queryset(self):
+        """Personaliza el queryset con anotaciones"""
+        return super().get_queryset().annotate(
+            permisos_count=models.Count('permisos', distinct=True)
+        ).select_related(
+            'created_by', 'updated_by'
+        )
     
     def get_serializer_class(self):
         """Selecciona el serializer según la acción"""
@@ -166,7 +141,13 @@ class CondicionPermisoViewSet(PermissionRequiredMixin, viewsets.ModelViewSet):
     def evaluate(self, request, pk=None):
         """Evalúa una condición específica"""
         condicion = self.get_object()
-        serializer = CondicionPermisoEvaluationSerializer(data=request.data)
+
+        # Si no se envía usuario_id, usar el usuario autenticado
+        data = request.data.copy() if request.data else {}
+        if not data.get('usuario_id'):
+            data['usuario_id'] = str(request.user.id)
+
+        serializer = CondicionPermisoEvaluationSerializer(data=data)
         
         if serializer.is_valid():
             usuario = User.objects.get(id=serializer.validated_data['usuario_id'])
@@ -200,18 +181,19 @@ class CondicionPermisoViewSet(PermissionRequiredMixin, viewsets.ModelViewSet):
         return Response({'success': False, 'message': 'La condición no usa cache'})
 
 
-class PermisoViewSet(MultiTenantViewSetMixin, PermissionRequiredMixin, viewsets.ModelViewSet):
+class PermisoViewSet(PermissionRequiredMixin, viewsets.ModelViewSet):
     """ViewSet para gestión de permisos"""
     
     queryset = Permiso.objects.select_related(
-        'modulo', 'tipo_permiso', 'organizacion', 'content_type'
+        'modulo', 'tipo_permiso', 'content_type'
     ).prefetch_related('condiciones')
     serializer_class = PermisoSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
+    permission_classes = [PermisosAdminAccessPolicy]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = [
         'activo', 'es_sistema', 'ambito', 'es_heredable', 'es_revocable',
-        'modulo', 'tipo_permiso', 'Organizacion'
+        'modulo', 'tipo_permiso'
     ]
     search_fields = ['nombre', 'codigo', 'descripcion']
     ordering = ['modulo__nombre', 'tipo_permiso__nombre', 'nombre']
@@ -288,9 +270,9 @@ class PermisoViewSet(MultiTenantViewSetMixin, PermissionRequiredMixin, viewsets.
         modulo_id = request.query_params.get('modulo_id')
         
         if modulo_id:
-            permisos = self.queryset.filter(modulo_id=modulo_id, activo=True)
+            permisos = self.get_queryset().filter(modulo_id=modulo_id, activo=True)
         else:
-            permisos = self.queryset.filter(activo=True)
+            permisos = self.get_queryset().filter(activo=True)
         
         # Agrupar por módulo
         modulos = {}
@@ -306,18 +288,29 @@ class PermisoViewSet(MultiTenantViewSetMixin, PermissionRequiredMixin, viewsets.
         return Response(list(modulos.values()))
 
 
-class PermisoDirectoViewSet(MultiTenantViewSetMixin, PermissionRequiredMixin, viewsets.ModelViewSet):
+class PermisoDirectoViewSet(PermissionRequiredMixin, viewsets.ModelViewSet):
     """ViewSet para gestión de permisos directos"""
-    
+
     queryset = PermisoDirecto.objects.select_related(
         'usuario', 'permiso', 'asignado_por'
     )
     serializer_class = PermisoDirectoSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
+    permission_classes = [PermisosDirectosPolicy]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['tipo', 'activo', 'usuario', 'permiso', 'asignado_por']
     search_fields = ['usuario__username', 'permiso__nombre', 'motivo']
     ordering = ['-created_at']
+
+    def get_queryset(self):
+        """Filtrar permisos directos por organización del usuario"""
+        qs = super().get_queryset()
+        user = self.request.user
+        if user.is_superuser:
+            return qs
+        # Solo mostrar permisos de usuarios de la misma organización
+        if hasattr(user, 'organization') and user.organization:
+            return qs.filter(usuario__organization=user.organization)
+        return qs.none()
     
     def get_serializer_class(self):
         """Selecciona el serializer según la acción"""
@@ -342,7 +335,7 @@ class PermisoDirectoViewSet(MultiTenantViewSetMixin, PermissionRequiredMixin, vi
         
         try:
             usuario = User.objects.get(id=usuario_id)
-            permisos_directos = self.queryset.filter(usuario=usuario, activo=True)
+            permisos_directos = self.get_queryset().filter(usuario=usuario, activo=True)
             
             data = {
                 'usuario': UserBasicSerializer(usuario).data,
@@ -387,13 +380,13 @@ class PermisoDirectoViewSet(MultiTenantViewSetMixin, PermissionRequiredMixin, vi
         })
 
 
-class AuditoriaPermisosViewSet(MultiTenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
+class AuditoriaPermisosViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet de solo lectura para auditoría de permisos"""
     
     queryset = AuditoriaPermisos.objects.select_related('usuario', 'permiso')
     serializer_class = AuditoriaPermisosSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
+    permission_classes = [AuditoriaPermisosPolicy]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['accion', 'usuario', 'permiso']
     search_fields = ['usuario__username', 'accion', 'permiso__nombre']
     ordering = ['-fecha']
@@ -409,16 +402,16 @@ class AuditoriaPermisosViewSet(MultiTenantViewSetMixin, viewsets.ReadOnlyModelVi
         last_month = now - timedelta(days=30)
         
         stats = {
-            'total_eventos': self.queryset.count(),
-            'eventos_semana': self.queryset.filter(fecha__gte=last_week).count(),
-            'eventos_mes': self.queryset.filter(fecha__gte=last_month).count(),
+            'total_eventos': self.get_queryset().count(),
+            'eventos_semana': self.get_queryset().filter(fecha__gte=last_week).count(),
+            'eventos_mes': self.get_queryset().filter(fecha__gte=last_month).count(),
             'por_accion': dict(
-                self.queryset.values('accion').annotate(
+                self.get_queryset().values('accion').annotate(
                     count=Count('id')
                 ).values_list('accion', 'count')
             ),
             'usuarios_mas_activos': list(
-                self.queryset.values('usuario__username').annotate(
+                self.get_queryset().values('usuario__username').annotate(
                     count=Count('id')
                 ).order_by('-count')[:10]
             )
@@ -429,10 +422,72 @@ class AuditoriaPermisosViewSet(MultiTenantViewSetMixin, viewsets.ReadOnlyModelVi
 
 # ==================== VISTAS DE ESTADÍSTICAS ====================
 
+class DashboardViewSet(viewsets.ViewSet):
+    """ViewSet para el dashboard de permisos"""
+    
+    permission_classes = [PermisosAdminAccessPolicy]
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Estadísticas para el dashboard de permisos"""
+        from django.db.models import Count
+        
+        # Estadísticas básicas
+        total_permisos = Permiso.objects.count()
+        permisos_activos = Permiso.objects.filter(activo=True).count()
+        total_modulos = ModuloSistema.objects.count()
+        modulos_activos = ModuloSistema.objects.filter(activo=True).count()
+        total_tipos = TipoPermiso.objects.count()
+        condiciones_activas = CondicionPermiso.objects.filter(activa=True).count()
+        total_permisos_directos = PermisoDirecto.objects.filter(activo=True).count()
+        usuarios_con_permisos = PermisoDirecto.objects.filter(activo=True).values('usuario').distinct().count()
+        
+        # Permisos vigentes (considerando fechas)
+        now = timezone.now()
+        permisos_vigentes = PermisoDirecto.objects.filter(
+            activo=True,
+            fecha_inicio__lte=now
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=now)
+        ).count()
+        
+        # Distribución por categorías
+        tipos_por_categoria = list(
+            TipoPermiso.objects.values('categoria').annotate(
+                cantidad=Count('permiso', filter=Q(permiso__activo=True))
+            ).filter(cantidad__gt=0)
+        )
+        
+        stats = {
+            'permisos': {
+                'total': total_permisos,
+                'activos': permisos_activos,
+                'vigentes': permisos_vigentes
+            },
+            'modulos': {
+                'total': total_modulos,
+                'activos': modulos_activos
+            },
+            'tipos_permiso': {
+                'total': total_tipos,
+                'por_categoria': tipos_por_categoria
+            },
+            'condiciones': {
+                'activas': condiciones_activas
+            },
+            'permisos_directos': {
+                'total': total_permisos_directos,
+                'usuarios_con_permisos': usuarios_con_permisos
+            }
+        }
+        
+        return Response(stats)
+
+
 class EstadisticasViewSet(viewsets.ViewSet):
     """ViewSet para estadísticas del sistema de permisos"""
     
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [PermisosAdminAccessPolicy]
     
     @action(detail=False, methods=['get'])
     def general(self, request):
@@ -442,7 +497,6 @@ class EstadisticasViewSet(viewsets.ViewSet):
             'total_permisos': Permiso.objects.count(),
             'permisos_activos': Permiso.objects.filter(activo=True).count(),
             'tipos_permiso': TipoPermiso.objects.count(),
-            'organizaciones': Organizacion.objects.count(),
             'modulos': ModuloSistema.objects.count(),
             'condiciones': CondicionPermiso.objects.count(),
             'permisos_directos': PermisoDirecto.objects.filter(activo=True).count(),
@@ -466,16 +520,23 @@ class EstadisticasViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['post'])
     def clear_cache(self, request):
-        """Limpia el cache del sistema"""
+        """Limpia el cache del sistema - solo superusuarios"""
+        if not request.user.is_superuser:
+            return Response(
+                {'error': 'Solo superusuarios pueden limpiar el cache global.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = CacheLimpiezaSerializer(data=request.data)
-        
+
         if serializer.is_valid():
             tipo = serializer.validated_data['tipo']
             usuario_id = serializer.validated_data.get('usuario_id')
-            
+
             if tipo == 'all':
                 cache.clear()
                 message = 'Todo el cache ha sido limpiado'
+                logger.warning(f"Cache global limpiado por {request.user.username}")
             elif tipo == 'user' and usuario_id:
                 cache.delete_pattern(f"*user_{usuario_id}_*")
                 message = f'Cache del usuario {usuario_id} limpiado'
@@ -493,3 +554,258 @@ class EstadisticasViewSet(viewsets.ViewSet):
             })
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TipoPermisoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestión de tipos de permiso
+    """
+    queryset = TipoPermiso.objects.all().order_by('categoria', 'nombre')
+    serializer_class = TipoPermisoSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [PermisosAdminAccessPolicy]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nombre', 'codigo', 'descripcion']
+    filterset_fields = ['categoria', 'activo', 'es_critico', 'requiere_auditoria']
+    ordering_fields = ['nombre', 'codigo', 'categoria', 'fecha_creacion']
+    ordering = ['categoria', 'nombre']
+
+    def get_serializer_class(self):
+        """Utilizar serializer básico para acciones de lista"""
+        if self.action == 'list':
+            return TipoPermisoBasicSerializer
+        return TipoPermisoSerializer
+
+    @action(detail=False, methods=['get'])
+    def categorias(self, request):
+        """Obtener lista de categorías disponibles"""
+        categorias = TipoPermiso.CATEGORIA_CHOICES
+        data = [{'value': choice[0], 'label': choice[1]} for choice in categorias]
+        return Response(data)
+
+    @action(detail=False, methods=['get'])
+    def estadisticas(self, request):
+        """Estadísticas de tipos de permiso"""
+        stats = {
+            'total': self.get_queryset().count(),
+            'activos': self.get_queryset().filter(activo=True).count(),
+            'criticos': self.get_queryset().filter(es_critico=True).count(),
+            'con_auditoria': self.get_queryset().filter(requiere_auditoria=True).count(),
+            'por_categoria': dict(
+                self.get_queryset().values('categoria').annotate(
+                    count=Count('categoria')
+                ).values_list('categoria', 'count')
+            )
+        }
+        return Response(stats)
+
+    def perform_create(self, serializer):
+        """Guardar tipo de permiso con usuario creador"""
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        """Actualizar tipo de permiso con usuario modificador"""
+        serializer.save(updated_by=self.request.user)
+
+
+class PermissionCheckViewSet(viewsets.ViewSet):
+    """
+    ViewSet para verificar permisos del usuario autenticado.
+
+    Endpoints:
+    - GET  /api/permisos/check/me/           → permisos del usuario actual
+    - POST /api/permisos/check/              → verificar un permiso puntual
+    - POST /api/permisos/check/clear-cache/  → limpiar cache de permisos
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        """
+        Retorna TODOS los permisos del usuario autenticado.
+
+        Flujo:
+        1. Obtener roles activos del usuario via AsignacionRol
+        2. Para cada rol, obtener permisos (ManyToMany + heredados)
+        3. Obtener permisos directos (PermisoDirecto grant)
+        4. Restar permisos denegados (PermisoDirecto deny)
+        5. Retornar codigos unicos
+        """
+        from roles.models import AsignacionRol
+
+        usuario = request.user
+
+        # Si es superusuario, devolver TODOS los permisos activos
+        if usuario.is_superuser:
+            todos = Permiso.objects.filter(activo=True).values_list(
+                'codigo', flat=True
+            )
+            codigos = list(set(todos))
+            recursos = list(set(c.split('.')[0] for c in codigos if '.' in c))
+            acciones = list(set(c.split('.')[1] for c in codigos if '.' in c))
+            return Response({
+                'permissions': codigos,
+                'ui_elements': [],
+                'resources': recursos,
+                'actions': acciones,
+                'is_superuser': True,
+            })
+
+        # 1. Roles activos del usuario
+        ahora = timezone.now()
+        asignaciones = AsignacionRol.objects.filter(
+            usuario=usuario,
+            activa=True,
+        ).select_related('rol')
+
+        # Filtrar por vigencia temporal
+        asignaciones_vigentes = []
+        for asig in asignaciones:
+            if asig.fecha_inicio and ahora < asig.fecha_inicio:
+                continue
+            if asig.fecha_fin and ahora > asig.fecha_fin:
+                continue
+            asignaciones_vigentes.append(asig)
+
+        # 2. Recopilar permisos de roles
+        permisos_codigos = set()
+        for asig in asignaciones_vigentes:
+            rol = asig.rol
+            if not rol.activo:
+                continue
+            # Permisos directos del rol (ManyToMany)
+            codigos_rol = rol.permisos.filter(
+                activo=True
+            ).values_list('codigo', flat=True)
+            permisos_codigos.update(codigos_rol)
+
+            # Permisos heredados de roles padre
+            if rol.hereda_permisos and rol.rol_padre:
+                heredados = rol.get_permisos_heredados()
+                for p in heredados:
+                    if p.activo:
+                        permisos_codigos.add(p.codigo)
+
+        # 3. Permisos directos concedidos
+        directos_grant = PermisoDirecto.objects.filter(
+            usuario=usuario,
+            activo=True,
+            tipo__in=['grant', 'temporary'],
+            fecha_inicio__lte=ahora,
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=ahora)
+        ).select_related('permiso').values_list(
+            'permiso__codigo', flat=True
+        )
+        permisos_codigos.update(directos_grant)
+
+        # 4. Permisos directos denegados (restar)
+        directos_deny = PermisoDirecto.objects.filter(
+            usuario=usuario,
+            activo=True,
+            tipo='deny',
+            fecha_inicio__lte=ahora,
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=ahora)
+        ).values_list('permiso__codigo', flat=True)
+        permisos_codigos -= set(directos_deny)
+
+        codigos = list(permisos_codigos)
+        recursos = list(set(
+            c.split('.')[0] for c in codigos if '.' in c
+        ))
+        acciones = list(set(
+            c.split('.')[1] for c in codigos if '.' in c
+        ))
+
+        return Response({
+            'permissions': codigos,
+            'ui_elements': [],
+            'resources': recursos,
+            'actions': acciones,
+            'is_superuser': False,
+        })
+
+    def create(self, request):
+        """
+        POST /api/permisos/check/
+        Verifica si el usuario tiene un permiso especifico.
+        Body: { "permission": "empleados.view", "context": {} }
+        """
+        from roles.models import AsignacionRol
+
+        permiso_codigo = request.data.get('permission', '')
+        if not permiso_codigo:
+            return Response(
+                {'has_permission': False, 'detail': 'permission requerido'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        usuario = request.user
+
+        if usuario.is_superuser:
+            return Response({'has_permission': True})
+
+        # Verificar en roles activos
+        ahora = timezone.now()
+        roles_ids = AsignacionRol.objects.filter(
+            usuario=usuario,
+            activa=True,
+        ).filter(
+            Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=ahora),
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=ahora),
+        ).values_list('rol_id', flat=True)
+
+        from roles.models import Rol
+        tiene = Permiso.objects.filter(
+            codigo=permiso_codigo,
+            activo=True,
+            roles_asignados__id__in=roles_ids,
+            roles_asignados__activo=True,
+        ).exists()
+
+        if not tiene:
+            # Verificar permisos directos
+            tiene = PermisoDirecto.objects.filter(
+                usuario=usuario,
+                permiso__codigo=permiso_codigo,
+                activo=True,
+                tipo__in=['grant', 'temporary'],
+                fecha_inicio__lte=ahora,
+            ).filter(
+                Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=ahora)
+            ).exists()
+
+        # Verificar deny
+        if tiene:
+            denegado = PermisoDirecto.objects.filter(
+                usuario=usuario,
+                permiso__codigo=permiso_codigo,
+                activo=True,
+                tipo='deny',
+                fecha_inicio__lte=ahora,
+            ).filter(
+                Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=ahora)
+            ).exists()
+            if denegado:
+                tiene = False
+
+        return Response({'has_permission': tiene})
+
+    @action(detail=False, methods=['post'], url_path='clear-cache')
+    def clear_cache(self, request):
+        """
+        POST /api/permisos/check/clear-cache/
+        Limpia el cache de permisos del usuario.
+        """
+        usuario = request.user
+        cache.delete_many([
+            f'usuario_{usuario.id}_roles',
+            f'usuario_{usuario.id}_permisos',
+            f'usuario_{usuario.id}_roles_jerarquia',
+        ])
+        return Response({
+            'success': True,
+            'message': 'Cache de permisos limpiado',
+        })

@@ -1,7 +1,6 @@
-from rest_framework import viewsets, status, filters, permissions
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Count, F
 from django.utils import timezone
@@ -10,12 +9,8 @@ from django.conf import settings
 from .models import Cargo, HistorialCargo
 from .serializers import CargoSerializer, HistorialCargoSerializer
 from core.mixins import MultiTenantViewSetMixin
-
-
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 15
-    page_size_query_param = 'page_size'
-    max_page_size = 100
+from core.pagination import StandardResultsSetPagination
+from .policies import CargoAccessPolicy
 
 
 class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
@@ -31,11 +26,11 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     
     queryset = Cargo.objects.select_related('cargo_superior').all()
     serializer_class = CargoSerializer
-    # Seguridad robusta - siempre requerir autenticación
-    permission_classes = [permissions.IsAuthenticated]
+    # Política RBAC integrada con drf-access-policy
+    permission_classes = [CargoAccessPolicy]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['activo', 'nivel_jerarquico', 'cargo_superior', 'requiere_aprobacion']
+    filterset_fields = ['activo', 'nivel_jerarquico', 'cargo_superior']
     search_fields = ['nombre', 'codigo', 'descripcion']
     ordering_fields = ['nombre', 'codigo', 'nivel_jerarquico', 'fecha_creacion']
     ordering = ['nivel_jerarquico', 'nombre']
@@ -71,7 +66,7 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         """
         Obtiene la jerarquía completa de cargos en formato de árbol.
         """
-        cargos = Cargo.objects.filter(activo=True).select_related('cargo_superior')
+        cargos = self.get_queryset().filter(activo=True).select_related('cargo_superior')
         
         def build_hierarchy(cargos_list, parent_id=None):
             result = []
@@ -83,10 +78,7 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
                         'nombre': cargo.nombre,
                         'codigo': cargo.codigo,
                         'nivel_jerarquico': cargo.nivel_jerarquico,
-                        'salario_base_minimo': float(cargo.salario_base_minimo) if cargo.salario_base_minimo else None,
-                        'salario_base_maximo': float(cargo.salario_base_maximo) if cargo.salario_base_maximo else None,
                         'empleados_count': cargo.empleados_count,
-                        'requiere_aprobacion': cargo.requiere_aprobacion,
                         'children': children
                     }
                     result.append(cargo_data)
@@ -100,29 +92,25 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         """
         Obtiene estadísticas generales de los cargos.
         """
-        total = Cargo.objects.count()
-        activos = Cargo.objects.filter(activo=True).count()
-        inactivos = Cargo.objects.filter(activo=False).count()
-        niveles = Cargo.objects.aggregate(Count('nivel_jerarquico', distinct=True))['nivel_jerarquico__count'] or 0
-        
+        qs = self.get_queryset()
+        total = qs.count()
+        activos = qs.filter(activo=True).count()
+        inactivos = qs.filter(activo=False).count()
+        niveles = qs.aggregate(Count('nivel_jerarquico', distinct=True))['nivel_jerarquico__count'] or 0
+
         # Estadísticas por nivel jerárquico
         por_nivel = list(
-            Cargo.objects.filter(activo=True)
+            qs.filter(activo=True)
             .values('nivel_jerarquico')
             .annotate(count=Count('id'))
             .order_by('nivel_jerarquico')
         )
-        
-        # Cargos que requieren aprobación
-        requieren_aprobacion = Cargo.objects.filter(
-            activo=True, 
-            requiere_aprobacion=True
-        ).count()
-        
+
         # Total de empleados (si existe el modelo)
         try:
             from nomina.models import Empleado
-            total_empleados = Empleado.objects.count()
+            org = request.user.organization
+            total_empleados = Empleado.objects.filter(organization=org).count() if org else 0
         except ImportError:
             total_empleados = 0
         
@@ -132,7 +120,6 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
             'inactivos': inactivos,
             'niveles': niveles,
             'por_nivel': por_nivel,
-            'requieren_aprobacion': requieren_aprobacion,
             'total_empleados': total_empleados
         })
 
@@ -145,7 +132,7 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         activos_only = request.query_params.get('activos_only', 'true') == 'true'
         limit = int(request.query_params.get('limit', 10))
         
-        queryset = Cargo.objects.all()
+        queryset = self.get_queryset()
         
         if activos_only:
             queryset = queryset.filter(activo=True)
@@ -187,6 +174,9 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     def bulk_action(self, request):
         """
         Ejecuta acciones masivas en múltiples cargos.
+        Verifica permisos granulares según la sub-acción:
+          - activate/deactivate → cargos.change
+          - delete → cargos.delete
         """
         cargo_ids = request.data.get('cargo_ids', [])
         action = request.data.get('action', '')
@@ -196,8 +186,26 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
                 {'error': 'No se seleccionaron cargos'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Verificar permiso granular según sub-acción
+        from core.policies.utils import check_permission, build_permission_codes
+        if action in ('activate', 'deactivate'):
+            codes = build_permission_codes('cargos', 'change')
+        elif action == 'delete':
+            codes = build_permission_codes('cargos', 'delete')
+        else:
+            return Response(
+                {'error': 'Acción no válida'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not request.user.is_superuser and not check_permission(request.user, codes, 'cargos'):
+            return Response(
+                {'error': 'No tienes permiso para esta acción'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
-        cargos = Cargo.objects.filter(pk__in=cargo_ids)
+        cargos = self.get_queryset().filter(pk__in=cargo_ids)
         
         if action == 'activate':
             cargos.update(activo=True)
@@ -209,11 +217,6 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
             count = cargos.count()
             cargos.delete()
             message = f'{count} cargos eliminados exitosamente'
-        else:
-            return Response(
-                {'error': 'Acción no válida'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
         
         return Response({'message': message})
 
@@ -223,7 +226,7 @@ class CargoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         Obtiene todos los cargos subordinados de un cargo específico.
         """
         cargo = self.get_object()
-        subordinados = Cargo.objects.filter(cargo_superior=cargo).order_by('nombre')
+        subordinados = self.get_queryset().filter(cargo_superior=cargo).order_by('nombre')
         serializer = self.get_serializer(subordinados, many=True)
         return Response(serializer.data)
 
@@ -259,7 +262,7 @@ class HistorialCargoViewSet(MultiTenantViewSetMixin, viewsets.ReadOnlyModelViewS
         'empleado', 'cargo_anterior', 'cargo_nuevo', 'creado_por'
     ).all()
     serializer_class = HistorialCargoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [CargoAccessPolicy]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['cargo_nuevo', 'cargo_anterior', 'empleado']
@@ -327,12 +330,13 @@ class HistorialCargoViewSet(MultiTenantViewSetMixin, viewsets.ReadOnlyModelViewS
         
         # Tendencias por mes (últimos 12 meses)
         from datetime import datetime, timedelta
+        from django.db.models.functions import TruncMonth
         fecha_limite = datetime.now().date() - timedelta(days=365)
-        
+
         tendencias = list(
             self.get_queryset()
             .filter(fecha_inicio__gte=fecha_limite)
-            .extra(select={'mes': "strftime('%%Y-%%m', fecha_inicio)"})
+            .annotate(mes=TruncMonth('fecha_inicio'))
             .values('mes')
             .annotate(count=Count('id'))
             .order_by('mes')

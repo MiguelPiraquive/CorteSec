@@ -3,10 +3,10 @@
  * 5 Tabs: Básico, Jerarquía, Control Acceso, Vigencia, Config Avanzada
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  X, Shield, GitBranch, Lock, Calendar, Settings,
+  X, Shield, GitBranch, Lock, Calendar, Settings, Key,
   AlertCircle, Info, Clock
 } from 'lucide-react';
 
@@ -21,12 +21,13 @@ const RolModal = ({
   onSubmit,
   editingRol,
   tiposRol,
-  rolesDisponibles
+  rolesDisponibles,
+  permisosCatalogo
 }) => {
+  const [permisoSearch, setPermisoSearch] = useState('');
   // Efecto para cargar datos cuando se abre el modal para editar
   useEffect(() => {
     if (show && editingRol && editingRol.id) {
-      console.log('📝 Modal: Cargando datos de editingRol:', editingRol);
       
       // Convertir dias_semana de array a string si es necesario
       let diasSemanaStr = '1234567';
@@ -71,10 +72,10 @@ const RolModal = ({
         color: editingRol.color || '#4F46E5',
         icono: editingRol.icono || 'shield',
         metadatos: typeof editingRol.metadatos === 'object' ? editingRol.metadatos : {},
-        configuracion: typeof editingRol.configuracion === 'object' ? editingRol.configuracion : {}
+        configuracion: typeof editingRol.configuracion === 'object' ? editingRol.configuracion : {},
+        permisos_asignados: formData.permisos_asignados || []
       };
       
-      console.log('✅ Modal: Datos formateados:', datosFormateados);
       setFormData(datosFormateados);
     }
   }, [show, editingRol]);
@@ -83,6 +84,7 @@ const RolModal = ({
     { id: 'basico', label: 'Info Básica', icon: Shield },
     { id: 'jerarquia', label: 'Jerarquía', icon: GitBranch },
     { id: 'acceso', label: 'Control Acceso', icon: Lock },
+    { id: 'permisos', label: 'Permisos', icon: Key },
     { id: 'vigencia', label: 'Vigencia', icon: Calendar },
     { id: 'avanzado', label: 'Config. Avanzada', icon: Settings }
   ];
@@ -331,6 +333,80 @@ const RolModal = ({
       </div>
     </div>
   );
+
+  // ============================================================================
+  // TAB PERMISOS
+  // ============================================================================
+
+  const renderPermisosTab = () => {
+    const permisos = Array.isArray(permisosCatalogo) ? permisosCatalogo : [];
+    const seleccionados = new Set(formData.permisos_asignados || []);
+    const permisosFiltrados = permisos.filter((permiso) => {
+      const search = permisoSearch.toLowerCase();
+      return (
+        permiso.nombre?.toLowerCase().includes(search) ||
+        permiso.codigo?.toLowerCase().includes(search) ||
+        permiso.modulo_nombre?.toLowerCase().includes(search)
+      );
+    });
+
+    const togglePermiso = (permisoId) => {
+      setFormData(prev => {
+        const current = new Set(prev.permisos_asignados || []);
+        if (current.has(permisoId)) {
+          current.delete(permisoId);
+        } else {
+          current.add(permisoId);
+        }
+        return { ...prev, permisos_asignados: Array.from(current) };
+      });
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            {seleccionados.size} permisos seleccionados
+          </div>
+          <input
+            type="text"
+            value={permisoSearch}
+            onChange={(e) => setPermisoSearch(e.target.value)}
+            placeholder="Buscar permiso por nombre, código o módulo..."
+            className="w-64 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          />
+        </div>
+
+        <div className="max-h-72 overflow-y-auto border rounded-xl">
+          {permisosFiltrados.length === 0 ? (
+            <div className="p-6 text-sm text-gray-500 text-center">
+              No hay permisos disponibles
+            </div>
+          ) : (
+            permisosFiltrados.map((permiso) => (
+              <label
+                key={permiso.id}
+                className="flex items-start gap-3 px-4 py-3 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={seleccionados.has(permiso.id)}
+                  onChange={() => togglePermiso(permiso.id)}
+                  className="mt-1 h-4 w-4 text-cyan-600 border-gray-300 rounded"
+                />
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900">{permiso.nombre}</div>
+                  <div className="text-xs text-gray-500">
+                    {permiso.codigo} • {permiso.modulo_nombre || 'Sin módulo'}
+                  </div>
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
   
   // ============================================================================
   // TAB 3: CONTROL DE ACCESO
@@ -663,12 +739,12 @@ const RolModal = ({
         {/* Modal */}
         <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
           {/* Header */}
-          <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4">
+          <div className="bg-gradient-to-r from-teal-600 to-cyan-700 px-6 py-5 rounded-t-2xl">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-white flex items-center">
-                <Shield className="h-5 w-5 mr-2" />
+              <h2 className="text-2xl font-bold text-white flex items-center">
+                <Shield className="h-6 w-6 mr-2" />
                 {editingRol ? 'Editar Rol' : 'Nuevo Rol'}
-              </h3>
+              </h2>
               <button
                 onClick={onClose}
                 className="text-white hover:text-gray-200 transition-colors"
@@ -707,6 +783,7 @@ const RolModal = ({
               {activeTab === 'basico' && renderBasicoTab()}
               {activeTab === 'jerarquia' && renderJerarquiaTab()}
               {activeTab === 'acceso' && renderAccesoTab()}
+              {activeTab === 'permisos' && renderPermisosTab()}
               {activeTab === 'vigencia' && renderVigenciaTab()}
               {activeTab === 'avanzado' && renderAvanzadoTab()}
             </div>

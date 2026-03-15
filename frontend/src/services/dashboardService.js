@@ -20,9 +20,9 @@ const dashboardService = {
    *   - contratos: {activos, por_vencer}
    *   - actividad: {registros_hoy, registros_mes}
    */
-  getMetrics: async () => {
+  getMetrics: async (params = {}) => {
     try {
-      const response = await api.get('/api/dashboard/metrics/');
+      const response = await api.get('/api/dashboard/metrics/', { params });
       return response.data;
     } catch (error) {
       console.error('Error al obtener métricas:', error);
@@ -43,9 +43,9 @@ const dashboardService = {
    *   - tiempo: Tiempo relativo ("Hace X horas")
    *   - fecha: Fecha ISO de la acción
    */
-  getRecentActivity: async (limit = 20) => {
+  getRecentActivity: async (limit = 20, params = {}) => {
     try {
-      const response = await api.get(`/api/dashboard/activity/?limit=${limit}`);
+      const response = await api.get('/api/dashboard/activity/', { params: { limit, ...params } });
       return response.data;
     } catch (error) {
       console.error('Error al obtener actividad reciente:', error);
@@ -68,9 +68,9 @@ const dashboardService = {
    *       ...
    *     ]
    */
-  getCharts: async () => {
+  getCharts: async (params = {}) => {
     try {
-      const response = await api.get('/api/dashboard/charts/');
+      const response = await api.get('/api/dashboard/charts/', { params });
       return response.data;
     } catch (error) {
       console.error('Error al obtener datos de gráficas:', error);
@@ -83,14 +83,49 @@ const dashboardService = {
    * 
    * @returns {Promise} - Promesa con estadísticas generales
    */
-  getStats: async () => {
+  getStats: async (params = {}) => {
     try {
-      const response = await api.get('/api/dashboard/stats/');
+      const response = await api.get('/api/dashboard/stats/', { params });
       return response.data;
     } catch (error) {
       console.error('Error al obtener estadísticas:', error);
       throw error;
     }
+  },
+
+  getAdvancedMetrics: async (params = {}) => {
+    const response = await api.get('/api/dashboard/advanced/metrics/', { params });
+    return response.data;
+  },
+
+  getProjectAnalytics: async (params = {}) => {
+    const response = await api.get('/api/dashboard/advanced/projects/', { params });
+    return response.data;
+  },
+
+  getFinancialAnalytics: async (params = {}) => {
+    const response = await api.get('/api/dashboard/advanced/financial/', { params });
+    return response.data;
+  },
+
+  getAiPerformance: async (params = {}) => {
+    const response = await api.get('/api/dashboard/ai/performance/', { params });
+    return response.data;
+  },
+
+  getAiSalaryIntelligence: async (params = {}) => {
+    const response = await api.get('/api/dashboard/ai/salary-intelligence/', { params });
+    return response.data;
+  },
+
+  getAiPredictive: async (params = {}) => {
+    const response = await api.get('/api/dashboard/ai/predictive/', { params });
+    return response.data;
+  },
+
+  getRealtimeSnapshot: async (params = {}) => {
+    const response = await api.get('/api/dashboard/realtime/snapshot/', { params });
+    return response.data;
   }
 };
 

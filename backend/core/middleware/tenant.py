@@ -21,6 +21,7 @@ from django.http import HttpResponseForbidden, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.deprecation import MiddlewareMixin
 from django.conf import settings
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 from core.models import Organizacion
 
@@ -74,45 +75,35 @@ class TenantMiddleware(MiddlewareMixin):
     
     def process_request(self, request):
         """
-        🔍 Detecta y establece el tenant actual al inicio de cada request.
+        Detecta y establece el tenant actual al inicio de cada request.
         """
         tenant = None
         detection_method = None
-        
-        # DEBUG: Log del request
-        if request.path.startswith('/api/cargos/'):
-            logger.info(f"🔍 TenantMiddleware - Path: {request.path}")
-            logger.info(f"   User authenticated: {request.user.is_authenticated}")
-            logger.info(f"   User: {request.user}")
-            logger.info(f"   X-Tenant-Codigo header: {request.META.get('HTTP_X_TENANT_CODIGO')}")
-        
-        # 1. Si el usuario está autenticado y tiene organización, usar esa
+
+        # 1. If authenticated, use user's organization (and nothing else)
         if request.user.is_authenticated and hasattr(request.user, 'organization'):
             tenant = request.user.organization
             detection_method = "authenticated_user"
-        
-        # 2. Detección por subdominio
-        if not tenant:
-            tenant = self._detect_tenant_by_subdomain(request)
-            if tenant:
-                detection_method = "subdomain"
-        
-        # 3. Detección por parámetro de URL
-        if not tenant:
-            tenant = self._detect_tenant_by_url_param(request)
-            if tenant:
-                detection_method = "url_param"
-        
-        # 4. Detección por header HTTP
-        if not tenant:
-            tenant = self._detect_tenant_by_header(request)
-            if tenant:
-                detection_method = "http_header"
-        
-        # DEBUG: Log del resultado
-        if request.path.startswith('/api/cargos/'):
-            logger.info(f"   ✅ Tenant detected: {tenant} (method: {detection_method})")
-        
+        else:
+            # Only for unauthenticated requests: try subdomain, URL param, header
+            # 2. Subdomain detection
+            if not tenant:
+                tenant = self._detect_tenant_by_subdomain(request)
+                if tenant:
+                    detection_method = "subdomain"
+
+            # 3. URL param detection
+            if not tenant:
+                tenant = self._detect_tenant_by_url_param(request)
+                if tenant:
+                    detection_method = "url_param"
+
+            # 4. Header detection
+            if not tenant:
+                tenant = self._detect_tenant_by_header(request)
+                if tenant:
+                    detection_method = "http_header"
+
         # Establecer tenant en el contexto
         set_current_tenant(tenant)
         
@@ -156,7 +147,10 @@ class TenantMiddleware(MiddlewareMixin):
                 subdomain = host.replace(f'.{main_domain}', '')
                 
                 try:
-                    return Organizacion.objects.get(codigo__iexact=subdomain, activa=True)
+                    return Organizacion.objects.filter(
+                        Q(slug__iexact=subdomain) | Q(codigo__iexact=subdomain),
+                        activa=True
+                    ).first()
                 except Organizacion.DoesNotExist:
                     continue
         
@@ -164,33 +158,45 @@ class TenantMiddleware(MiddlewareMixin):
     
     def _detect_tenant_by_url_param(self, request):
         """
-        🔗 Detecta tenant por parámetro de URL.
-        
-        Ejemplo: /dashboard/?tenant=empresa
+        Detecta tenant por parámetro de URL.
+        Solo permitido para requests autenticados (evita tenant enumeration).
         """
+        # Bloquear tenant enumeration para usuarios no autenticados
+        if not request.user.is_authenticated:
+            return None
+
         tenant_codigo = request.GET.get('tenant')
-        
+
         if tenant_codigo:
             try:
-                return Organizacion.objects.get(codigo__iexact=tenant_codigo, activa=True)
+                return Organizacion.objects.filter(
+                    Q(slug__iexact=tenant_codigo) | Q(codigo__iexact=tenant_codigo),
+                    activa=True
+                ).first()
             except Organizacion.DoesNotExist:
                 pass
-        
+
         return None
-    
+
     def _detect_tenant_by_header(self, request):
         """
-        📡 Detecta tenant por header HTTP.
-        
-        Header: X-Tenant-Codigo: empresa (case-insensitive)
+        Detecta tenant por header HTTP.
+        Solo permitido para requests autenticados (evita tenant enumeration).
         """
+        # Bloquear tenant enumeration para usuarios no autenticados
+        if not request.user.is_authenticated:
+            return None
+
         tenant_codigo = request.META.get('HTTP_X_TENANT_CODIGO')
         
         logger.debug(f"🔍 _detect_tenant_by_header: tenant_codigo={tenant_codigo}")
         
         if tenant_codigo:
             try:
-                org = Organizacion.objects.get(codigo__iexact=tenant_codigo, activa=True)
+                org = Organizacion.objects.filter(
+                    Q(slug__iexact=tenant_codigo) | Q(codigo__iexact=tenant_codigo),
+                    activa=True
+                ).first()
                 logger.debug(f"✅ Found organization: {org}")
                 return org
             except Organizacion.DoesNotExist:
@@ -238,10 +244,13 @@ class TenantRequiredMiddleware(MiddlewareMixin):
             '/api/auth/login/',
             '/api/auth/register/',
             '/api/auth/verify-email/',
+            '/api/auth/password-reset/',
+            '/api/auth/password-reset/confirm/',
             '/api/organizations/',  # Permitir a organizaciones sin tenant (se valida en el ViewSet)
             '/api/auditoria/',  # DRF maneja autenticación y tenant
             '/api/roles/',  # DRF maneja autenticación y tenant
             '/api/permisos/',  # DRF maneja autenticación y tenant
+            '/api/billing/',  # Billing - DRF maneja autenticación, tenant se resuelve por user.organization
             '/admin/',
             '/static/',
             '/media/',
@@ -311,7 +320,24 @@ class TenantSecurityMiddleware(MiddlewareMixin):
         tenant = get_current_tenant()
         user_organization = getattr(request.user, 'organization', None)
         
-        # Verificar que el usuario pertenece al tenant actual
+        # Deny if user has no organization but a tenant was detected (possible spoofing)
+        if tenant and not user_organization:
+            if not request.user.is_superuser:
+                import json
+                if request.path.startswith('/api/'):
+                    response = HttpResponse(
+                        json.dumps({
+                            'error': 'Acceso denegado',
+                            'message': 'Usuario sin organización no puede acceder a datos de tenant',
+                            'code': 'NO_ORGANIZATION'
+                        }),
+                        content_type='application/json',
+                        status=403
+                    )
+                    return response
+                return HttpResponseForbidden("Acceso denegado: Usuario sin organización asignada.")
+
+        # Deny cross-tenant access for non-superusers
         if tenant and user_organization and tenant != user_organization:
             # Permitir a los superusuarios acceder a cualquier tenant
             if not request.user.is_superuser:

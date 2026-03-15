@@ -13,6 +13,7 @@ import {
   UserGroupIcon,
 } from '@heroicons/react/24/outline'
 import usuariosService from '../../services/usuariosService'
+import Can from '../../components/permissions/Can'
 
 export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCambiarContrasena, onAsignarRoles }) {
   const [tabActiva, setTabActiva] = useState('info')
@@ -32,7 +33,7 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
     setLoading(true)
     try {
       const data = await usuariosService.getPermisosUsuario(usuario.id)
-      setPermisos(data)
+      setPermisos(data.permisos || data || [])
     } catch (error) {
       console.error('Error cargando permisos:', error)
       toast.error('Error al cargar permisos')
@@ -66,23 +67,23 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
   }
 
   const InfoField = ({ label, value, icon: Icon }) => (
-    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-      {Icon && <Icon className="w-5 h-5 text-gray-400 mt-0.5" />}
+    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+      {Icon && <Icon className="w-5 h-5 text-indigo-500 mt-0.5" />}
       <div className="flex-1">
-        <div className="text-sm text-gray-500">{label}</div>
-        <div className="font-medium text-gray-900 mt-1">{value || 'N/A'}</div>
+        <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</div>
+        <div className="font-semibold text-gray-900 mt-1">{value || 'N/A'}</div>
       </div>
     </div>
   )
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6">
-          <div className="flex items-center justify-between text-white">
+        <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-600 p-6 relative overflow-hidden">
+          <div className="flex items-center justify-between text-white relative z-10">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
                 <UserIcon className="w-8 h-8" />
               </div>
               <div>
@@ -94,67 +95,69 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
             </div>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors"
+              className="bg-white/20 backdrop-blur-sm p-2 rounded-xl hover:bg-white/30 transition-all"
             >
-              <XMarkIcon className="w-6 h-6" />
+              <XMarkIcon className="w-5 h-5" />
             </button>
           </div>
 
           {/* Status badges */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 mt-4 relative z-10">
             {usuario.is_active ? (
-              <span className="px-3 py-1 bg-green-500/20 text-green-100 rounded-full text-sm font-medium flex items-center gap-1">
+              <span className="px-3 py-1 bg-green-500/20 backdrop-blur-sm text-green-100 rounded-full text-sm font-medium flex items-center gap-1">
                 <CheckCircleIcon className="w-4 h-4" />
                 Activo
               </span>
             ) : (
-              <span className="px-3 py-1 bg-red-500/20 text-red-100 rounded-full text-sm font-medium flex items-center gap-1">
+              <span className="px-3 py-1 bg-red-500/20 backdrop-blur-sm text-red-100 rounded-full text-sm font-medium flex items-center gap-1">
                 <XCircleIcon className="w-4 h-4" />
                 Inactivo
               </span>
             )}
             {usuario.is_staff && (
-              <span className="px-3 py-1 bg-blue-500/20 text-blue-100 rounded-full text-sm font-medium">
+              <span className="px-3 py-1 bg-blue-500/20 backdrop-blur-sm text-blue-100 rounded-full text-sm font-medium">
                 Staff
               </span>
             )}
             {usuario.is_superuser && (
-              <span className="px-3 py-1 bg-purple-500/20 text-purple-100 rounded-full text-sm font-medium">
+              <span className="px-3 py-1 bg-purple-500/20 backdrop-blur-sm text-purple-100 rounded-full text-sm font-medium">
                 Superusuario
               </span>
             )}
           </div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+          <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full -ml-10 -mb-10" />
         </div>
 
         {/* Tabs */}
-        <div className="border-b bg-gray-50">
+        <div className="border-b border-gray-100 bg-gray-50/80">
           <div className="flex gap-1 p-2">
             <button
               onClick={() => setTabActiva('info')}
-              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex-1 px-4 py-2.5 rounded-xl font-medium transition-all ${
                 tabActiva === 'info'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
               }`}
             >
               Información
             </button>
             <button
               onClick={() => setTabActiva('permisos')}
-              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex-1 px-4 py-2.5 rounded-xl font-medium transition-all ${
                 tabActiva === 'permisos'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
               }`}
             >
               Permisos
             </button>
             <button
               onClick={() => setTabActiva('actividad')}
-              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex-1 px-4 py-2.5 rounded-xl font-medium transition-all ${
                 tabActiva === 'actividad'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
               }`}
             >
               Actividad
@@ -167,7 +170,10 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
           {tabActiva === 'info' && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Datos Personales</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <UserIcon className="w-5 h-5 text-indigo-500" />
+                Datos Personales
+              </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <InfoField label="Nombre" value={usuario.first_name} icon={UserIcon} />
                   <InfoField label="Apellido" value={usuario.last_name} icon={UserIcon} />
@@ -177,7 +183,10 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Información del Sistema</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <ClockIcon className="w-5 h-5 text-indigo-500" />
+                Información del Sistema
+              </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <InfoField
                     label="Fecha de Registro"
@@ -193,18 +202,29 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Roles</h3>
-                {usuario.groups && usuario.groups.length > 0 ? (
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <UserGroupIcon className="w-5 h-5 text-indigo-500" />
+                Roles
+              </h3>
+                {usuario.roles && usuario.roles.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {usuario.groups.map((group) => (
+                    {usuario.roles.map((rol, idx) => (
                       <span
-                        key={group.id}
+                        key={rol.id || idx}
                         className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium"
                       >
-                        {group.name}
+                        {rol.nombre || rol.name}
                       </span>
                     ))}
                   </div>
+                ) : usuario.organization_role ? (
+                  <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                    {usuario.organization_role === 'ADMIN' ? 'Administrador'
+                      : usuario.organization_role === 'OWNER' ? 'Propietario'
+                      : usuario.organization_role === 'MANAGER' ? 'Gerente'
+                      : usuario.organization_role === 'VIEWER' ? 'Visualizador'
+                      : 'Miembro'}
+                  </span>
                 ) : (
                   <p className="text-gray-500 text-sm">No tiene roles asignados</p>
                 )}
@@ -214,7 +234,10 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
 
           {tabActiva === 'permisos' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Permisos del Usuario</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <ShieldCheckIcon className="w-5 h-5 text-indigo-500" />
+                Permisos del Usuario
+              </h3>
               {loading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -224,12 +247,12 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
                   {permisos.map((permiso) => (
                     <div
                       key={permiso.id}
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                      className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100"
                     >
                       <ShieldCheckIcon className="w-5 h-5 text-green-600" />
                       <div>
-                        <div className="font-medium text-gray-900">{permiso.name}</div>
-                        <div className="text-sm text-gray-500">{permiso.codename}</div>
+                        <div className="font-medium text-gray-900">{permiso.nombre || permiso.name}</div>
+                        <div className="text-sm text-gray-500">{permiso.codigo || permiso.codename}</div>
                       </div>
                     </div>
                   ))}
@@ -245,7 +268,10 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
 
           {tabActiva === 'actividad' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Actividad Reciente</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <ClockIcon className="w-5 h-5 text-indigo-500" />
+                Actividad Reciente
+              </h3>
               {loading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -255,7 +281,7 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
                   {historial.map((actividad, index) => (
                     <div
                       key={index}
-                      className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
+                      className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100"
                     >
                       <ClockIcon className="w-5 h-5 text-gray-400 mt-0.5" />
                       <div className="flex-1">
@@ -278,41 +304,47 @@ export default function UsuarioDetalleModal({ usuario, onClose, onEditar, onCamb
         </div>
 
         {/* Footer con acciones */}
-        <div className="border-t p-4 bg-gray-50">
+        <div className="border-t border-gray-100 p-4 bg-gray-50/80">
           <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => {
-                onClose()
-                onEditar(usuario)
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
-            >
-              <PencilIcon className="w-4 h-4" />
-              Editar
-            </button>
-            <button
-              onClick={() => {
-                onClose()
-                onCambiarContrasena(usuario)
-              }}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2"
-            >
-              <KeyIcon className="w-4 h-4" />
-              Cambiar Contraseña
-            </button>
-            <button
-              onClick={() => {
-                onClose()
-                onAsignarRoles(usuario)
-              }}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center gap-2"
-            >
-              <UserGroupIcon className="w-4 h-4" />
-              Asignar Roles
-            </button>
+            <Can permission="usuarios.change">
+              <button
+                onClick={() => {
+                  onClose()
+                  onEditar(usuario)
+                }}
+                className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all font-medium flex items-center gap-2 shadow-md hover:shadow-lg"
+              >
+                <PencilIcon className="w-4 h-4" />
+                Editar
+              </button>
+            </Can>
+            <Can permission="usuarios.change">
+              <button
+                onClick={() => {
+                  onClose()
+                  onCambiarContrasena(usuario)
+                }}
+                className="px-4 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all font-medium flex items-center gap-2 shadow-md hover:shadow-lg"
+              >
+                <KeyIcon className="w-4 h-4" />
+                Cambiar Contraseña
+              </button>
+            </Can>
+            <Can permission="usuarios.change">
+              <button
+                onClick={() => {
+                  onClose()
+                  onAsignarRoles(usuario)
+                }}
+                className="px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-xl hover:from-indigo-600 hover:to-indigo-700 transition-all font-medium flex items-center gap-2 shadow-md hover:shadow-lg"
+              >
+                <UserGroupIcon className="w-4 h-4" />
+                Asignar Roles
+              </button>
+            </Can>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all font-medium"
             >
               Cerrar
             </button>

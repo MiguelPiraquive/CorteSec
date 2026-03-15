@@ -10,26 +10,16 @@ Sistema geográfico para proyectos de construcción.
 from django.db import models
 import uuid
 
-from core.models import Organizacion
-from core.mixins import TenantAwareModel
 
-
-class Departamento(TenantAwareModel):
-    """Departamentos de Colombia"""
+class Departamento(models.Model):
+    """Departamentos de Colombia — Datos globales compartidos entre todas las organizaciones"""
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(
-        Organizacion, 
-        on_delete=models.CASCADE, 
-        related_name='departamentos',
-        null=True,
-        blank=True,
-        verbose_name="Organización"
-    )
     
-    # Campos principales del modelo original
+    # Campos principales
     nombre = models.CharField(
         max_length=100, 
+        unique=True,
         verbose_name="Nombre del Departamento",
         help_text="Nombre completo del departamento"
     )
@@ -40,7 +30,7 @@ class Departamento(TenantAwareModel):
         help_text="Código DANE del departamento"
     )
     
-    # Campos adicionales útiles para construcción
+    # Campos adicionales
     capital = models.CharField(
         max_length=100,
         blank=True,
@@ -61,7 +51,6 @@ class Departamento(TenantAwareModel):
         verbose_name = "Departamento"
         verbose_name_plural = "Departamentos"
         ordering = ["nombre"]
-        unique_together = [['organization', 'nombre']]
         indexes = [
             models.Index(fields=['codigo']),
             models.Index(fields=['nombre']),
@@ -78,20 +67,12 @@ class Departamento(TenantAwareModel):
         return self.municipios.count()
 
 
-class Municipio(TenantAwareModel):
-    """Municipios de Colombia"""
+class Municipio(models.Model):
+    """Municipios de Colombia — Datos globales compartidos entre todas las organizaciones"""
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(
-        Organizacion, 
-        on_delete=models.CASCADE, 
-        related_name='municipios',
-        null=True,
-        blank=True,
-        verbose_name="Organización"
-    )
     
-    # Relación con departamento (campo principal del modelo original)
+    # Relación con departamento
     departamento = models.ForeignKey(
         Departamento,
         on_delete=models.CASCADE,
@@ -99,7 +80,7 @@ class Municipio(TenantAwareModel):
         verbose_name="Departamento"
     )
     
-    # Campos principales del modelo original  
+    # Campos principales
     nombre = models.CharField(
         max_length=100,
         verbose_name="Nombre del Municipio"
@@ -116,7 +97,7 @@ class Municipio(TenantAwareModel):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = [['departamento', 'nombre'], ['organization', 'departamento', 'codigo']]
+        unique_together = [['departamento', 'nombre']]
         verbose_name = "Municipio"
         verbose_name_plural = "Municipios"
         ordering = ["departamento__nombre", "nombre"]
@@ -130,7 +111,7 @@ class Municipio(TenantAwareModel):
             if self.departamento_id:
                 return f"{self.nombre} ({self.departamento.nombre})"
         except Exception:
-            pass
+            return self.nombre
         return self.nombre
     
     @property

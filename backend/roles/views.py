@@ -805,9 +805,8 @@ def api_usuarios_rol(request, pk):
     for asignacion in asignaciones:
         usuarios_data.append({
             'id': asignacion.usuario.id,
-            'username': asignacion.usuario.username,
             'email': asignacion.usuario.email,
-            'full_name': asignacion.usuario.get_full_name(),
+            'full_name': f"{asignacion.usuario.nombre} {asignacion.usuario.apellido}".strip(),
             'fecha_asignacion': asignacion.fecha_asignacion.isoformat(),
             'asignacion_id': asignacion.id
         })

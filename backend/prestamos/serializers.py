@@ -12,6 +12,7 @@ Versión: 2.0.0
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
+from django.db.models import Sum
 from decimal import Decimal
 
 from .models import TipoPrestamo, Prestamo, PagoPrestamo
@@ -96,12 +97,16 @@ class EmpleadoBasicSerializer(serializers.Serializer):
     documento = serializers.CharField(read_only=True)
     
     def to_representation(self, instance):
+        # Construir nombre completo desde los campos individuales
+        nombres = f"{instance.primer_nombre or ''} {instance.segundo_nombre or ''}".strip()
+        apellidos = f"{instance.primer_apellido or ''} {instance.segundo_apellido or ''}".strip()
+        
         return {
             'id': str(instance.id),
-            'nombres': instance.nombres,
-            'apellidos': instance.apellidos,
-            'numero_identificacion': instance.documento,
-            'nombre_completo': f"{instance.nombres} {instance.apellidos}"
+            'nombres': nombres,
+            'apellidos': apellidos,
+            'numero_identificacion': instance.numero_documento,
+            'nombre_completo': f"{nombres} {apellidos}".strip()
         }
 
 
@@ -147,28 +152,29 @@ class PrestamoSerializer(serializers.ModelSerializer):
             'id', 'organization', 'numero_prestamo', 'cuota_mensual', 'saldo_pendiente',
             'total_pagado', 'total_intereses', 'created_at', 'updated_at',
             'empleado_detail', 'tipo_prestamo_detail',
-            'solicitado_por', 'aprobado_por', 'desembolsado_por', 'created_by', 'updated_by'
+            'solicitado_por', 'aprobado_por', 'desembolsado_por', 'created_by', 'updated_by',
+            'estado', 'monto_aprobado', 'fecha_aprobacion', 'fecha_desembolso', 'fecha_ultimo_pago',
         ]
     
     def get_calcular_cuota_mensual(self, obj):
         """Calcula la cuota mensual"""
         try:
             return float(obj.calcular_cuota_mensual())
-        except:
+        except (TypeError, ValueError, ZeroDivisionError, AttributeError):
             return 0.0
-    
+
     def get_calcular_total_con_intereses(self, obj):
         """Calcula el total con intereses"""
         try:
             return float(obj.calcular_total_con_intereses())
-        except:
+        except (TypeError, ValueError, ZeroDivisionError, AttributeError):
             return 0.0
-    
+
     def get_calcular_porcentaje_pagado(self, obj):
         """Calcula el porcentaje pagado"""
         try:
             return round(obj.calcular_porcentaje_pagado(), 2)
-        except:
+        except (TypeError, ValueError, ZeroDivisionError, AttributeError):
             return 0.0
     
     def get_esta_vigente(self, obj):
@@ -255,7 +261,13 @@ class PrestamoListSerializer(serializers.ModelSerializer):
     tipo_prestamo_nombre = serializers.StringRelatedField(source='tipo_prestamo.nombre')
     estado_display = serializers.CharField(source='get_estado_display')
     monto_final = serializers.ReadOnlyField()
+    monto_total = serializers.SerializerMethodField()
+    valor_cuota = serializers.SerializerMethodField()
+    numero_cuotas = serializers.IntegerField(source='plazo_meses', read_only=True)
+    cuotas_pendientes = serializers.SerializerMethodField()
     porcentaje_pagado = serializers.SerializerMethodField()
+    saldo_pendiente = serializers.SerializerMethodField()
+    total_pagado = serializers.SerializerMethodField()
     
     class Meta:
         model = Prestamo
@@ -264,22 +276,93 @@ class PrestamoListSerializer(serializers.ModelSerializer):
             'empleado', 'empleado_nombre', 
             'tipo_prestamo', 'tipo_prestamo_nombre',
             'monto_solicitado', 'monto_aprobado', 'monto_final',
+            'monto_total',
             'tasa_interes', 'plazo_meses',
-            'estado', 'estado_display', 'fecha_solicitud',
+            'estado', 'estado_display', 'fecha_solicitud', 'fecha_primer_pago',
             'tipo_garantia', 'garantia_descripcion', 'observaciones',
-            'saldo_pendiente', 'total_pagado', 'porcentaje_pagado'
+            'saldo_pendiente', 'total_pagado',
+            'valor_cuota', 'numero_cuotas', 'cuotas_pendientes',
+            'porcentaje_pagado'
         ]
     
     def get_empleado_nombre(self, obj):
         """Obtiene el nombre completo del empleado"""
-        return f"{obj.empleado.nombres} {obj.empleado.apellidos}"
+        if hasattr(obj.empleado, 'nombre_completo'):
+            return obj.empleado.nombre_completo
+        # Construir nombre completo manualmente
+        nombres = f"{obj.empleado.primer_nombre} {obj.empleado.segundo_nombre}".strip()
+        apellidos = f"{obj.empleado.primer_apellido} {obj.empleado.segundo_apellido}".strip()
+        return f"{nombres} {apellidos}".strip()
     
     def get_porcentaje_pagado(self, obj):
         """Calcula el porcentaje pagado"""
         try:
-            return round(obj.calcular_porcentaje_pagado(), 2)
-        except:
+            monto_total = Decimal(str(obj.monto_final or 0))
+            total_pagado = Decimal(str(self.get_total_pagado(obj)))
+            if monto_total > 0:
+                return round(float((total_pagado / monto_total) * 100), 2)
             return 0.0
+        except (TypeError, ValueError, ZeroDivisionError, AttributeError):
+            return 0.0
+
+    def get_monto_total(self, obj):
+        """Retorna el monto total del préstamo"""
+        try:
+            return float(obj.monto_final)
+        except (TypeError, ValueError, AttributeError):
+            return 0.0
+
+    def get_valor_cuota(self, obj):
+        """Retorna el valor de la cuota mensual"""
+        try:
+            cuota = obj.cuota_mensual or obj.calcular_cuota_mensual()
+            return float(cuota or 0)
+        except (TypeError, ValueError, ZeroDivisionError, AttributeError):
+            return 0.0
+
+    def get_cuotas_pendientes(self, obj):
+        """Calcula cuotas pendientes aproximadas"""
+        try:
+            total_cuotas = int(obj.plazo_meses or 0)
+            cuotas_pagadas = obj.pagos.count() if hasattr(obj, 'pagos') else 0
+            if cuotas_pagadas == 0:
+                from nomina.models import NominaPrestamo
+                cuotas_pagadas = NominaPrestamo.objects.filter(
+                    prestamo=obj,
+                    nomina__estado='pagada'
+                ).count()
+            return max(total_cuotas - cuotas_pagadas, 0)
+        except (TypeError, ValueError, AttributeError):
+            return 0
+
+    def get_total_pagado(self, obj):
+        """Retorna el total pagado considerando pagos y nóminas pagadas"""
+        try:
+            pagos_total = obj.pagos.aggregate(total=Sum('monto_pago'))['total'] if hasattr(obj, 'pagos') else None
+            pagos_total = pagos_total or Decimal('0.00')
+            if pagos_total > 0:
+                return float(pagos_total)
+
+            from nomina.models import NominaPrestamo
+            descuentos_total = NominaPrestamo.objects.filter(
+                prestamo=obj,
+                nomina__estado='pagada'
+            ).aggregate(total=Sum('valor_cuota'))['total'] or Decimal('0.00')
+            return float(descuentos_total)
+        except (TypeError, ValueError, AttributeError):
+            return 0.0
+
+    def get_saldo_pendiente(self, obj):
+        """Retorna saldo pendiente considerando pagos y nóminas pagadas"""
+        try:
+            monto_total = Decimal(str(obj.monto_final or 0))
+            total_pagado = Decimal(str(self.get_total_pagado(obj)))
+            saldo = monto_total - total_pagado
+            if saldo < 0:
+                saldo = Decimal('0.00')
+            return float(saldo)
+        except (TypeError, ValueError, AttributeError):
+            return float(obj.saldo_pendiente or 0)
 
 
 class PagoPrestamoSerializer(serializers.ModelSerializer):
@@ -309,7 +392,12 @@ class PagoPrestamoSerializer(serializers.ModelSerializer):
     
     def get_empleado_nombre(self, obj):
         """Obtiene el nombre del empleado del préstamo"""
-        return f"{obj.prestamo.empleado.nombres} {obj.prestamo.empleado.apellidos}"
+        emp = obj.prestamo.empleado
+        if hasattr(emp, 'nombre_completo'):
+            return emp.nombre_completo
+        nombres = f"{emp.primer_nombre or ''} {emp.segundo_nombre or ''}".strip()
+        apellidos = f"{emp.primer_apellido or ''} {emp.segundo_apellido or ''}".strip()
+        return f"{nombres} {apellidos}".strip()
     
     def validate(self, data):
         """Validaciones personalizadas"""
@@ -359,7 +447,12 @@ class PagoPrestamoListSerializer(serializers.ModelSerializer):
     
     def get_empleado_nombre(self, obj):
         """Obtiene el nombre del empleado"""
-        return f"{obj.prestamo.empleado.nombres} {obj.prestamo.empleado.apellidos}"
+        emp = obj.prestamo.empleado
+        if hasattr(emp, 'nombre_completo'):
+            return emp.nombre_completo
+        nombres = f"{emp.primer_nombre or ''} {emp.segundo_nombre or ''}".strip()
+        apellidos = f"{emp.primer_apellido or ''} {emp.segundo_apellido or ''}".strip()
+        return f"{nombres} {apellidos}".strip()
 
 
 # Serializadores para acciones específicas

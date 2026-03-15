@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
-from core.models import Configuracion, LogSistema
-from django.contrib.auth.models import User
+from core.models import ConfiguracionSistema, LogAuditoria
 
 
 class Command(BaseCommand):
@@ -15,7 +14,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options['reset']:
-            Configuracion.objects.all().delete()
+            ConfiguracionSistema.objects.all().delete()
             self.stdout.write(
                 self.style.WARNING('Configuraciones existentes eliminadas')
             )
@@ -95,9 +94,15 @@ class Command(BaseCommand):
         ]
 
         for config_data in configuraciones:
-            config, created = Configuracion.objects.get_or_create(
+            config, created = ConfiguracionSistema.objects.get_or_create(
                 clave=config_data['clave'],
-                defaults=config_data
+                defaults={
+                    'clave': config_data['clave'],
+                    'valor': config_data['valor'],
+                    'descripcion': config_data['descripcion'],
+                    'tipo_dato': config_data['tipo'],
+                    'activa': config_data['activo']
+                }
             )
             
             if created:
@@ -110,12 +115,16 @@ class Command(BaseCommand):
                 )
 
         # Crear log inicial del sistema
-        LogSistema.objects.create(
+        LogAuditoria.objects.create(
             usuario=None,
             accion='sistema_inicializado',
-            descripcion='Sistema inicializado con configuraciones básicas',
+            modelo='ConfiguracionSistema',
+            objeto_id=None,
             ip_address=None,
-            user_agent=None
+            user_agent='',
+            datos_antes=None,
+            datos_despues=None,
+            metadata={'source': 'init_core'}
         )
 
         self.stdout.write(

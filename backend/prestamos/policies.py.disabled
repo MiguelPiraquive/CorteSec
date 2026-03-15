@@ -1,0 +1,107 @@
+"""
+Prestamos Access Policies
+==========================
+Políticas de acceso para préstamos.
+
+Policies:
+- PrestamoAccessPolicy: Préstamos a empleados
+- TipoPrestamoAccessPolicy: Tipos de préstamo
+"""
+
+from core.policies import (
+    BaseAccessPolicy,
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    RowLevelSecurityMixin
+)
+
+
+class PrestamoAccessPolicy(
+    RBACPermissionMixin,
+    FieldSecurityMixin,
+    RowLevelSecurityMixin,
+    BaseAccessPolicy
+):
+    """
+    Policy para préstamos a empleados.
+    
+    Recursos: prestamo
+    Acciones: CRUD + aprobar, rechazar, desembolsar
+    
+    RLS: Supervisores solo ven préstamos de su departamento
+    """
+    
+    id = 'prestamo_access_policy'
+    resource_name = 'prestamo'
+    
+    action_map = {
+        'list': 'ver',
+        'retrieve': 'ver',
+        'create': 'crear',
+        'update': 'editar',
+        'partial_update': 'editar',
+        'destroy': 'eliminar',
+        'aprobar': 'aprobar',
+        'rechazar': 'rechazar',
+        'desembolsar': 'desembolsar',
+    }
+    
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["create", "update", "partial_update"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["destroy", "aprobar", "rechazar", "desembolsar"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+    ]
+    
+    def scope_queryset(self, request, queryset):
+        """RLS para préstamos."""
+        return self.apply_rls_filter(
+            request.user,
+            queryset,
+            self.resource_name
+        )
+
+
+class TipoPrestamoAccessPolicy(
+    RBACPermissionMixin,
+    BaseAccessPolicy
+):
+    """
+    Policy para tipos de préstamo.
+    """
+    
+    id = 'tipo_prestamo_access_policy'
+    resource_name = 'tipo_prestamo'
+    
+    action_map = {
+        'list': 'ver',
+        'retrieve': 'ver',
+        'create': 'crear',
+        'update': 'editar',
+        'partial_update': 'editar',
+        'destroy': 'eliminar',
+    }
+    
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+        {
+            "action": ["create", "update", "partial_update", "destroy"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+        },
+    ]

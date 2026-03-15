@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(python -c:*)",
+      "Bash(python manage.py shell:*)",
+      "Bash(python manage.py showmigrations:*)",
+      "Bash(python manage.py migrate:*)",
+      "Bash(python manage.py init_permisos:*)",
+      "Bash(python manage.py seed_roles:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

@@ -21,11 +21,40 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import permissions
 from rest_framework.exceptions import PermissionDenied
 
 
-class TenantManager(models.Manager):
+class TenantQuerySet(models.QuerySet):
+    """
+    QuerySet con compatibilidad para alias de organización (organizacion -> organization).
+    """
+
+    def _normalize_org_kwargs(self, kwargs):
+        normalized = {}
+        for key, value in kwargs.items():
+            new_key = key
+            if new_key == 'organizacion':
+                new_key = 'organization'
+            elif new_key.startswith('organizacion__'):
+                new_key = 'organization__' + new_key[len('organizacion__'):]
+            elif '__organizacion' in new_key:
+                new_key = new_key.replace('__organizacion', '__organization')
+            normalized[new_key] = value
+        return normalized
+
+    def filter(self, *args, **kwargs):
+        return super().filter(*args, **self._normalize_org_kwargs(kwargs))
+
+    def exclude(self, *args, **kwargs):
+        return super().exclude(*args, **self._normalize_org_kwargs(kwargs))
+
+    def get(self, *args, **kwargs):
+        return super().get(*args, **self._normalize_org_kwargs(kwargs))
+
+
+class TenantManager(models.Manager.from_queryset(TenantQuerySet)):
     """
     🏢 Manager que filtra automáticamente por organización.
     
@@ -36,15 +65,16 @@ class TenantManager(models.Manager):
     def get_queryset(self):
         """Filtrar por organización si está disponible en el contexto"""
         from core.middleware.tenant import get_current_tenant
-        
+
         queryset = super().get_queryset()
-        
+
         # Obtener organización del contexto del thread
         current_tenant = get_current_tenant()
         if current_tenant:
             return queryset.filter(organization=current_tenant)
-        
-        return queryset
+
+        # Fail-closed: no tenant = no data
+        return queryset.none()
     
     def all_tenants(self):
         """Obtener todos los registros de todos los tenants (solo admin)"""
@@ -94,25 +124,39 @@ class TenantAwareModel(models.Model):
             })
     
     def save(self, *args, **kwargs):
-        """Asegurar validación antes de guardar.
+        """Asegurar validación de tenant antes de guardar.
 
-        Para compatibilidad con tests y algunos flujos de actualización
-        evitamos que un ValidationError únicamente por falta de
-        organization bloquee el guardado: esa validación se aplica
-        en capas superiores cuando corresponda.
+        El campo organization es obligatorio en producción.
+        Solo se permite salvarlo sin organización si se pasa
+        skip_tenant_check=True explícitamente (para migraciones/scripts).
         """
         from django.core.exceptions import ValidationError
+        import logging
+
+        skip_tenant = kwargs.pop('skip_tenant_check', False)
+
+        # Normalizar datetimes naive en campos DateTimeField
+        for field in self._meta.fields:
+            if isinstance(field, models.DateTimeField):
+                value = getattr(self, field.name, None)
+                if value and timezone.is_naive(value):
+                    setattr(self, field.name, timezone.make_aware(value, timezone.get_current_timezone()))
+
+        # Validar que organization esté presente
+        if not self.organization_id and not skip_tenant:
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f"Attempted to save {self.__class__.__name__} without organization. "
+                f"This is a security violation of multi-tenant isolation."
+            )
+            raise ValidationError({
+                'organization': 'Este registro debe estar asociado a una organización.'
+            })
 
         try:
             self.full_clean()
         except ValidationError as e:
-            # Si el único error es por 'organization', permitir el guardado
-            errors = getattr(e, 'message_dict', {})
-            if errors and set(errors.keys()) == {'organization'}:
-                # ignorar el error de organization
-                pass
-            else:
-                raise
+            raise
 
         super().save(*args, **kwargs)
 
@@ -249,8 +293,31 @@ def validate_tenant_isolation():
         if missing_org > 0:
             issues['missing_organization'][model_name] = missing_org
         
-        # TODO: Verificar referencias cruzadas entre organizaciones
-        # Esto requiere análisis más complejo de las ForeignKeys
+        # Verificar referencias cruzadas entre organizaciones
+        from django.db.models import ForeignKey, F
+        cross_refs = []
+
+        for field in model._meta.fields:
+            if isinstance(field, ForeignKey):
+                related_model = field.remote_field.model
+                if not hasattr(related_model, 'organization'):
+                    continue
+
+                relation_name = field.name
+                mismatch_count = model.objects.filter(
+                    **{f"{relation_name}__isnull": False}
+                ).exclude(
+                    **{f"{relation_name}__organization": F('organization')}
+                ).count()
+
+                if mismatch_count > 0:
+                    cross_refs.append({
+                        'field': relation_name,
+                        'count': mismatch_count
+                    })
+
+        if cross_refs:
+            issues['cross_tenant_references'][model_name] = cross_refs
     
     # Resumen
     issues['summary'] = {

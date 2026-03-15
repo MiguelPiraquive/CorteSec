@@ -9,9 +9,12 @@ import {
 } from '@heroicons/react/24/outline'
 import usuariosService from '../../services/usuariosService'
 import { useAudit } from '../../hooks/useAudit'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
 
 export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar }) {
   const audit = useAudit('Usuarios')
+  const { hasPermission, initialized } = usePermissions()
 
   const [formData, setFormData] = useState({
     username: '',
@@ -20,9 +23,6 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
     last_name: '',
     password: '',
     password_confirm: '',
-    is_active: true,
-    is_staff: false,
-    is_superuser: false,
   })
 
   const [errors, setErrors] = useState({})
@@ -39,18 +39,15 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
         last_name: usuario.last_name || '',
         password: '',
         password_confirm: '',
-        is_active: usuario.is_active,
-        is_staff: usuario.is_staff,
-        is_superuser: usuario.is_superuser,
       })
     }
   }, [usuario, modoEdicion])
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target
+    const { name, value } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: value,
     }))
     // Limpiar error del campo
     if (errors[name]) {
@@ -114,7 +111,6 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
     }
 
     if (!modoEdicion) {
-      // Al crear, la contraseña es obligatoria
       if (!formData.password) {
         newErrors.password = 'La contraseña es requerida'
       } else if (formData.password.length < 8) {
@@ -125,16 +121,6 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
         newErrors.password_confirm = 'Confirme la contraseña'
       } else if (formData.password !== formData.password_confirm) {
         newErrors.password_confirm = 'Las contraseñas no coinciden'
-      }
-    } else {
-      // Al editar, solo validar si se ingresó una nueva contraseña
-      if (formData.password || formData.password_confirm) {
-        if (formData.password.length < 8) {
-          newErrors.password = 'La contraseña debe tener al menos 8 caracteres'
-        }
-        if (formData.password !== formData.password_confirm) {
-          newErrors.password_confirm = 'Las contraseñas no coinciden'
-        }
       }
     }
 
@@ -158,14 +144,11 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
         email: formData.email,
         first_name: formData.first_name,
         last_name: formData.last_name,
-        is_active: formData.is_active,
-        is_staff: formData.is_staff,
-        is_superuser: formData.is_superuser,
       }
 
-      // Solo incluir contraseña si se proporcionó
-      if (formData.password) {
+      if (!modoEdicion) {
         dataToSend.password = formData.password
+        dataToSend.password_confirm = formData.password_confirm
       }
 
       if (modoEdicion) {
@@ -194,13 +177,15 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-t-2xl">
-          <div className="flex items-center justify-between text-white">
-            <div className="flex items-center gap-3">
-              <UserIcon className="w-8 h-8" />
+        <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 p-6 rounded-t-3xl relative overflow-hidden">
+          <div className="flex items-center justify-between text-white relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="bg-white/20 backdrop-blur-sm p-3 rounded-2xl">
+                <UserIcon className="w-7 h-7" />
+              </div>
               <div>
                 <h2 className="text-2xl font-bold">
                   {modoEdicion ? 'Editar Usuario' : 'Nuevo Usuario'}
@@ -214,11 +199,13 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
             </div>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors"
+              className="bg-white/20 backdrop-blur-sm p-2 rounded-xl hover:bg-white/30 transition-all"
             >
-              <XMarkIcon className="w-6 h-6" />
+              <XMarkIcon className="w-5 h-5" />
             </button>
           </div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+          <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full -ml-10 -mb-10" />
         </div>
 
         {/* Form */}
@@ -237,8 +224,8 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
                   value={formData.username}
                   onChange={handleInputChange}
                   onBlur={(e) => verificarUsernameDisponible(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                    errors.username ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full pl-10 pr-4 py-3 bg-gray-50 border-2 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all ${
+                    errors.username ? 'border-red-500' : 'border-gray-200'
                   }`}
                   placeholder="usuario123"
                 />
@@ -265,8 +252,8 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
                   value={formData.email}
                   onChange={handleInputChange}
                   onBlur={(e) => verificarEmailDisponible(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                    errors.email ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full pl-10 pr-4 py-3 bg-gray-50 border-2 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all ${
+                    errors.email ? 'border-red-500' : 'border-gray-200'
                   }`}
                   placeholder="usuario@ejemplo.com"
                 />
@@ -290,8 +277,8 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
                 name="first_name"
                 value={formData.first_name}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                  errors.first_name ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all ${
+                  errors.first_name ? 'border-red-500' : 'border-gray-200'
                 }`}
                 placeholder="Juan"
               />
@@ -309,8 +296,8 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
                 name="last_name"
                 value={formData.last_name}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                  errors.last_name ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all ${
+                  errors.last_name ? 'border-red-500' : 'border-gray-200'
                 }`}
                 placeholder="Pérez"
               />
@@ -320,130 +307,90 @@ export default function UsuarioModal({ usuario, modoEdicion, onClose, onGuardar 
             </div>
           </div>
 
-          {/* Contraseña */}
-          <div className="space-y-4 border-t pt-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              {modoEdicion ? 'Cambiar Contraseña (opcional)' : 'Contraseña'}
-            </h3>
+          {/* Contraseña - Solo al crear */}
+          {!modoEdicion && (
+            <div className="space-y-4 border-t border-gray-100 pt-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <KeyIcon className="w-5 h-5 text-purple-500" />
+                Contraseña
+              </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contraseña {!modoEdicion && <span className="text-red-500">*</span>}
-                </label>
-                <div className="relative">
-                  <KeyIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                      errors.password ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder={modoEdicion ? 'Dejar en blanco para no cambiar' : 'Mínimo 8 caracteres'}
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Contraseña <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <KeyIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border-2 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all ${
+                        errors.password ? 'border-red-500' : 'border-gray-200'
+                      }`}
+                      placeholder="Mínimo 8 caracteres"
+                    />
+                  </div>
+                  {errors.password && (
+                    <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                  )}
                 </div>
-                {errors.password && (
-                  <p className="text-red-500 text-xs mt-1">{errors.password}</p>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirmar Contraseña {!modoEdicion && <span className="text-red-500">*</span>}
-                </label>
-                <div className="relative">
-                  <CheckIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    type="password"
-                    name="password_confirm"
-                    value={formData.password_confirm}
-                    onChange={handleInputChange}
-                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                      errors.password_confirm ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Confirmar contraseña"
-                  />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Confirmar Contraseña <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <CheckIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                    <input
+                      type="password"
+                      name="password_confirm"
+                      value={formData.password_confirm}
+                      onChange={handleInputChange}
+                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border-2 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all ${
+                        errors.password_confirm ? 'border-red-500' : 'border-gray-200'
+                      }`}
+                      placeholder="Confirmar contraseña"
+                    />
+                  </div>
+                  {errors.password_confirm && (
+                    <p className="text-red-500 text-xs mt-1">{errors.password_confirm}</p>
+                  )}
                 </div>
-                {errors.password_confirm && (
-                  <p className="text-red-500 text-xs mt-1">{errors.password_confirm}</p>
-                )}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Permisos */}
-          <div className="space-y-4 border-t pt-4">
-            <h3 className="text-lg font-semibold text-gray-900">Permisos y Estado</h3>
-
-            <div className="space-y-3">
-              <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                <input
-                  type="checkbox"
-                  name="is_active"
-                  checked={formData.is_active}
-                  onChange={handleInputChange}
-                  className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
-                />
-                <div>
-                  <div className="font-medium text-gray-900">Usuario Activo</div>
-                  <div className="text-sm text-gray-500">
-                    El usuario puede iniciar sesión y usar el sistema
-                  </div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                <input
-                  type="checkbox"
-                  name="is_staff"
-                  checked={formData.is_staff}
-                  onChange={handleInputChange}
-                  className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <div>
-                  <div className="font-medium text-gray-900">Acceso Administrativo</div>
-                  <div className="text-sm text-gray-500">
-                    El usuario puede acceder al panel de administración
-                  </div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                <input
-                  type="checkbox"
-                  name="is_superuser"
-                  checked={formData.is_superuser}
-                  onChange={handleInputChange}
-                  className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
-                />
-                <div>
-                  <div className="font-medium text-gray-900">Superusuario</div>
-                  <div className="text-sm text-gray-500">
-                    El usuario tiene todos los permisos sin restricciones
-                  </div>
-                </div>
-              </label>
+          {/* Nota informativa en modo edición */}
+          {modoEdicion && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <p className="text-sm text-blue-700">
+                <span className="font-semibold">Nota:</span> Para cambiar la contraseña o asignar roles,
+                usa las acciones correspondientes en la tabla de usuarios.
+              </p>
             </div>
-          </div>
+          )}
 
           {/* Botones */}
-          <div className="flex gap-3 pt-4 border-t">
-            <button
-              type="submit"
-              disabled={loading || verificandoUsername || verificandoEmail}
-              className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  Guardando...
-                </div>
-              ) : (
-                modoEdicion ? 'Actualizar Usuario' : 'Crear Usuario'
-              )}
-            </button>
+          <div className="flex gap-3 pt-4 border-t border-gray-100">
+            <Can permission={modoEdicion ? 'usuarios.change' : 'usuarios.add'}>
+              <button
+                type="submit"
+                disabled={loading || verificandoUsername || verificandoEmail}
+                className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:scale-[1.02] transform"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    Guardando...
+                  </div>
+                ) : (
+                  modoEdicion ? 'Actualizar Usuario' : 'Crear Usuario'
+                )}
+              </button>
+            </Can>
             <button
               type="button"
               onClick={onClose}

@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 from django.utils.text import slugify
+from django.core.validators import FileExtensionValidator
 from core.mixins import TenantAwareModel
 
 User = get_user_model()
@@ -84,7 +85,6 @@ class CategoriaAyuda(TenantAwareModel):
     
     nombre = models.CharField(
         max_length=100,
-        unique=True,
         verbose_name=_("Nombre de la categoría")
     )
     
@@ -117,6 +117,7 @@ class CategoriaAyuda(TenantAwareModel):
         verbose_name = _("Categoría de Ayuda")
         verbose_name_plural = _("Categorías de Ayuda")
         ordering = ['orden', 'nombre']
+        unique_together = [['organization', 'nombre']]
 
     def __str__(self):
         return self.nombre
@@ -141,11 +142,10 @@ class ArticuloAyuda(TenantAwareModel):
     
     slug = models.SlugField(
         max_length=220,
-        unique=True,
         blank=True,
         verbose_name=_("Slug")
     )
-    
+
     contenido = models.TextField(
         verbose_name=_("Contenido"),
         help_text=_("Contenido del artículo (soporta HTML)")
@@ -207,6 +207,7 @@ class ArticuloAyuda(TenantAwareModel):
         verbose_name = _("Artículo de Ayuda")
         verbose_name_plural = _("Artículos de Ayuda")
         ordering = ['categoria__orden', 'orden', 'titulo']
+        unique_together = [['organization', 'slug']]
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -440,11 +441,10 @@ class Tutorial(TenantAwareModel):
     
     slug = models.SlugField(
         max_length=220,
-        unique=True,
         blank=True,
         verbose_name=_("Slug")
     )
-    
+
     categoria = models.ForeignKey(
         TipoAyuda,
         on_delete=models.CASCADE,
@@ -515,6 +515,7 @@ class Tutorial(TenantAwareModel):
         verbose_name = _("Tutorial")
         verbose_name_plural = _("Tutoriales")
         ordering = ['-fecha_creacion']
+        unique_together = [['organization', 'slug']]
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -670,7 +671,10 @@ class RecursoAyuda(TenantAwareModel):
         upload_to='ayuda/recursos/',
         blank=True,
         null=True,
-        verbose_name=_("Archivo")
+        verbose_name=_("Archivo"),
+        validators=[FileExtensionValidator(
+            allowed_extensions=['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt', 'jpg', 'jpeg', 'png', 'mp4', 'webm']
+        )]
     )
     
     url = models.URLField(

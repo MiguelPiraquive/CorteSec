@@ -23,6 +23,12 @@ class ConfiguracionNotificacionesSerializer(serializers.Serializer):
     notif_nomina = serializers.BooleanField(default=True)
     notif_documentos = serializers.BooleanField(default=True)
     notif_sistema = serializers.BooleanField(default=True)
+    notif_contratos = serializers.BooleanField(default=True)
+    notif_empleados = serializers.BooleanField(default=True)
+    notif_proyectos = serializers.BooleanField(default=True)
+    notif_contabilidad = serializers.BooleanField(default=True)
+    notif_seguridad = serializers.BooleanField(default=True)
+    sonido_enabled = serializers.BooleanField(default=True)
     via_email = serializers.BooleanField(default=True)
     via_sms = serializers.BooleanField(default=False)
     via_plataforma = serializers.BooleanField(default=True)
@@ -47,6 +53,7 @@ class PerfilSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.ReadOnlyField()
     foto_url = serializers.SerializerMethodField()
     config_notificaciones = serializers.SerializerMethodField()
+    porcentaje_completitud = serializers.SerializerMethodField()
     
     class Meta:
         model = Perfil
@@ -59,8 +66,9 @@ class PerfilSerializer(serializers.ModelSerializer):
             'habilidades', 'experiencia_laboral', 'certificaciones', 'banco',
             'numero_cuenta', 'tipo_cuenta', 'numero_cedula', 'departamento_expedicion_cedula',
             'lugar_expedicion_cedula', 'tema_preferido', 'idioma_preferido', 'zona_horaria',
-            'perfil_completado', 'privacidad_publica', 'ultima_actualizacion_perfil',
-            'fecha_creacion', 'edad', 'nombre_completo', 'config_notificaciones'
+            'mostrar_modal_proyecto', 'proyecto_fijo', 'perfil_completado', 'privacidad_publica',
+            'ultima_actualizacion_perfil', 'fecha_creacion', 'edad', 'nombre_completo',
+            'config_notificaciones', 'porcentaje_completitud'
         ]
         read_only_fields = [
             'id', 'perfil_completado', 'ultima_actualizacion_perfil', 
@@ -70,6 +78,10 @@ class PerfilSerializer(serializers.ModelSerializer):
     def get_foto_url(self, obj):
         """Obtiene la URL de la foto de perfil"""
         return obj.get_foto_url()
+
+    def get_porcentaje_completitud(self, obj):
+        """Calcula el porcentaje de completitud del perfil"""
+        return obj.calcular_porcentaje_completitud()
     
     def get_config_notificaciones(self, obj):
         """Obtiene la configuración de notificaciones, creándola si no existe"""

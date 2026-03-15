@@ -114,8 +114,8 @@ def dashboard_core(request):
         'title': 'Dashboard Core'
     }
     
-    # Redirigir al dashboard principal
-    return redirect('dashboard:principal')
+    # Render básico del dashboard core para tests
+    return render(request, 'core/dashboard.html', context)
 
 
 # ==================== ORGANIZACIONES ====================
@@ -456,141 +456,12 @@ def buscar(request):
 
 
 @login_required
-def system_check(request):
-    """Vista para verificar el estado del sistema"""
-    checks = []
-    
-    try:
-        # Check base de datos
-        Organizacion.objects.count()
-        checks.append({
-            'name': 'Base de Datos',
-            'status': 'OK',
-            'message': 'Conexión exitosa',
-            'icon': 'fas fa-database',
-            'color': 'success'
-        })
-    except Exception as e:
-        checks.append({
-            'name': 'Base de Datos',
-            'status': 'ERROR',
-            'message': f'Error de conexión: {str(e)}',
-            'icon': 'fas fa-database',
-            'color': 'danger'
-        })
-    
-    # Check configuraciones
-    try:
-        config_count = ConfiguracionSistema.objects.filter(activa=True).count()
-        checks.append({
-            'name': 'Configuraciones',
-            'status': 'OK',
-            'message': f'{config_count} configuraciones activas',
-            'icon': 'fas fa-cogs',
-            'color': 'success'
-        })
-    except Exception as e:
-        checks.append({
-            'name': 'Configuraciones',
-            'status': 'ERROR',
-            'message': f'Error: {str(e)}',
-            'icon': 'fas fa-cogs',
-            'color': 'danger'
-        })
-    
-    # Check usuarios
-    try:
-        user_count = User.objects.filter(is_active=True).count()
-        checks.append({
-            'name': 'Usuarios Activos',
-            'status': 'OK',
-            'message': f'{user_count} usuarios activos',
-            'icon': 'fas fa-users',
-            'color': 'info'
-        })
-    except Exception as e:
-        checks.append({
-            'name': 'Usuarios',
-            'status': 'ERROR',
-            'message': f'Error: {str(e)}',
-            'icon': 'fas fa-users',
-            'color': 'danger'
-        })
-    
-    # Check organizaciones
-    try:
-        org_count = Organizacion.objects.filter(activa=True).count()
-        checks.append({
-            'name': 'Organizaciones',
-            'status': 'OK',
-            'message': f'{org_count} organizaciones activas',
-            'icon': 'fas fa-building',
-            'color': 'info'
-        })
-    except Exception as e:
-        checks.append({
-            'name': 'Organizaciones',
-            'status': 'ERROR',
-            'message': f'Error: {str(e)}',
-            'icon': 'fas fa-building',
-            'color': 'danger'
-        })
-    
-    # Check notificaciones no leídas
-    try:
-        notif_count = Notificacion.objects.filter(leida=False).count()
-        status = 'WARNING' if notif_count > 10 else 'OK'
-        color = 'warning' if notif_count > 10 else 'info'
-        checks.append({
-            'name': 'Notificaciones',
-            'status': status,
-            'message': f'{notif_count} notificaciones no leídas',
-            'icon': 'fas fa-bell',
-            'color': color
-        })
-    except Exception as e:
-        checks.append({
-            'name': 'Notificaciones',
-            'status': 'ERROR',
-            'message': f'Error: {str(e)}',
-            'icon': 'fas fa-bell',
-            'color': 'danger'
-        })
-    
-    overall_status = 'OK'
-    if any(check['status'] == 'ERROR' for check in checks):
-        overall_status = 'ERROR'
-    elif any(check['status'] == 'WARNING' for check in checks):
-        overall_status = 'WARNING'
-    
-    context = {
-        'checks': checks,
-        'overall_status': overall_status,
-        'check_time': timezone.now()
-    }
-    
-    return render(request, 'system_check.html', context)
-
-
-def health_check(request):
-    """Health check API endpoint"""
-    try:
-        # Check básico de BD
-        Organizacion.objects.count()
-        
-        return JsonResponse({
-            'status': 'healthy',
-            'timestamp': timezone.now().isoformat(),
-            'service': 'core',
-            'version': '2.0.0'
-        })
-    except Exception as e:
-        return JsonResponse({
-            'status': 'unhealthy',
-            'timestamp': timezone.now().isoformat(),
-            'service': 'core',
-            'error': str(e)
-        }, status=503)
+# ─── Legacy system_check y health_check ELIMINADOS ─────────────────
+# Estos endpoints se movieron a core/system_status.py con autenticación JWT+staff.
+# Se eliminaron:
+#   /system-check/  — template legacy no usado por SPA
+#   /api/health/    — sin auth, fuga de errores
+#   /health/        — duplicado sin auth
 
 
 @login_required

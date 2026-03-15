@@ -29,6 +29,10 @@ from .serializers import (
     PrestamoAprobarSerializer, PrestamoRechazarSerializer,
     PrestamoDesembolsarSerializer, PrestamoCalculadoraSerializer
 )
+from .policies import PrestamoAccessPolicy, TipoPrestamoAccessPolicy, PagoPrestamoAccessPolicy
+
+
+from core.utils import get_active_project_for_request as _get_active_project_for_request
 
 
 class TipoPrestamoFilter(django_filters.FilterSet):
@@ -58,7 +62,7 @@ class TipoPrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     
     queryset = TipoPrestamo.objects.all()
     serializer_class = TipoPrestamoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [TipoPrestamoAccessPolicy]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = TipoPrestamoFilter
     search_fields = ['codigo', 'nombre', 'descripcion']
@@ -115,7 +119,10 @@ class TipoPrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     def estadisticas(self, request, pk=None):
         """Estadísticas de un tipo de préstamo"""
         tipo = self.get_object()
-        prestamos = tipo.prestamos.all()
+        prestamos = tipo.prestamos.filter(organization=request.user.organization)
+        project = _get_active_project_for_request(request)
+        if project:
+            prestamos = prestamos.filter(proyecto=project)
         
         stats = {
             'total_prestamos': prestamos.count(),
@@ -161,9 +168,11 @@ class PrestamoFilter(django_filters.FilterSet):
     def filter_empleado_nombre(self, queryset, name, value):
         """Filtrar por nombre del empleado"""
         return queryset.filter(
-            Q(empleado__nombres__icontains=value) |
-            Q(empleado__apellidos__icontains=value) |
-            Q(empleado__numero_identificacion__icontains=value)
+            Q(empleado__primer_nombre__icontains=value) |
+            Q(empleado__segundo_nombre__icontains=value) |
+            Q(empleado__primer_apellido__icontains=value) |
+            Q(empleado__segundo_apellido__icontains=value) |
+            Q(empleado__numero_documento__icontains=value)
         )
 
 
@@ -174,12 +183,12 @@ class PrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         'empleado', 'tipo_prestamo', 'solicitado_por', 'aprobado_por'
     ).prefetch_related('pagos')
     serializer_class = PrestamoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [PrestamoAccessPolicy]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = PrestamoFilter
     search_fields = [
-        'numero_prestamo', 'empleado__nombres', 'empleado__apellidos',
-        'empleado__numero_identificacion', 'observaciones'
+        'numero_prestamo', 'empleado__primer_nombre', 'empleado__primer_apellido',
+        'empleado__numero_documento', 'observaciones'
     ]
     ordering_fields = [
         'numero_prestamo', 'fecha_solicitud', 'fecha_aprobacion',
@@ -188,8 +197,12 @@ class PrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     ordering = ['-fecha_solicitud', '-numero_prestamo']
     
     def get_queryset(self):
-        """Filtrar por organización del usuario"""
-        return self.queryset.filter(organization=self.request.user.organization)
+        """Filtrar por organización del usuario y proyecto activo"""
+        queryset = self.queryset.filter(organization=self.request.user.organization)
+        project = _get_active_project_for_request(self.request)
+        if project:
+            queryset = queryset.filter(proyecto=project)
+        return queryset
     
     def get_serializer_class(self):
         """Usar serializador simplificado para listas"""
@@ -318,6 +331,8 @@ class PrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def cronograma_pagos(self, request, pk=None):
         """Generar cronograma de pagos"""
+        from dateutil.relativedelta import relativedelta
+        
         prestamo = self.get_object()
         
         if not prestamo.cuota_mensual or prestamo.plazo_meses <= 0:
@@ -349,11 +364,8 @@ class PrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
                 'saldo': float(max(saldo, Decimal('0.00')))
             })
             
-            # Próxima fecha (aproximadamente 30 días después)
-            fecha_pago = fecha_pago.replace(
-                month=fecha_pago.month % 12 + 1 if fecha_pago.month < 12 else 1,
-                year=fecha_pago.year + (1 if fecha_pago.month == 12 else 0)
-            )
+            # Avanzar un mes usando relativedelta (maneja meses con distintos días)
+            fecha_pago = fecha_pago + relativedelta(months=1)
         
         return Response({
             'prestamo': prestamo.numero_prestamo,
@@ -462,7 +474,7 @@ class PagoPrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
         'prestamo', 'prestamo__empleado', 'prestamo__tipo_prestamo', 'registrado_por'
     )
     serializer_class = PagoPrestamoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [PagoPrestamoAccessPolicy]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = PagoPrestamoFilter
     search_fields = [
@@ -473,8 +485,12 @@ class PagoPrestamoViewSet(MultiTenantViewSetMixin, viewsets.ModelViewSet):
     ordering = ['-fecha_pago', '-created_at']
     
     def get_queryset(self):
-        """Filtrar por organización del usuario"""
-        return self.queryset.filter(prestamo__organization=self.request.user.organization)
+        """Filtrar por organización del usuario y proyecto activo"""
+        queryset = self.queryset.filter(prestamo__organization=self.request.user.organization)
+        project = _get_active_project_for_request(self.request)
+        if project:
+            queryset = queryset.filter(prestamo__proyecto=project)
+        return queryset
     
     def get_serializer_class(self):
         """Usar serializador simplificado para listas"""

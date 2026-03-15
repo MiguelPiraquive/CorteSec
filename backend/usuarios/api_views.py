@@ -13,11 +13,15 @@ import logging
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Prefetch
 from django.utils import timezone
 from datetime import timedelta
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.conf import settings
+from core.email_service import send_system_email
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth.models import Group
@@ -26,12 +30,37 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
 from .models import HistorialUsuario
-from .serializers_new import (
+from .serializers import (
     UserListSerializer, UserDetailSerializer, UserCreateSerializer,
-    UserUpdateSerializer, CambiarContrasenaSerializer, AsignarRolesSerializer,
-    UserStatsSerializer, HistorialUsuarioSerializer, VerificarDisponibilidadSerializer
+    UserUpdateSerializer
 )
+from roles.models import AsignacionRol
+
+# Serializers simples para acciones específicas
+from rest_framework import serializers
+
+class CambiarContrasenaSerializer(serializers.Serializer):
+    new_password = serializers.CharField(required=True, min_length=8)
+
+class AsignarRolesSerializer(serializers.Serializer):
+    groups_ids = serializers.ListField(child=serializers.IntegerField())
+
+class UserStatsSerializer(serializers.Serializer):
+    total_usuarios = serializers.IntegerField()
+    usuarios_activos = serializers.IntegerField()
+    usuarios_inactivos = serializers.IntegerField()
+    administradores = serializers.IntegerField()
+
+class HistorialUsuarioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HistorialUsuario
+        fields = ['id', 'accion', 'descripcion', 'ip_address', 'fecha']
+
+class VerificarDisponibilidadSerializer(serializers.Serializer):
+    disponible = serializers.BooleanField()
+    mensaje = serializers.CharField()
 from .filters import UserFilter
+from .policies import UsuariosAccessPolicy
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -58,14 +87,30 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     resetear_contrasena: Enviar email de reseteo (placeholder)
     """
     
-    queryset = User.objects.all().select_related().prefetch_related('groups')
+    queryset = User.objects.all().select_related(
+        'organization', 'perfil'
+    ).prefetch_related(
+        'groups',
+        Prefetch(
+            'asignaciones_rol',
+            queryset=AsignacionRol.objects.filter(activa=True).select_related('rol'),
+            to_attr='_active_asignaciones'
+        ),
+    )
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = UserFilter
     search_fields = ['username', 'email', 'full_name', 'first_name', 'last_name']
     ordering_fields = ['date_joined', 'username', 'email', 'last_login']
     ordering = ['-date_joined']
-    permission_classes = [IsAuthenticated]
-    
+    permission_classes = [UsuariosAccessPolicy]
+
+    def get_queryset(self):
+        """Filter users by organization to prevent cross-tenant access"""
+        qs = super().get_queryset()
+        if self.request.user.is_superuser:
+            return qs
+        return qs.filter(organization=self.request.user.organization)
+
     def get_serializer_class(self):
         """Seleccionar el serializer según la acción"""
         if self.action == 'list':
@@ -206,7 +251,15 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         user.set_password(serializer.validated_data['new_password'])
         user.password_changed_at = timezone.now()
         user.save()
-        
+
+        # Invalidar todos los tokens JWT del usuario
+        try:
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+            for ot in OutstandingToken.objects.filter(user=user):
+                BlacklistedToken.objects.get_or_create(token=ot)
+        except Exception:
+            pass  # token_blacklist may not be installed
+
         # Registrar en historial
         HistorialUsuario.objects.create(
             usuario=user,
@@ -261,7 +314,10 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         
         # Parámetros de paginación
         page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 20))
+        try:
+            page_size = min(max(int(request.query_params.get('page_size', 20)), 1), 100)
+        except (ValueError, TypeError):
+            page_size = 20
         
         # Obtener historial
         historial = HistorialUsuario.objects.filter(usuario=user).order_by('-fecha')
@@ -285,10 +341,11 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def get_estadisticas(self, request):
         """Estadísticas generales de usuarios"""
-        total_usuarios = User.objects.count()
-        usuarios_activos = User.objects.filter(is_active=True).count()
-        usuarios_inactivos = User.objects.filter(is_active=False).count()
-        administradores = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True)).count()
+        org = request.user.organization
+        total_usuarios = User.objects.filter(organization=org).count()
+        usuarios_activos = User.objects.filter(is_active=True, organization=org).count()
+        usuarios_inactivos = User.objects.filter(is_active=False, organization=org).count()
+        administradores = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True), organization=org).count()
         
         stats = {
             'total_usuarios': total_usuarios,
@@ -303,8 +360,9 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def exportar(self, request):
         """Exportar usuarios a Excel"""
+        MAX_EXPORT_ROWS = 5000
         # Aplicar filtros
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.filter_queryset(self.get_queryset())[:MAX_EXPORT_ROWS]
         
         # Crear workbook
         wb = openpyxl.Workbook()
@@ -359,7 +417,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        disponible = not User.objects.filter(username=username).exists()
+        disponible = not User.objects.filter(username=username, organization=request.user.organization).exists()
         
         serializer = VerificarDisponibilidadSerializer({
             'disponible': disponible,
@@ -379,7 +437,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        disponible = not User.objects.filter(email=email).exists()
+        disponible = not User.objects.filter(email=email, organization=request.user.organization).exists()
         
         serializer = VerificarDisponibilidadSerializer({
             'disponible': disponible,
@@ -390,28 +448,59 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def resetear_contrasena(self, request):
-        """Enviar email de reseteo de contraseña (placeholder)"""
+        """Enviar email de reseteo de contraseña"""
         email = request.data.get('email')
-        
+
         if not email:
             return Response(
                 {'error': 'Email es requerido'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        # Mensaje genérico para no revelar si el email existe
+        generic_message = 'Si el email está registrado, recibirás instrucciones para resetear tu contraseña.'
+
         try:
-            user = User.objects.get(email=email)
-            
-            # TODO: Implementar envío de email de reseteo
-            # Por ahora solo retornamos éxito
-            
+            user = User.objects.filter(email=email).first()
+
+            if not user:
+                return Response({
+                    'message': generic_message
+                })
+
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            reset_url = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+
+            email_subject = 'Recuperación de contraseña - CorteSec'
+            email_body = f"""
+Hola {user.get_full_name() or user.email},
+
+Se solicitó un restablecimiento de contraseña para tu cuenta.
+
+Usa el siguiente enlace para crear una nueva contraseña (válido por 24 horas):
+{reset_url}
+
+Si no solicitaste este cambio, puedes ignorar este correo.
+
+Saludos,
+Equipo CorteSec
+"""
+
+            send_system_email(
+                subject=email_subject,
+                message=email_body,
+                recipient_list=[user.email],
+                fail_silently=False
+            )
+
             return Response({
-                'message': f'Email de reseteo enviado a {email}'
+                'message': generic_message
             })
-        except User.DoesNotExist:
-            # Por seguridad, no revelar que el email no existe
+        except Exception as e:
+            logger.error(f"Error enviando email de reseteo: {e}")
             return Response({
-                'message': f'Si el email existe, recibirás instrucciones para resetear tu contraseña'
+                'message': generic_message
             })
     
     def get_client_ip(self, request):

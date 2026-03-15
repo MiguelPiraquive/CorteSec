@@ -1,5 +1,15 @@
 import api from './api'
 
+// Helper: obtiene el ID de un recurso singleton de configuración
+const getConfigId = async (endpoint) => {
+  const response = await api.get(endpoint)
+  const data = response.data
+  if (data?.results?.length > 0) return data.results[0].id
+  if (Array.isArray(data) && data.length > 0) return data[0].id
+  if (data?.id) return data.id
+  return null
+}
+
 const configuracionService = {
   // Configuración General
   getConfiguracionGeneral: async () => {
@@ -8,6 +18,9 @@ const configuracionService = {
   },
 
   updateConfiguracionGeneral: async (data) => {
+    const configId = await getConfigId('/api/configuracion/general/')
+    if (!configId) throw new Error('No se encontró configuración general')
+
     // Si hay logo como File, usar FormData
     if (data.logo instanceof File) {
       const formData = new FormData()
@@ -16,7 +29,7 @@ const configuracionService = {
           formData.append(key, data[key])
         }
       })
-      const response = await api.patch('/api/configuracion/general/1/', formData, {
+      const response = await api.patch(`/api/configuracion/general/${configId}/`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -25,14 +38,9 @@ const configuracionService = {
     } else {
       // JSON normal - EXCLUIR logo si no es un File
       const { logo, ...dataWithoutLogo } = data
-      const response = await api.patch('/api/configuracion/general/1/', dataWithoutLogo)
+      const response = await api.patch(`/api/configuracion/general/${configId}/`, dataWithoutLogo)
       return response.data
     }
-  },
-
-  testEmail: async (email) => {
-    const response = await api.post('/api/configuracion/general/test_email/', { email })
-    return response.data
   },
 
   // Parámetros del Sistema
@@ -99,7 +107,9 @@ const configuracionService = {
   },
 
   updateConfiguracionSeguridad: async (data) => {
-    const response = await api.patch('/api/configuracion/seguridad/1/', data)
+    const configId = await getConfigId('/api/configuracion/seguridad/')
+    if (!configId) throw new Error('No se encontró configuración de seguridad')
+    const response = await api.patch(`/api/configuracion/seguridad/${configId}/`, data)
     return response.data
   },
 
@@ -110,7 +120,9 @@ const configuracionService = {
   },
 
   updateConfiguracionEmail: async (data) => {
-    const response = await api.patch('/api/configuracion/email/1/', data)
+    const configId = await getConfigId('/api/configuracion/email/')
+    if (!configId) throw new Error('No se encontró configuración de email')
+    const response = await api.patch(`/api/configuracion/email/${configId}/`, data)
     return response.data
   },
 
@@ -124,6 +136,15 @@ const configuracionService = {
   // Dashboard
   getDashboard: async () => {
     const response = await api.get('/api/configuracion/dashboard/')
+    return response.data
+  },
+
+  // Tasas de cambio (Fixer.io)
+  getExchangeRates: async (base = '', symbols = '') => {
+    const params = {}
+    if (base) params.base = base
+    if (symbols) params.symbols = symbols
+    const response = await api.get('/api/configuracion/exchange-rates/', { params })
     return response.data
   }
 }

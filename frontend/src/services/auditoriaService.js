@@ -156,6 +156,14 @@ const auditoriaService = {
   getAccesosFallidos: async (params = {}) => {
     const response = await api.get('/api/auditoria/accesos_fallidos/', { params })
     return response.data
+  },
+
+  /**
+   * Obtener filtros disponibles (acciones y módulos únicos)
+   */
+  getFiltrosDisponibles: async () => {
+    const response = await api.get('/api/auditoria/filtros-disponibles/')
+    return response.data
   }
 }
 

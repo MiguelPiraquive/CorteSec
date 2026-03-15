@@ -4,14 +4,40 @@ Middleware específico para validación de APIs sensibles
 
 Este middleware proporciona una capa adicional de seguridad para endpoints de API
 que requieren validaciones específicas más allá de la autenticación básica.
+Incluye validación de IPs permitidas desde ConfiguracionSeguridad.
 """
 
 import logging
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
 from django.contrib.auth.models import AnonymousUser
+from django.core.cache import cache
 
 logger = logging.getLogger('api_security')
+
+# Cache para IPs permitidas
+_IP_CONFIG_CACHE_KEY = 'security_ips_permitidas'
+_IP_CONFIG_CACHE_TTL = 60  # 1 minuto
+
+
+def _get_allowed_ips():
+    """
+    Obtiene la lista de IPs permitidas desde ConfiguracionSeguridad.
+    Retorna lista vacía si no hay restricción (= todas permitidas).
+    """
+    cached = cache.get(_IP_CONFIG_CACHE_KEY)
+    if cached is not None:
+        return cached
+    
+    try:
+        from configuracion.models import ConfiguracionSeguridad
+        config = ConfiguracionSeguridad.get_config()
+        raw = config.ips_permitidas or ''
+        ips = [ip.strip() for ip in raw.split(',') if ip.strip()]
+        cache.set(_IP_CONFIG_CACHE_KEY, ips, _IP_CONFIG_CACHE_TTL)
+        return ips
+    except Exception:
+        return []
 
 
 class APISecurityMiddleware(MiddlewareMixin):
@@ -50,6 +76,7 @@ class APISecurityMiddleware(MiddlewareMixin):
     
     # APIs que NO requieren autenticación (públicas)
     PUBLIC_APIS = [
+        '/api/public/',
         '/api/schema/',      # OpenAPI schema
         '/api/docs/',        # Swagger UI
         '/api/redoc/',       # ReDoc UI
@@ -68,6 +95,23 @@ class APISecurityMiddleware(MiddlewareMixin):
         # Solo procesar requests a APIs
         if not request.path.startswith('/api/'):
             return self.get_response(request)
+        
+        # ── Validación de IPs permitidas ──
+        # Solo aplicar a usuarios autenticados (no bloquear login/register)
+        is_public = any(request.path.startswith(p) for p in self.PUBLIC_APIS)
+        if not is_public:
+            allowed_ips = _get_allowed_ips()
+            if allowed_ips:
+                client_ip = self._get_client_ip(request)
+                if client_ip not in allowed_ips:
+                    logger.warning(
+                        f"IP bloqueada: {client_ip} intentó acceder a {request.path}. "
+                        f"IPs permitidas: {allowed_ips}"
+                    )
+                    return JsonResponse({
+                        'error': 'Acceso denegado. Su dirección IP no está autorizada.',
+                        'code': 'IP_NOT_ALLOWED'
+                    }, status=403)
         
         # LOG DETALLADO PARA AUDITORÍA
         if request.path.startswith('/api/auditoria/'):
@@ -169,10 +213,11 @@ class APISecurityMiddleware(MiddlewareMixin):
             logger.info(f"Acceso a API crítica: {path} por {user} desde {self._get_client_ip(request)}")
     
     def _get_client_ip(self, request):
-        """Obtiene la IP del cliente"""
+        """Obtiene la IP del cliente de forma segura (protección contra IP spoofing)"""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0].strip()
+            ips = [ip.strip() for ip in x_forwarded_for.split(',')]
+            ip = ips[-1] if len(ips) == 1 else ips[-2] if len(ips) >= 2 else ips[0]
         else:
             ip = request.META.get('REMOTE_ADDR', 'Unknown')
         return ip

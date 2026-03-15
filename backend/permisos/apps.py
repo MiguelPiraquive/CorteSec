@@ -5,6 +5,6 @@ class PermisosConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'permisos'
     verbose_name = 'Sistema de Permisos Avanzado'
-    
+
     def ready(self):
         import permisos.signals  # noqa

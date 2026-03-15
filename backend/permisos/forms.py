@@ -21,7 +21,7 @@ from .models import (
     ModuloSistema, TipoPermiso, CondicionPermiso, 
     Permiso, PermisoDirecto, PermisoI18N, ConfiguracionEntorno
 )
-from core.models import Organizacion
+# from core.mixins import BaseViewSetMixin  # Not found
 
 User = get_user_model()
 
@@ -262,15 +262,16 @@ class CondicionPermisoForm(BaseFormMixin, forms.ModelForm):
         return config
     
     def clean_codigo_evaluacion(self):
-        """Valida que el código de evaluación sea sintácticamente correcto."""
+        """Valida que el código de evaluación sea una condición predefinida válida."""
         codigo = self.cleaned_data.get('codigo_evaluacion')
-        
+
         if codigo and self.cleaned_data.get('tipo') == 'python':
-            try:
-                compile(codigo, '<string>', 'exec')
-            except SyntaxError as e:
-                raise ValidationError(f'Error de sintaxis en el código: {e}')
-        
+            ALLOWED_CONDITION_KEYS = ['is_superuser', 'is_staff', 'is_active', 'has_organization', 'is_owner']
+            if codigo.strip() not in ALLOWED_CONDITION_KEYS:
+                raise ValidationError(
+                    f'Condición no reconocida. Opciones válidas: {", ".join(ALLOWED_CONDITION_KEYS)}'
+                )
+
         return codigo
     
     def clean(self):
@@ -292,7 +293,7 @@ class PermisoForm(BaseFormMixin, forms.ModelForm):
         model = Permiso
         fields = [
             'nombre', 'codigo', 'descripcion', 'modulo', 'tipo_permiso',
-            'organizacion', 'ambito', 'content_type', 'object_id', 'condiciones',
+
             'es_heredable', 'es_revocable', 'prioridad', 'vigencia_inicio',
             'vigencia_fin', 'activo', 'es_sistema'
         ]
@@ -327,7 +328,7 @@ class PermisoForm(BaseFormMixin, forms.ModelForm):
             'codigo': 'Código único que identificará este permiso en verificaciones',
             'modulo': 'Módulo al que pertenece este permiso',
             'tipo_permiso': 'Tipo de operación que permite este permiso',
-            'organizacion': 'Organización específica (opcional)',
+
             'ambito': 'Alcance del permiso en el sistema',
             'content_type': 'Tipo de contenido específico (opcional)',
             'object_id': 'ID del objeto específico (opcional)',
@@ -341,14 +342,14 @@ class PermisoForm(BaseFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Filtrar organizaciones activas
-        self.fields['organizacion'].queryset = Organizacion.objects.filter(activa=True)
+
+
         
         # Filtrar condiciones activas
         self.fields['condiciones'].queryset = CondicionPermiso.objects.filter(activa=True)
         
         # Configurar campos opcionales
-        self.fields['organizacion'].required = False
+
         self.fields['content_type'].required = False
         self.fields['object_id'].required = False
         self.fields['vigencia_inicio'].required = False
@@ -434,7 +435,7 @@ class PermisoDirectoForm(BaseFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         
         # Filtrar usuarios activos
-        self.fields['usuario'].queryset = User.objects.filter(is_active=True).order_by('username')
+        self.fields['usuario'].queryset = User.objects.filter(is_active=True).order_by('email')
         
         # Filtrar permisos activos
         self.fields['permiso'].queryset = Permiso.objects.filter(activo=True).select_related(
@@ -554,15 +555,6 @@ class BusquedaPermisosForm(forms.Form):
         queryset=TipoPermiso.objects.filter(activo=True),
         required=False,
         empty_label="Todos los tipos",
-        widget=forms.Select(attrs={
-            'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500'
-        })
-    )
-    
-    organizacion = forms.ModelChoiceField(
-        queryset=Organizacion.objects.filter(activa=True),
-        required=False,
-        empty_label="Todas las organizaciones",
         widget=forms.Select(attrs={
             'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500'
         })

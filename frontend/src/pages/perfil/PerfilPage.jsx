@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import {
   UserCircleIcon,
@@ -27,14 +27,54 @@ import {
   cambiarContrasena,
 } from '../../services/perfilService'
 import locationsService from '../../services/locationsService'
+import organizationService from '../../services/organizationService'
 import { useAudit } from '../../hooks/useAudit'
+import useProductTour from '../../hooks/useProductTour'
+import { TOUR_CONFIGS } from '../../data/tourConfigs'
+import Can from '../../components/permissions/Can'
+import { usePermissions } from '../../context/PermissionsContext'
+import { useAuth } from '../../context/AuthContext'
+
+const BANCOS_COLOMBIANOS = [
+  'Bancolombia',
+  'Banco de Bogotá',
+  'Davivienda',
+  'BBVA Colombia',
+  'Banco de Occidente',
+  'Banco Popular',
+  'Banco AV Villas',
+  'Banco Caja Social',
+  'Scotiabank Colpatria',
+  'Banco Agrario',
+  'Banco GNB Sudameris',
+  'Banco Itaú',
+  'Banco Pichincha',
+  'Bancoomeva',
+  'Banco Falabella',
+  'Banco Finandina',
+  'Banco Santander',
+  'Banco W',
+  'Banco Serfinanza',
+  'Banco Cooperativo Coopcentral',
+  'Nequi',
+  'Daviplata',
+  'Lulo Bank',
+  'Rappipay',
+  'Nu Colombia',
+]
 
 export default function PerfilPage() {
   const audit = useAudit('Perfil')
-  
+  const { hasPermission, initialized } = usePermissions()
+  const { isAuthenticated } = useAuth()
+
   // Estado del perfil
   const [perfil, setPerfil] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  useProductTour('perfil', TOUR_CONFIGS.perfil.steps, {
+    ready: !loading && initialized,
+  })
   const [editMode, setEditMode] = useState(false)
   const [activeTab, setActiveTab] = useState('personal')
   
@@ -49,9 +89,17 @@ export default function PerfilPage() {
   
   // Configuración de notificaciones
   const [configNotif, setConfigNotif] = useState(null)
+  const [organizationInfo, setOrganizationInfo] = useState(null)
   
+  // Errores de validación inline
+  const [fieldErrors, setFieldErrors] = useState({})
+
   // Formularios de edición
   const [formData, setFormData] = useState({
+    // Campos del User model
+    first_name: '',
+    last_name: '',
+    
     // Información personal
     fecha_nacimiento: '',
     genero: '',
@@ -96,6 +144,8 @@ export default function PerfilPage() {
     tema_preferido: 'claro',
     idioma_preferido: 'es',
     zona_horaria: 'America/Bogota',
+    mostrar_modal_proyecto: true,
+    proyecto_fijo: null,
     privacidad_publica: false,
   })
   
@@ -112,13 +162,33 @@ export default function PerfilPage() {
   const [previewUrl, setPreviewUrl] = useState(null)
 
   useEffect(() => {
+    if (!isAuthenticated) return
     const inicializar = async () => {
       await cargarDepartamentos() // Cargar departamentos PRIMERO
       await cargarPerfil() // Luego cargar perfil (que depende de departamentos)
       cargarConfigNotificaciones() // Esto puede ir en paralelo
+      cargarOrganizacion()
     }
     inicializar()
-  }, [])
+  }, [isAuthenticated])
+
+  const cargarOrganizacion = async () => {
+    try {
+      const data = await organizationService.getCurrentOrganization()
+      setOrganizationInfo(data)
+    } catch (error) {
+      setOrganizationInfo(null)
+    }
+  }
+
+  const trialStatus = useMemo(() => {
+    if (!organizationInfo?.is_trial || !organizationInfo?.trial_ends_at) return null
+    const end = new Date(organizationInfo.trial_ends_at)
+    const diffMs = end.getTime() - Date.now()
+    const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+    if (Number.isNaN(daysLeft)) return null
+    return { daysLeft, end }
+  }, [organizationInfo])
   
   useEffect(() => {
     // Cargar municipios cuando cambia el departamento seleccionado
@@ -146,17 +216,12 @@ export default function PerfilPage() {
   const cargarMunicipiosPorDepartamento = async (departamentoNombre) => {
     try {
       setLoadingMunicipios(true)
-      console.log('Buscando municipios para departamento:', departamentoNombre)
-      console.log('Departamentos disponibles:', departamentos.length)
       // Buscar el ID del departamento por nombre
       const depto = departamentos.find(d => d.nombre === departamentoNombre)
-      console.log('Departamento encontrado:', depto)
       if (depto) {
         const data = await locationsService.getMunicipiosByDepartamento(depto.id)
-        console.log('Municipios cargados:', data.length)
         setMunicipios(data)
       } else {
-        console.warn('No se encontró el departamento:', departamentoNombre)
       }
     } catch (error) {
       console.error('Error cargando municipios:', error)
@@ -169,16 +234,12 @@ export default function PerfilPage() {
   const cargarMunicipiosExpedicionPorDepartamento = async (departamentoNombre) => {
     try {
       setLoadingMunicipiosExpedicion(true)
-      console.log('Buscando municipios expedición para departamento:', departamentoNombre)
       // Buscar el ID del departamento por nombre
       const depto = departamentos.find(d => d.nombre === departamentoNombre)
-      console.log('Departamento expedición encontrado:', depto)
       if (depto) {
         const data = await locationsService.getMunicipiosByDepartamento(depto.id)
-        console.log('Municipios expedición cargados:', data.length)
         setMunicipiosExpedicion(data)
       } else {
-        console.warn('No se encontró el departamento de expedición:', departamentoNombre)
       }
     } catch (error) {
       console.error('Error cargando municipios de expedición:', error)
@@ -193,13 +254,7 @@ export default function PerfilPage() {
       setLoading(true)
       const data = await getMiPerfil()
       setPerfil(data)
-      
-      console.log('Perfil cargado:', data)
-      console.log('Departamento residencia:', data.departamento_residencia)
-      console.log('Ciudad residencia:', data.ciudad_residencia)
-      console.log('Departamento expedición:', data.departamento_expedicion_cedula)
-      console.log('Lugar expedición:', data.lugar_expedicion_cedula)
-      
+
       // Cargar municipios ANTES de llenar el formulario si ya hay departamentos seleccionados
       if (data.departamento_residencia) {
         await cargarMunicipiosPorDepartamento(data.departamento_residencia)
@@ -210,6 +265,8 @@ export default function PerfilPage() {
       
       // Llenar formulario con datos actuales DESPUÉS de cargar municipios
       setFormData({
+        first_name: data.usuario?.first_name || '',
+        last_name: data.usuario?.last_name || '',
         fecha_nacimiento: data.fecha_nacimiento || '',
         genero: data.genero || '',
         estado_civil: data.estado_civil || '',
@@ -239,6 +296,8 @@ export default function PerfilPage() {
         tema_preferido: data.tema_preferido || 'claro',
         idioma_preferido: data.idioma_preferido || 'es',
         zona_horaria: data.zona_horaria || 'America/Bogota',
+        mostrar_modal_proyecto: data.mostrar_modal_proyecto ?? true,
+        proyecto_fijo: data.proyecto_fijo || null,
         privacidad_publica: data.privacidad_publica || false,
       })
       
@@ -262,23 +321,98 @@ export default function PerfilPage() {
     }
   }
 
+  // Validación inline de campos
+  const validateField = (name, value) => {
+    const errors = {}
+    
+    if (name === 'numero_cedula' && value) {
+      if (!/^\d{6,12}$/.test(value)) {
+        errors.numero_cedula = 'La cédula debe tener entre 6 y 12 dígitos numéricos'
+      }
+    }
+    
+    if (name === 'telefono' && value) {
+      const cleaned = value.replace(/[\s\-\+\(\)]/g, '')
+      if (!/^\d{7,15}$/.test(cleaned)) {
+        errors.telefono = 'Ingresa un número de teléfono válido (7-15 dígitos)'
+      }
+    }
+    
+    if (name === 'telefono_emergencia' && value) {
+      const cleaned = value.replace(/[\s\-\+\(\)]/g, '')
+      if (!/^\d{7,15}$/.test(cleaned)) {
+        errors.telefono_emergencia = 'Ingresa un número de teléfono válido'
+      }
+    }
+    
+    if (name === 'numero_cuenta' && value) {
+      if (!/^\d{8,20}$/.test(value)) {
+        errors.numero_cuenta = 'El número de cuenta debe tener entre 8 y 20 dígitos'
+      }
+    }
+    
+    if (name === 'codigo_postal' && value) {
+      if (!/^\d{4,6}$/.test(value)) {
+        errors.codigo_postal = 'El código postal debe tener entre 4 y 6 dígitos'
+      }
+    }
+    
+    return errors
+  }
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
+    const newValue = type === 'checkbox' ? checked : value
+    
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: newValue,
     }))
+    
+    // Validación inline
+    if (typeof newValue === 'string') {
+      const errors = validateField(name, newValue)
+      setFieldErrors(prev => {
+        const updated = { ...prev }
+        if (errors[name]) {
+          updated[name] = errors[name]
+        } else {
+          delete updated[name]
+        }
+        return updated
+      })
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validar todos los campos antes de enviar
+    let allErrors = {}
+    Object.entries(formData).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        const errs = validateField(key, value)
+        allErrors = { ...allErrors, ...errs }
+      }
+    })
+    
+    if (Object.keys(allErrors).length > 0) {
+      setFieldErrors(allErrors)
+      toast.error('Corrige los errores antes de guardar')
+      return
+    }
     
     try {
       const dataToUpdate = {}
       
       // Solo enviar campos que han cambiado
       Object.keys(formData).forEach(key => {
-        if (formData[key] !== perfil[key]) {
+        // Campos del User model se comparan contra perfil.usuario
+        if (key === 'first_name' || key === 'last_name') {
+          if (formData[key] !== (perfil.usuario?.[key] || '')) {
+            dataToUpdate[key] = formData[key]
+          }
+        } else if (formData[key] !== (perfil[key] ?? '')) {
           dataToUpdate[key] = formData[key]
         }
       })
@@ -292,12 +426,28 @@ export default function PerfilPage() {
       const updated = await actualizarMiPerfilParcial(dataToUpdate)
       setPerfil(updated)
       setEditMode(false)
+      setFieldErrors({})
       toast.success('Perfil actualizado correctamente')
       
       audit.button('actualizar_perfil', perfil.id)
     } catch (error) {
       console.error('Error actualizando perfil:', error)
-      toast.error('Error al actualizar el perfil')
+      if (error.response?.data) {
+        const serverErrors = error.response.data
+        if (typeof serverErrors === 'object' && !serverErrors.error) {
+          // Mostrar errores de campo del servidor
+          const fieldErrs = {}
+          Object.entries(serverErrors).forEach(([key, value]) => {
+            fieldErrs[key] = Array.isArray(value) ? value.join(', ') : value
+          })
+          setFieldErrors(fieldErrs)
+          toast.error('Error de validación en algunos campos')
+        } else {
+          toast.error(serverErrors.error || 'Error al actualizar el perfil')
+        }
+      } else {
+        toast.error('Error al actualizar el perfil')
+      }
     }
   }
 
@@ -334,6 +484,8 @@ export default function PerfilPage() {
   const handleCancelEdit = async () => {
     // Restaurar datos originales
     setFormData({
+      first_name: perfil.usuario?.first_name || '',
+      last_name: perfil.usuario?.last_name || '',
       fecha_nacimiento: perfil.fecha_nacimiento || '',
       genero: perfil.genero || '',
       estado_civil: perfil.estado_civil || '',
@@ -363,8 +515,12 @@ export default function PerfilPage() {
       tema_preferido: perfil.tema_preferido || 'claro',
       idioma_preferido: perfil.idioma_preferido || 'es',
       zona_horaria: perfil.zona_horaria || 'America/Bogota',
+      mostrar_modal_proyecto: perfil.mostrar_modal_proyecto ?? true,
+      proyecto_fijo: perfil.proyecto_fijo || null,
       privacidad_publica: perfil.privacidad_publica || false,
     })
+    
+    setFieldErrors({})
     
     // Recargar municipios para mantener opciones disponibles
     if (perfil.departamento_residencia) {
@@ -394,9 +550,10 @@ export default function PerfilPage() {
       await cambiarContrasena({
         old_password: passwordData.old_password,
         new_password: passwordData.new_password,
+        new_password_confirm: passwordData.confirm_password,
       })
       
-      toast.success('Contraseña cambiada correctamente')
+      toast.success('Contraseña cambiada correctamente. Se cerraron las demás sesiones activas.')
       setShowPasswordModal(false)
       setPasswordData({
         old_password: '',
@@ -407,12 +564,23 @@ export default function PerfilPage() {
       audit.formSubmit('cambiar_contrasena', { perfil_id: perfil.id })
     } catch (error) {
       console.error('Error cambiando contraseña:', error)
-      toast.error(error.response?.data?.message || 'Error al cambiar la contraseña')
+      const data = error.response?.data
+      if (data?.errors) {
+        // Errores de validación del serializer
+        const msgs = Object.values(data.errors).flat()
+        toast.error(msgs.join('. ') || 'Error de validación')
+      } else {
+        toast.error(data?.message || data?.error || 'Error al cambiar la contraseña')
+      }
     }
   }
 
   const handleNotifChange = async (field, value) => {
     if (!configNotif) return
+    if (!hasPermission('perfil.change')) {
+      toast.error('No tienes permisos para modificar la configuración')
+      return
+    }
     
     try {
       const updated = await actualizarConfigNotificacionesParcial(configNotif.id, {
@@ -439,6 +607,9 @@ export default function PerfilPage() {
     { id: 'notificaciones', name: 'Notificaciones', icon: BellIcon },
   ]
 
+  if (!initialized) return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
+  if (!hasPermission('perfil.view')) return <div className="p-8 text-center text-red-500 font-semibold">No tienes permisos para acceder a esta sección</div>
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -458,7 +629,7 @@ export default function PerfilPage() {
   return (
     <div className="space-y-6">
       {/* Header con foto de perfil */}
-      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl p-8 text-white">
+      <div id="tour-perfil-header" className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl p-8 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-6">
             {/* Foto de perfil */}
@@ -466,7 +637,7 @@ export default function PerfilPage() {
               <div className="w-32 h-32 rounded-full overflow-hidden bg-white/20 backdrop-blur-sm border-4 border-white/30">
                 {previewUrl || perfil.foto ? (
                   <img
-                    src={previewUrl || (perfil.foto ? `http://localhost:8000${perfil.foto}` : '')}
+                    src={previewUrl || perfil.foto_url || ''}
                     alt="Perfil"
                     className="w-full h-full object-cover"
                   />
@@ -477,19 +648,21 @@ export default function PerfilPage() {
                 )}
               </div>
               
-              <label
-                htmlFor="photo-upload"
-                className="absolute bottom-0 right-0 bg-white text-indigo-600 rounded-full p-2 cursor-pointer hover:bg-indigo-50 transition-colors shadow-lg"
-              >
-                <CameraIcon className="w-5 h-5" />
-                <input
-                  id="photo-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
+              <Can permission="perfil.change">
+                <label
+                  htmlFor="photo-upload"
+                  className="absolute bottom-0 right-0 bg-white text-indigo-600 rounded-full p-2 cursor-pointer hover:bg-indigo-50 transition-colors shadow-lg"
+                >
+                  <CameraIcon className="w-5 h-5" />
+                  <input
+                    id="photo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+              </Can>
             </div>
             
             {/* Información del usuario */}
@@ -518,41 +691,65 @@ export default function PerfilPage() {
                   </span>
                 )}
               </div>
+              {/* Barra de progreso de completitud */}
+              {typeof perfil.porcentaje_completitud === 'number' && (
+                <div className="mt-3 max-w-xs">
+                  <div className="flex items-center justify-between text-xs text-white/80 mb-1">
+                    <span>Completitud del perfil</span>
+                    <span className="font-semibold">{perfil.porcentaje_completitud}%</span>
+                  </div>
+                  <div className="w-full bg-white/20 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-500 ${
+                        perfil.porcentaje_completitud >= 80 ? 'bg-green-400' :
+                        perfil.porcentaje_completitud >= 50 ? 'bg-yellow-400' : 'bg-red-400'
+                      }`}
+                      style={{ width: `${perfil.porcentaje_completitud}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           
           {/* Botones de acción */}
           <div className="flex gap-2">
             {selectedFile && (
-              <button
-                onClick={handleUploadPhoto}
-                className="bg-white text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-2"
-              >
-                <CheckIcon className="w-5 h-5" />
-                Guardar Foto
-              </button>
+              <Can permission="perfil.change">
+                <button
+                  onClick={handleUploadPhoto}
+                  className="bg-white text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-2"
+                >
+                  <CheckIcon className="w-5 h-5" />
+                  Guardar Foto
+                </button>
+              </Can>
             )}
             
             {!editMode ? (
-              <button
-                onClick={() => {
-                  setEditMode(true)
-                  audit.button('activar_modo_edicion', { perfil_id: perfil.id })
-                }}
-                className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
-              >
-                <PencilIcon className="w-5 h-5" />
-                Editar Perfil
-              </button>
+              <Can permission="perfil.change">
+                <button
+                  onClick={() => {
+                    setEditMode(true)
+                    audit.button('activar_modo_edicion', { perfil_id: perfil.id })
+                  }}
+                  className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
+                >
+                  <PencilIcon className="w-5 h-5" />
+                  Editar Perfil
+                </button>
+              </Can>
             ) : (
               <>
-                <button
-                  onClick={handleSubmit}
-                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
-                >
-                  <CheckIcon className="w-5 h-5" />
-                  Guardar
-                </button>
+                <Can permission="perfil.change">
+                  <button
+                    onClick={handleSubmit}
+                    className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                  >
+                    <CheckIcon className="w-5 h-5" />
+                    Guardar
+                  </button>
+                </Can>
                 <button
                   onClick={handleCancelEdit}
                   className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
@@ -566,8 +763,38 @@ export default function PerfilPage() {
         </div>
       </div>
 
+      {organizationInfo && (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Información de la organización</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
+              <p className="text-xs text-gray-500">Organización</p>
+              <p className="text-sm font-semibold text-gray-900">{organizationInfo.nombre}</p>
+              <p className="text-xs text-gray-500">Código: {organizationInfo.codigo}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
+              <p className="text-xs text-gray-500">Plan actual</p>
+              <p className="text-sm font-semibold text-gray-900">{organizationInfo.plan}</p>
+              <p className="text-xs text-gray-500">Usuarios: {organizationInfo.max_users}</p>
+              <p className="text-xs text-gray-500">Storage: {organizationInfo.max_storage_mb} MB</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
+              <p className="text-xs text-gray-500">Estado</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {organizationInfo.is_trial ? 'En prueba' : 'Activo'}
+              </p>
+              {trialStatus ? (
+                <p className="text-xs text-amber-600">Trial: {trialStatus.daysLeft} días restantes</p>
+              ) : (
+                <p className="text-xs text-gray-500">Sin vencimiento inmediato</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs de navegación */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div id="tour-perfil-form" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="border-b border-gray-200 overflow-x-auto">
           <nav className="flex space-x-1 p-1">
             {tabs.map((tab) => {
@@ -577,7 +804,7 @@ export default function PerfilPage() {
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id)
-                    audit.tab(tab.nombre)
+                    audit.tab(tab.name)
                   }}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
                     activeTab === tab.id
@@ -599,6 +826,49 @@ export default function PerfilPage() {
             {/* Tab: Información Personal */}
             {activeTab === 'personal' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombres
+                  </label>
+                  <input
+                    type="text"
+                    name="first_name"
+                    value={formData.first_name}
+                    onChange={handleInputChange}
+                    disabled={!editMode}
+                    placeholder="Ej: Juan Carlos"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Apellidos
+                  </label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    value={formData.last_name}
+                    onChange={handleInputChange}
+                    disabled={!editMode}
+                    placeholder="Ej: Pérez López"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    value={perfil.usuario?.email || ''}
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">El correo no puede cambiarse desde aquí. Contacta al administrador.</p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Fecha de Nacimiento
@@ -678,8 +948,11 @@ export default function PerfilPage() {
                     onChange={handleInputChange}
                     disabled={!editMode}
                     placeholder="Ej: 1234567890"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600 ${fieldErrors.numero_cedula ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
                   />
+                  {fieldErrors.numero_cedula && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.numero_cedula}</p>
+                  )}
                 </div>
 
                 <div>
@@ -744,8 +1017,11 @@ export default function PerfilPage() {
                     onChange={handleInputChange}
                     disabled={!editMode}
                     placeholder="+57 300 123 4567"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600 ${fieldErrors.telefono ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
                   />
+                  {fieldErrors.telefono && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.telefono}</p>
+                  )}
                 </div>
 
                 <div>
@@ -759,8 +1035,11 @@ export default function PerfilPage() {
                     onChange={handleInputChange}
                     disabled={!editMode}
                     placeholder="+57 300 123 4567"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600 ${fieldErrors.telefono_emergencia ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
                   />
+                  {fieldErrors.telefono_emergencia && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.telefono_emergencia}</p>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">
@@ -855,8 +1134,11 @@ export default function PerfilPage() {
                     onChange={handleInputChange}
                     disabled={!editMode}
                     placeholder="Ej: 110111"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600 ${fieldErrors.codigo_postal ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
                   />
+                  {fieldErrors.codigo_postal && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.codigo_postal}</p>
+                  )}
                 </div>
               </div>
             )}
@@ -1029,15 +1311,18 @@ export default function PerfilPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Banco
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="banco"
                     value={formData.banco}
                     onChange={handleInputChange}
                     disabled={!editMode}
-                    placeholder="Ej: Bancolombia"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
-                  />
+                  >
+                    <option value="">Seleccionar Banco</option>
+                    {BANCOS_COLOMBIANOS.map(banco => (
+                      <option key={banco} value={banco}>{banco}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -1068,8 +1353,11 @@ export default function PerfilPage() {
                     onChange={handleInputChange}
                     disabled={!editMode}
                     placeholder="Ej: 1234567890"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600 ${fieldErrors.numero_cuenta ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
                   />
+                  {fieldErrors.numero_cuenta && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.numero_cuenta}</p>
+                  )}
                 </div>
 
                 <div className="md:col-span-2 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -1099,16 +1387,18 @@ export default function PerfilPage() {
                       <p className="text-sm text-gray-600 mb-4">
                         Mantén tu cuenta segura actualizando tu contraseña regularmente.
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowPasswordModal(true)
-                          audit.modalOpen('cambiar_contrasena', { perfil_id: perfil.id })
-                        }}
-                        className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-                      >
-                        Cambiar Contraseña
-                      </button>
+                      <Can permission="perfil.change">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPasswordModal(true)
+                            audit.modalOpen('cambiar_contrasena', { perfil_id: perfil.id })
+                          }}
+                          className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                          Cambiar Contraseña
+                        </button>
+                      </Can>
                     </div>
                   </div>
                 </div>
@@ -1180,6 +1470,55 @@ export default function PerfilPage() {
                             <option value="en">English</option>
                           </select>
                         </div>
+                      </div>
+
+                      {/* Modal de proyecto al iniciar */}
+                      <div className="mt-5 pt-4 border-t border-gray-200">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="mostrar_modal_proyecto"
+                            checked={formData.mostrar_modal_proyecto}
+                            onChange={handleInputChange}
+                            disabled={!editMode}
+                            className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">
+                              Mostrar selector de proyecto al iniciar sesión
+                            </span>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              Al activarlo, se mostrará un modal para que selecciones un proyecto cada vez que ingreses al sistema.
+                            </p>
+                          </div>
+                        </label>
+
+                        {/* Proyecto fijo */}
+                        {formData.proyecto_fijo && (
+                          <div className="mt-3 flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <span className="text-amber-500 text-lg">📌</span>
+                              <div>
+                                <p className="text-sm font-medium text-amber-800">Proyecto fijo configurado</p>
+                                <p className="text-xs text-amber-600">Al iniciar sesión, este proyecto se selecciona automáticamente.</p>
+                              </div>
+                            </div>
+                            {editMode && (
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, proyecto_fijo: null }))}
+                                className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                              >
+                                Quitar
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {!formData.proyecto_fijo && (
+                          <p className="mt-2 text-xs text-gray-400 ml-8">
+                            Puedes fijar un proyecto desde el modal de bienvenida usando el botón de pin 📌.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

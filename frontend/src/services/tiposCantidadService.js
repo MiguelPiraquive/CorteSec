@@ -1,13 +1,13 @@
 import api from './api'
 
 const tiposCantidadService = {
-  getTiposCantidad: async (page = 1) => {
-    const response = await api.get(`/api/tipos-cantidad/?page=${page}`)
+  getTiposCantidad: async (params = {}) => {
+    const response = await api.get('/api/tipos-cantidad/', { params })
     return response.data
   },
 
   getAllTiposCantidad: async () => {
-    const response = await api.get('/api/tipos-cantidad/?page_size=1000')
+    const response = await api.get('/api/tipos-cantidad/', { params: { page_size: 99999 } })
     return response.data.results || response.data
   },
 

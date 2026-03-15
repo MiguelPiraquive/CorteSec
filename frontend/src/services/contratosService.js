@@ -25,17 +25,10 @@ const contratosService = {
   /**
    * Obtener todos los contratos (sin paginación)
    */
-  getAllContratos: async () => {
+  getAllContratos: async (params = {}) => {
     try {
-      const response = await api.get('/api/nomina/contratos/?page_size=1000');
-      const data = response.data;
-      
-      if (Array.isArray(data)) {
-        return data;
-      } else if (data.results) {
-        return data.results;
-      }
-      return [];
+      const response = await api.get('/api/nomina/contratos/', { params: { page_size: 99999, ...params } });
+      return response.data.results || response.data;
     } catch (error) {
       console.error('Error al obtener todos los contratos:', error);
       throw error;
@@ -45,9 +38,9 @@ const contratosService = {
   /**
    * Obtener contratos activos
    */
-  getActivos: async () => {
+  getActivos: async (params = {}) => {
     try {
-      const response = await api.get('/api/nomina/contratos/activos/');
+      const response = await api.get('/api/nomina/contratos/activos/', { params });
       return response.data;
     } catch (error) {
       console.error('Error al obtener contratos activos:', error);
@@ -117,143 +110,6 @@ const contratosService = {
       await api.delete(`/api/nomina/contratos/${id}/`);
     } catch (error) {
       console.error(`Error al eliminar contrato ${id}:`, error);
-      throw error;
-    }
-  },
-};
-
-// ==================== TIPOS DE CONTRATO ====================
-
-export const tiposContratoService = {
-  /**
-   * Obtener todos los tipos de contrato
-   */
-  getAll: async (params = {}) => {
-    try {
-      const response = await api.get('/api/nomina/tipos-contrato/', { params });
-      return response.data;
-    } catch (error) {
-      console.error('Error al obtener tipos de contrato:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Obtener un tipo de contrato por ID
-   */
-  getById: async (id) => {
-    try {
-      const response = await api.get(`/api/nomina/tipos-contrato/${id}/`);
-      return response.data;
-    } catch (error) {
-      console.error(`Error al obtener tipo de contrato ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Crear tipo de contrato
-   */
-  create: async (data) => {
-    try {
-      const response = await api.post('/api/nomina/tipos-contrato/', data);
-      return response.data;
-    } catch (error) {
-      console.error('Error al crear tipo de contrato:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Actualizar tipo de contrato
-   */
-  update: async (id, data) => {
-    try {
-      const response = await api.put(`/api/nomina/tipos-contrato/${id}/`, data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error al actualizar tipo de contrato ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Eliminar tipo de contrato
-   */
-  delete: async (id) => {
-    try {
-      await api.delete(`/api/nomina/tipos-contrato/${id}/`);
-    } catch (error) {
-      console.error(`Error al eliminar tipo de contrato ${id}:`, error);
-      throw error;
-    }
-  },
-};
-
-// ==================== PARÁMETROS LEGALES ====================
-
-export const parametrosLegalesService = {
-  /**
-   * Obtener todos los parámetros legales
-   */
-  getAll: async (params = {}) => {
-    try {
-      const response = await api.get('/api/nomina/parametros-legales/', { params });
-      return response.data;
-    } catch (error) {
-      console.error('Error al obtener parámetros legales:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Obtener parámetros vigentes
-   */
-  getVigentes: async () => {
-    try {
-      const response = await api.get('/api/nomina/parametros-legales/vigentes/');
-      return response.data;
-    } catch (error) {
-      console.error('Error al obtener parámetros vigentes:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Obtener un parámetro por ID
-   */
-  getById: async (id) => {
-    try {
-      const response = await api.get(`/api/nomina/parametros-legales/${id}/`);
-      return response.data;
-    } catch (error) {
-      console.error(`Error al obtener parámetro ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Crear parámetro legal
-   */
-  create: async (data) => {
-    try {
-      const response = await api.post('/api/nomina/parametros-legales/', data);
-      return response.data;
-    } catch (error) {
-      console.error('Error al crear parámetro legal:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Actualizar parámetro legal
-   */
-  update: async (id, data) => {
-    try {
-      const response = await api.put(`/api/nomina/parametros-legales/${id}/`, data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error al actualizar parámetro ${id}:`, error);
       throw error;
     }
   },

@@ -1,10 +1,13 @@
 from django.test import TestCase
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date, time
 from .models import Perfil, ConfiguracionNotificaciones
+from core.models import Organizacion
+
+User = get_user_model()
 
 
 class PerfilModelTest(TestCase):
@@ -12,11 +15,16 @@ class PerfilModelTest(TestCase):
     
     def setUp(self):
         """Configuración inicial para los tests"""
+        self.organization = Organizacion.objects.create(
+            nombre='Org Test',
+            codigo='ORGTEST'
+        )
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
             first_name='Juan',
-            last_name='Pérez'
+            last_name='Pérez',
+            organization=self.organization
         )
     
     def test_perfil_creation(self):
@@ -90,7 +98,8 @@ class PerfilModelTest(TestCase):
         # Crear otro usuario con la misma cédula debe fallar
         user2 = User.objects.create_user(
             username='testuser2',
-            email='test2@example.com'
+            email='test2@example.com',
+            organization=self.organization
         )
         
         with self.assertRaises(Exception):
@@ -103,24 +112,30 @@ class PerfilAPITest(APITestCase):
     
     def setUp(self):
         """Configuración inicial para los tests de API"""
+        self.organization = Organizacion.objects.create(
+            nombre='Org Test API',
+            codigo='ORGTESTAPI'
+        )
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
             password='testpass123',
             first_name='Juan',
-            last_name='Pérez'
+            last_name='Pérez',
+            organization=self.organization
         )
         self.admin_user = User.objects.create_user(
             username='admin',
             email='admin@example.com',
             password='adminpass123',
             is_staff=True,
-            is_superuser=True
+            is_superuser=True,
+            organization=self.organization
         )
     
     def test_mi_perfil_authenticated(self):
         """Test de obtener mi perfil autenticado"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
         url = reverse('perfil:perfil-mi-perfil')
         response = self.client.get(url)
@@ -137,7 +152,7 @@ class PerfilAPITest(APITestCase):
     
     def test_actualizar_mi_perfil(self):
         """Test de actualización del propio perfil"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
         url = reverse('perfil:perfil-actualizar-mi-perfil')
         data = {
@@ -155,7 +170,7 @@ class PerfilAPITest(APITestCase):
     
     def test_list_perfiles_authenticated(self):
         """Test de listar perfiles autenticado"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
         url = reverse('perfil:perfil-list')
         response = self.client.get(url)
@@ -165,7 +180,7 @@ class PerfilAPITest(APITestCase):
     
     def test_perfil_publico(self):
         """Test de obtener perfil público"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
         # Hacer el perfil público
         perfil = self.user.perfil
@@ -180,7 +195,7 @@ class PerfilAPITest(APITestCase):
     
     def test_perfil_privado(self):
         """Test de obtener perfil privado"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
         # El perfil es privado por defecto
         perfil = self.user.perfil
@@ -192,7 +207,7 @@ class PerfilAPITest(APITestCase):
     
     def test_estadisticas_perfiles(self):
         """Test de estadísticas de perfiles"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
         url = reverse('perfil:perfil-estadisticas')
         response = self.client.get(url)
@@ -204,7 +219,7 @@ class PerfilAPITest(APITestCase):
     
     def test_buscar_perfiles(self):
         """Test de búsqueda de perfiles"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
         # Actualizar perfil para búsqueda
         perfil = self.user.perfil
@@ -215,25 +230,29 @@ class PerfilAPITest(APITestCase):
         response = self.client.get(url, {'q': 'Ingeniero'})
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIsInstance(response.data, list)
+        self.assertIsInstance(response.data, dict)
+        self.assertIn('results', response.data)
     
     def test_create_perfil_admin_only(self):
         """Test de creación de perfil solo para admin"""
         # Usuario normal no puede crear perfiles
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
         url = reverse('perfil:perfil-list')
-        data = {'usuario': self.user.id, 'telefono': '+573001234567'}
+        otro_user = User.objects.create_user(
+            username='otro_user',
+            email='otro@example.com',
+            organization=self.organization
+        )
+        data = {'usuario': otro_user.id, 'telefono': '+573001234567'}
         response = self.client.post(url, data)
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         
         # Admin sí puede crear perfiles
-        self.client.force_authenticate(user=self.admin_user)
+        self.client.force_login(self.admin_user)
         response = self.client.post(url, data)
-        
-        # Nota: Esto podría fallar si el usuario ya tiene perfil
-        # En el sistema real, la creación manual de perfiles es rara
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class ConfiguracionNotificacionesTest(TestCase):
@@ -241,9 +260,14 @@ class ConfiguracionNotificacionesTest(TestCase):
     
     def setUp(self):
         """Configuración inicial"""
+        self.organization = Organizacion.objects.create(
+            nombre='Org Test Config',
+            codigo='ORGTESTCONFIG'
+        )
         self.user = User.objects.create_user(
             username='testuser',
-            email='test@example.com'
+            email='test@example.com',
+            organization=self.organization
         )
     
     def test_configuracion_creation(self):
@@ -276,17 +300,22 @@ class ConfiguracionNotificacionesAPITest(APITestCase):
     
     def setUp(self):
         """Configuración inicial"""
+        self.organization = Organizacion.objects.create(
+            nombre='Org Test Config API',
+            codigo='ORGTESTCONFIGAPI'
+        )
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
-            password='testpass123'
+            password='testpass123',
+            organization=self.organization
         )
     
     def test_mi_configuracion_get(self):
         """Test de obtener mi configuración"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
-        url = reverse('perfil:configuracionnotificaciones-mi-configuracion')
+        url = reverse('perfil:configuracion-notificaciones-mi-configuracion')
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -294,9 +323,9 @@ class ConfiguracionNotificacionesAPITest(APITestCase):
     
     def test_mi_configuracion_update(self):
         """Test de actualizar mi configuración"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_login(self.user)
         
-        url = reverse('perfil:configuracionnotificaciones-mi-configuracion')
+        url = reverse('perfil:configuracion-notificaciones-mi-configuracion')
         data = {
             'notif_prestamos': False,
             'via_sms': True

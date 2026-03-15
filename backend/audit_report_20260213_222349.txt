@@ -1,0 +1,129 @@
+[EMAIL] MODE: Console (Development) - Emails se mostraran en la consola
+2026-02-13 22:23:49,900 - permissions - INFO - Sistema de Permisos Avanzado v2.0.0 iniciado correctamente
+
+================================================================================
+                   AUDITORÍA DEL SISTEMA DE PERMISOS Y ROLES                    
+================================================================================
+
+Fecha: 2026-02-14 03:23:49
+
+
+1. RESUMEN GENERAL
+--------------------------------------------------------------------------------
+
+ USUARIOS:
+   Total: 3
+   Activos: 3
+   Con roles: 3
+   Sin roles: 0
+   Superusuarios: 2
+
+ ROLES:
+   Total: 10
+   Activos: 10
+
+ PERMISOS:
+   Total: 264
+   Activos: 264
+   Directos activos: 0
+
+ ASIGNACIONES:
+   Total: 3
+   Activas: 3
+
+2. ROLES DETALLADOS
+--------------------------------------------------------------------------------
+
+Rol                                 Permisos     Usuarios     Estado
+----------------------------------- ------------ ------------ ----------
+Administrador                       0            2             Activo
+Empleado                            0            1             Activo
+Administrador RBAC                  0            0             Activo
+Contador RBAC                       0            0             Activo
+Contador                            0            0             Activo
+Supervisor Nómina RBAC              0            0             Activo
+Super Administrador RBAC            0            0             Activo
+Supervisor                          0            0             Activo
+Empleado RBAC                       0            0             Activo
+Gerente                             0            0             Activo
+
+  ROLES ACTIVOS SIN PERMISOS: 10
+   - Administrador
+   - Empleado
+   - Administrador RBAC
+   - Contador RBAC
+   - Contador
+
+  ROLES ACTIVOS SIN USUARIOS: 8
+   - Administrador RBAC
+   - Contador RBAC
+   - Contador
+   - Supervisor Nómina RBAC
+   - Super Administrador RBAC
+
+3. PERMISOS POR MÓDULO
+--------------------------------------------------------------------------------
+
+Módulo                         Total      Activos    Asignados 
+------------------------------ ---------- ---------- ----------
+Auditoría                      4          4          0         
+Autenticación                  4          4          0         
+Ayuda                          9          9          0         
+Cargos                         9          9          0         
+Conceptos Laborales            4          4          0         
+Configuración                  19         19         0         
+Contabilidad                   21         21         0         
+Contratos                      4          4          0         
+Core                           19         19         0         
+Dashboard                      11         11         0         
+Departamentos                  4          4          0         
+Documentación                  7          7          0         
+Empleados                      4          4          0         
+Items                          4          4          0         
+Municipios                     4          4          0         
+Nómina                         35         35         0         
+Organizaciones                 4          4          0         
+Parámetros Legales             4          4          0         
+Perfil                         4          4          0         
+Permisos                       5          5          0         
+Préstamos                      21         21         0         
+Reportes                       6          6          0         
+Roles y Permisos               22         22         0         
+Tipos de Contrato              4          4          0         
+Tipos de Préstamo              4          4          0         
+Ubicaciones                    4          4          0         
+Usuarios                       24         24         0         
+
+  PERMISOS ACTIVOS SIN ASIGNAR: 264
+   - nomina:concepto:edit
+   - configuracion:configuracion_email:delete
+   - nomina:nomina:list
+   - core:logs:list
+   - empleados.change
+
+4. USUARIOS SIN PROTECCIÓN
+--------------------------------------------------------------------------------
+
+OK Todos los usuarios tienen roles o permisos asignados
+
+5. ASIGNACIONES DE ROLES
+--------------------------------------------------------------------------------
+
+Total asignaciones activas: 3
+   Vigentes: 0
+   Expiradas (requieren limpieza): 0
+   Futuras (aún no inician): 0
+
+6. PROBLEMAS DETECTADOS
+--------------------------------------------------------------------------------
+
+ Error durante la auditoría: 'roles_sin_permisos'
+Traceback (most recent call last):
+  File "C:\Users\migue\Desktop\CorteSec\backend\audit_sistema_clean.py", line 353, in <module>
+    main()
+  File "C:\Users\migue\Desktop\CorteSec\backend\audit_sistema_clean.py", line 323, in main
+    detectar_problemas(stats)
+  File "C:\Users\migue\Desktop\CorteSec\backend\audit_sistema_clean.py", line 253, in detectar_problemas
+    if stats['roles_sin_permisos'] > 0:
+       ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'roles_sin_permisos'

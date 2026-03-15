@@ -70,9 +70,9 @@ def asignacion_post_save(sender, instance, created, **kwargs):
             accion='CREADA',
             estado_nuevo=instance.estado.nombre if instance.estado else None,
             detalles={
-                'usuario': instance.usuario.username,
+                'usuario': instance.usuario.email,
                 'rol': instance.rol.nombre,
-                'asignado_por': instance.asignado_por.username,
+                'asignado_por': instance.asignado_por.email,
                 'fecha_inicio': instance.fecha_inicio.isoformat() if instance.fecha_inicio else None,
                 'fecha_fin': instance.fecha_fin.isoformat() if instance.fecha_fin else None,
             },
@@ -120,7 +120,7 @@ def asignacion_post_delete(sender, instance, **kwargs):
             accion='ELIMINADA',
             estado_anterior=instance.estado.nombre if instance.estado else None,
             detalles={
-                'usuario': instance.usuario.username,
+                'usuario': instance.usuario.email,
                 'rol': instance.rol.nombre,
                 'eliminada_el': timezone.now().isoformat(),
             },
@@ -152,7 +152,7 @@ def crear_historial_revocacion(asignacion, usuario_revocador, razon):
             estado_nuevo='REVOCADA',
             detalles={
                 'razon': razon,
-                'revocado_por': usuario_revocador.username,
+                'revocado_por': usuario_revocador.email,
                 'fecha_revocacion': timezone.now().isoformat(),
             },
             usuario=usuario_revocador
@@ -174,7 +174,7 @@ def crear_historial_aprobacion(asignacion, usuario_aprobador):
             estado_anterior='PENDIENTE',
             estado_nuevo='APROBADA',
             detalles={
-                'aprobado_por': usuario_aprobador.username,
+                'aprobado_por': usuario_aprobador.email,
                 'fecha_aprobacion': timezone.now().isoformat(),
             },
             usuario=usuario_aprobador
@@ -197,7 +197,7 @@ def crear_historial_rechazo(asignacion, usuario_rechazador, razon):
             estado_nuevo='RECHAZADA',
             detalles={
                 'razon': razon,
-                'rechazado_por': usuario_rechazador.username,
+                'rechazado_por': usuario_rechazador.email,
                 'fecha_rechazo': timezone.now().isoformat(),
             },
             usuario=usuario_rechazador
@@ -213,7 +213,7 @@ def usuario_post_save(sender, instance, created, **kwargs):
     Signal que se ejecuta después de guardar un Usuario
     """
     if created:
-        logger.info(f"Usuario creado: {instance.username}")
+        logger.info(f"Usuario creado: {instance.email}")
         
         # Aquí podrías asignar roles por defecto si es necesario
         # Por ejemplo, asignar un rol "Usuario Básico" a todos los usuarios nuevos

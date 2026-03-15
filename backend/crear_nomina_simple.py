@@ -11,13 +11,13 @@ from payroll.models.legacy import (
     DetalleItemNominaSimple, DetalleConceptoNominaSimple, ConceptoLaboral
 )
 from items.models import Item
-from core.models import Organization
+from core.models import Organizacion
 from decimal import Decimal
 from datetime import date
 
 print("\n🚀 CREANDO PRIMERA NÓMINA\n")
 
-org = Organization.objects.first()
+org = Organizacion.objects.first()
 emp = Empleado.objects.first()
 
 if not emp:

@@ -1,4 +1,4 @@
-from django.db import models, IntegrityError
+from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
@@ -9,12 +9,12 @@ from django.utils import timezone
 import datetime
 import json
 import uuid
-from core.mixins import TenantAwareModel
+# from permisos.models import SimpleAuditMixinES  # Not using mixin - models have their own audit fields
 
 User = get_user_model()
 
 
-class TipoRol(TenantAwareModel):
+class TipoRol(models.Model):
     """
     Tipos de roles para clasificación y organización
     """
@@ -51,7 +51,7 @@ class TipoRol(TenantAwareModel):
         return self.nombre
 
 
-class Rol(TenantAwareModel):
+class Rol(models.Model):
     """
     Modelo avanzado para gestionar roles con jerarquía, herencia y características empresariales.
     """
@@ -66,14 +66,12 @@ class Rol(TenantAwareModel):
     
     nombre = models.CharField(
         max_length=100,
-        unique=True,
         verbose_name=_("Nombre del rol"),
         help_text=_("Nombre único del rol")
     )
-    
+
     codigo = models.CharField(
         max_length=50,
-        unique=True,
         default="NUEVO_ROL",
         verbose_name=_("Código"),
         help_text=_("Código único alfanumérico del rol")
@@ -294,6 +292,15 @@ class Rol(TenantAwareModel):
         null=True,
         verbose_name=_("Última asignación")
     )
+    
+    # Relación con permisos
+    permisos = models.ManyToManyField(
+        'permisos.Permiso',
+        blank=True,
+        verbose_name=_("Permisos"),
+        help_text=_("Permisos asignados a este rol"),
+        related_name='roles_asignados'
+    )
 
     class Meta:
         verbose_name = _("Rol")
@@ -312,6 +319,10 @@ class Rol(TenantAwareModel):
             models.UniqueConstraint(
                 fields=['codigo', 'tenant_id'],
                 name='unique_codigo_tenant'
+            ),
+            models.UniqueConstraint(
+                fields=['nombre', 'tenant_id'],
+                name='unique_nombre_tenant'
             )
         ]
 
@@ -397,22 +408,20 @@ class Rol(TenantAwareModel):
         if not self.hereda_permisos or not self.rol_padre:
             return []
         
-        from permisos.models import AsignacionPermiso
-        
+        # from permisos.models import AsignacionPermiso  # Model removed
+
         permisos = []
-        
-        # Obtener permisos del rol padre
-        permisos_padre = AsignacionPermiso.objects.filter(
-            rol=self.rol_padre,
-            activo=True
-        )
-        
-        permisos.extend(permisos_padre)
-        
-        # Recursivamente obtener permisos de ancestros
-        if self.rol_padre.hereda_permisos:
-            permisos.extend(self.rol_padre.get_permisos_heredados())
-        
+
+        # TODO: AsignacionPermiso fue eliminado, usar Rol.permisos ManyToMany
+        # Obtener permisos del rol padre directamente
+        if self.rol_padre:
+            permisos_padre = self.rol_padre.permisos.filter(activo=True, es_heredable=True)
+            permisos.extend(list(permisos_padre))
+
+            # Recursivamente obtener permisos de ancestros
+            if self.rol_padre.hereda_permisos:
+                permisos.extend(self.rol_padre.get_permisos_heredados())
+
         return permisos
 
     def esta_vigente(self):
@@ -435,7 +444,7 @@ class Rol(TenantAwareModel):
         if not self.tiene_restriccion_horario:
             return True
         
-        ahora = datetime.datetime.now()
+        ahora = timezone.now()
         dia_semana = str(ahora.weekday() + 1)  # 1=Lunes, 7=Domingo
         
         # Verificar día de la semana
@@ -485,20 +494,62 @@ class Rol(TenantAwareModel):
         Obtiene todos los permisos efectivos del rol, incluyendo heredados.
         Este método es usado por la app permisos para verificar accesos.
         """
-        from permisos.models import Permiso
+        cache_key = f"rol_permisos_{self.id}"
+        permisos_cached = cache.get(cache_key)
+        
+        if permisos_cached is not None:
+            return permisos_cached
         
         permisos = set()
         
-        # TODO: Implementar relación con permisos
-        # Por ahora retornamos un conjunto vacío, pero debería obtener
-        # todos los permisos directos y heredados del rol
+        # Obtener permisos directos del rol
+        permisos_directos = self.permisos.filter(activo=True)
+        permisos.update(permisos_directos)
         
-        # Esto se implementará cuando se cree la relación ManyToMany
-        # o ForeignKey entre Rol y Permiso
+        # Obtener permisos heredados si está configurado
+        if self.hereda_permisos and self.rol_padre:
+            permisos_heredados = self.rol_padre.get_permisos_efectivos()
+            permisos.update(permisos_heredados)
+        
+        # Cachear por 1 hora
+        cache.set(cache_key, permisos, 3600)
         
         return permisos
+    
+    def get_permisos_por_modulo(self):
+        """
+        Obtiene permisos organizados por módulo
+        """
+        permisos = self.get_permisos_efectivos()
+        permisos_por_modulo = {}
+        
+        for permiso in permisos:
+            modulo = permiso.modulo.nombre
+            if modulo not in permisos_por_modulo:
+                permisos_por_modulo[modulo] = []
+            permisos_por_modulo[modulo].append(permiso)
+        
+        return permisos_por_modulo
+    
+    def tiene_permiso(self, codigo_permiso):
+        """
+        Verifica si el rol tiene un permiso específico
+        """
+        permisos = self.get_permisos_efectivos()
+        return any(p.codigo == codigo_permiso for p in permisos)
+    
+    def limpiar_cache_permisos(self):
+        """
+        Limpia el cache de permisos del rol
+        """
+        cache_key = f"rol_permisos_{self.id}"
+        cache.delete(cache_key)
+        
+        # También limpiar cache de roles hijo si heredan permisos
+        for hijo in self.roles_hijo.filter(hereda_permisos=True):
+            hijo.limpiar_cache_permisos()
 
-class EstadoAsignacion(TenantAwareModel):
+class EstadoAsignacion(models.Model):
     """
     Estados posibles para asignaciones de roles
     """
@@ -546,7 +597,7 @@ class EstadoAsignacion(TenantAwareModel):
         return self.get_nombre_display()
 
 
-class AsignacionRol(TenantAwareModel):
+class AsignacionRol(models.Model):
     """
     Modelo avanzado para asignar roles a usuarios con control temporal y auditoría.
     """
@@ -569,7 +620,8 @@ class AsignacionRol(TenantAwareModel):
     estado = models.ForeignKey(
         EstadoAsignacion,
         on_delete=models.PROTECT,
-        verbose_name=_("Estado")
+        verbose_name=_("Estado"),
+        default=1  # Estado predeterminado (activo)
     )
     
     activa = models.BooleanField(
@@ -746,8 +798,19 @@ class AsignacionRol(TenantAwareModel):
                 )
 
     def save(self, *args, **kwargs):
-        """Override save para actualizar estadísticas del rol"""
+        """Override save para actualizar estadísticas del rol y sincronizar estado"""
         es_nueva = self.pk is None
+        
+        # Sincronizar campo 'activa' con 'estado'
+        if self.activa:
+            # Si activa=True, el estado debe ser ACTIVA (id=1)
+            if not self.estado or self.estado.nombre != 'ACTIVA':
+                self.estado = EstadoAsignacion.objects.get(nombre='ACTIVA')
+        else:
+            # Si activa=False, el estado debe ser INACTIVA (id=2)
+            if not self.estado or self.estado.nombre != 'INACTIVA':
+                self.estado = EstadoAsignacion.objects.get(nombre='INACTIVA')
+        
         super().save(*args, **kwargs)
         
         if es_nueva:
@@ -759,10 +822,10 @@ class AsignacionRol(TenantAwareModel):
         if not self.activa:
             return False
         
-        if self.estado and self.estado.nombre not in ['ACTIVA', 'APROBADA']:
+        if self.estado and self.estado.nombre.upper() not in ['ACTIVA', 'APROBADA']:
             return False
         
-        ahora = datetime.datetime.now()
+        ahora = timezone.now()
         
         if self.fecha_inicio and ahora < self.fecha_inicio:
             return False
@@ -770,6 +833,25 @@ class AsignacionRol(TenantAwareModel):
         if self.fecha_fin and ahora > self.fecha_fin:
             return False
         
+        return True
+
+    def cumple_atributos(self, contexto=None):
+        """
+        Verifica atributos ABAC de la asignacion.
+        Comprueba restricciones horarias y de dias del rol asociado.
+        """
+        if not self.activa or not self.esta_vigente():
+            return False
+
+        rol = self.rol
+        if not rol.activo:
+            return False
+
+        # Verificar restricciones horarias del rol
+        if rol.tiene_restriccion_horario:
+            if not rol.puede_acceder_ahora():
+                return False
+
         return True
 
     def puede_ser_revocada(self):
@@ -782,13 +864,13 @@ class AsignacionRol(TenantAwareModel):
             raise ValidationError(_("La asignación no puede ser revocada"))
         
         self.activa = False
-        self.fecha_revocacion = datetime.datetime.now()
+        self.fecha_revocacion = timezone.now()
         self.revocado_por = usuario
         self.razon_revocacion = razon
         
-        # Cambiar estado
-        estado_revocada = EstadoAsignacion.objects.get(nombre='REVOCADA')
-        self.estado = estado_revocada
+        # Cambiar estado a INACTIVA (equivalente a revocada)
+        estado_inactiva = EstadoAsignacion.objects.get(nombre='INACTIVA')
+        self.estado = estado_inactiva
         
         self.save()
         
@@ -801,7 +883,7 @@ class AsignacionRol(TenantAwareModel):
             raise ValidationError(_("Solo se pueden aprobar asignaciones pendientes"))
         
         self.aprobado_por = usuario
-        self.fecha_aprobacion = datetime.datetime.now()
+        self.fecha_aprobacion = timezone.now()
         self.activa = True
         
         # Cambiar estado
@@ -829,7 +911,7 @@ class AsignacionRol(TenantAwareModel):
         if not self.fecha_fin:
             return None
         
-        ahora = datetime.datetime.now()
+        ahora = timezone.now()
         if self.fecha_fin > ahora:
             return self.fecha_fin - ahora
         
@@ -840,7 +922,7 @@ class AsignacionRol(TenantAwareModel):
         return f"asignacion_{self.uuid}_{suffix}"
 
 
-class HistorialAsignacion(TenantAwareModel):
+class HistorialAsignacion(models.Model):
     """
     Historial de cambios en asignaciones de roles
     """
@@ -915,7 +997,7 @@ class HistorialAsignacion(TenantAwareModel):
         return f"{self.asignacion} - {self.accion} - {self.fecha}"
 
 
-class PlantillaRol(TenantAwareModel):
+class PlantillaRol(models.Model):
     """
     Plantillas predefinidas de roles para facilitar la creación
     """
@@ -996,17 +1078,13 @@ class PlantillaRol(TenantAwareModel):
         
         # Asignar permisos automáticamente
         if self.permisos_incluidos:
-            from permisos.models import Permiso, AsignacionPermiso
-            
+            from permisos.models import Permiso  # AsignacionPermiso removed
+
             for permiso_codigo in self.permisos_incluidos:
                 try:
                     permiso = Permiso.objects.get(codigo=permiso_codigo)
-                    AsignacionPermiso.objects.create(
-                        rol=rol,
-                        permiso=permiso,
-                        activo=True,
-                        asignado_por=usuario_creador
-                    )
+                    # Usar ManyToMany en lugar de AsignacionPermiso
+                    rol.permisos.add(permiso)
                 except Permiso.DoesNotExist:
                     pass
         
@@ -1014,7 +1092,7 @@ class PlantillaRol(TenantAwareModel):
 
 # ==================== MODELOS AVANZADOS DE ROLES ====================
 
-class MetaRol(TenantAwareModel):
+class MetaRol(models.Model):
     """
     Meta-roles para definir comportamientos avanzados de roles
     """
@@ -1060,7 +1138,7 @@ class MetaRol(TenantAwareModel):
         return self.nombre
 
 
-class RolCondicional(TenantAwareModel):
+class RolCondicional(models.Model):
     """
     Roles que se activan/desactivan según condiciones específicas
     """
@@ -1128,7 +1206,7 @@ class RolCondicional(TenantAwareModel):
         return True
 
 
-class AuditoriaRol(TenantAwareModel):
+class AuditoriaRol(models.Model):
     """
     Auditoría completa de cambios en roles y asignaciones
     """
@@ -1235,7 +1313,7 @@ class AuditoriaRol(TenantAwareModel):
         return f"{self.accion} - {self.rol.nombre} - {self.timestamp}"
 
 
-class ConfiguracionRol(TenantAwareModel):
+class ConfiguracionRol(models.Model):
     """
     Configuraciones específicas de roles que pueden cambiar dinámicamente
     """
@@ -1356,19 +1434,16 @@ def pre_save_rol(sender, instance, **kwargs):
 @receiver(post_save, sender=Rol)
 def post_save_rol(sender, instance, created, **kwargs):
     """Acciones después de guardar un rol"""
-    # Crear configuración dinámica solo si el rol es nuevo
-    if created:
-        try:
-            ConfiguracionRol.objects.create(
-                rol=instance,
-                configuracion_ui={},
-                configuracion_seguridad={},
-                configuracion_notificaciones={},
-                configuracion_integraciones={}
-            )
-        except IntegrityError:
-            # Ya existe, no hacer nada
-            pass
+    # Crear configuración dinámica si no existe (asegurar campos por defecto)
+    ConfiguracionRol.objects.get_or_create(
+        rol=instance,
+        defaults={
+            'configuracion_ui': {},
+            'configuracion_seguridad': {},
+            'configuracion_notificaciones': {},
+            'configuracion_integraciones': {}
+        }
+    )
     
     # Limpiar cache
     cache.delete_many([
@@ -1384,28 +1459,21 @@ def post_save_asignacion_rol(sender, instance, created, **kwargs):
     # Actualizar estadísticas del rol
     instance.rol.actualizar_estadisticas()
     
-    # Crear auditoría solo si no estamos en el proceso de creación inicial
-    # (evitar problemas con validación de campos)
-    try:
-        AuditoriaRol.objects.create(
-            rol=instance.rol,
-            usuario_afectado=instance.usuario,
-            accion='asignar_rol' if created else 'modificar_asignacion',
-            usuario_ejecutor=getattr(instance, 'modificado_por', None) or getattr(instance, 'creado_por', None) or instance.asignado_por,
-            detalles_nuevo={
-                'asignacion_id': instance.id,
-                'fecha_inicio': instance.fecha_inicio.isoformat() if instance.fecha_inicio else None,
-                'fecha_fin': instance.fecha_fin.isoformat() if instance.fecha_fin else None,
-                'activa': instance.activa
-            }
-        )
-    except Exception as e:
-        # Log error but don't fail the asignación creation
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Failed to create audit log for AsignacionRol {instance.id}: {e}")
-    
-    # Limpiar cache del usuario
+    # Crear auditoría
+    AuditoriaRol.objects.create(
+        rol=instance.rol,
+        usuario_afectado=instance.usuario,
+        accion='asignar_rol' if created else 'modificar_asignacion',
+        usuario_ejecutor=getattr(instance, 'modificado_por', None) or getattr(instance, 'creado_por', None),
+        detalles_anterior={},
+        detalles_nuevo={
+            'asignacion_id': instance.id,
+            'fecha_inicio': instance.fecha_inicio.isoformat() if instance.fecha_inicio else None,
+            'fecha_fin': instance.fecha_fin.isoformat() if instance.fecha_fin else None,
+            'activa': instance.activa
+        },
+        contexto_adicional={}
+    )    # Limpiar cache del usuario
     cache.delete_many([
         f'usuario_{instance.usuario.id}_roles',
         f'usuario_{instance.usuario.id}_permisos'
